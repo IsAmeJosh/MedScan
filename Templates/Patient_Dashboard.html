@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block topbar_icons %}
+  <span class="icon-btn">&#128274;</span>
+  <span class="icon-btn">&#128276;</span>
+{% endblock %}
+{% block content %}
+<div class="section-head" style="margin-top:0">
+  <h3 style="margin:0">My health info</h3>
+  <a href="#history-form">Edit</a>
+</div>
+<div class="card accent">
+  <h3>{{ user.name }}</h3>
+  <p class="muted">Patient ID &middot; {{ user.user_id }}</p>
+  <div class="stat-row">
+    <div class="stat"><div class="faint">Age</div><div class="val">{{ user.age }}</div></div>
+    <div class="stat"><div class="faint">Sex</div><div class="val">{{ user.sex }}</div></div>
+  </div>
+  {% for a in record.allergies %}<span class="pill warn">&#9888; Allergic to {{ a }}</span>{% endfor %}
+  {% if not record.allergies %}<span class="pill warn">No known allergies</span>{% endif %}
+</div>
+
+<div class="tiles">
+  <a class="tile" href="#record"><div class="box green">&#128196;</div><span>My record</span></a>
+  <a class="tile" href="#requests"><div class="box red">&#128340;</div><span>Requests</span></a>
+  <a class="tile" href="#surgeries"><div class="box blue">&#128101;</div><span>Surgeries</span></a>
+  <a class="tile" href="#history-form"><div class="box purple">&#9998;</div><span>Edit info</span></a>
+</div>
+
+<div class="section-head" id="requests"><h3 style="margin:0">Requests</h3></div>
+{% for r in requests %}
+  <div class="list-item">
+    <div class="body">
+      <strong>Doctor #{{ r.doctor_id }} wants access</strong>
+      <span class="faint">Status: {{ r.status }}</span>
+    </div>
+    {% if r.status == "Pending" %}
+    <div class="btn-row" style="margin-top:0">
+      <form method="post" action="{% url 'respond' r.request_id 'approve' %}" class="inline-form">{% csrf_token %}
+        <button type="submit" class="small" style="background:var(--green)">Approve</button></form>
+      <form method="post" action="{% url 'respond' r.request_id 'deny' %}" class="inline-form">{% csrf_token %}
+        <button type="submit" class="small danger">Deny</button></form>
+    </div>
+    {% endif %}
+  </div>
+{% empty %}<p class="empty">No requests.</p>{% endfor %}
+
+<h3 id="surgeries">Past Surgeries</h3>
+{% for s in record.surgeries %}<span class="pill">{{ s }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}
+
+<h3 id="record">Consultation Notes</h3>
+{% for c in record.consultations reversed %}
+  <div class="card">
+    <strong>{{ c.date|date:"M d, Y H:i" }} &mdash; Dr. {{ c.doctor_name }}</strong>
+    <p class="muted" style="margin:4px 0 0">{{ c.notes }}</p>
+  </div>
+{% empty %}<p class="empty">No consultations yet.</p>{% endfor %}
+
+<h3>Emergency Access Log</h3>
+{% for e in emergencies %}
+  <div class="list-item">
+    <div class="body">
+      <strong>Doctor #{{ e.doctor_id }} &middot; {{ e.timestamp|date:"M d, H:i" }}</strong>
+      <span class="faint">{{ e.reason }}</span>
+    </div>
+  </div>
+{% empty %}<p class="empty">None.</p>{% endfor %}
+
+<h3>Notifications</h3>
+{% for n, was_read in inbox %}
+  <div class="list-item">
+    <div class="body">
+      {% if not was_read %}<span class="pill amber" style="margin-bottom:4px">New</span><br>{% endif %}
+      <strong>{{ n.message }}</strong>
+      <span class="faint">{{ n.timestamp|date:"M d, H:i" }}</span>
+    </div>
+  </div>
+{% empty %}<p class="empty">Nothing yet.</p>{% endfor %}
+
+<h3 id="history-form">Update medical history</h3>
+<form method="post" action="{% url 'history' %}">{% csrf_token %}
+  <label>Add allergies</label><input name="allergies" placeholder="comma separated">
+  <label>Add surgeries</label><input name="surgeries" placeholder="comma separated">
+  <button type="submit" class="secondary">Update History</button>
+</form>
+{% endblock %}
+{% block tabbar %}
+<nav class="tabbar">
+  <a class="active" href="{% url 'dashboard' %}">Home</a>
+  <a href="#record">Records</a>
+  <a href="#requests">Alerts</a>
+  <a href="{% url 'logout' %}">Profile</a>
+</nav>
+{% endblock %}

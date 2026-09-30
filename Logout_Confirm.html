@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{% endblock %}
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:center;min-height:60vh">
+  <div class="modal" style="text-align:center">
+    <h2>Log out of MedScan?</h2>
+    <div class="btn-row">
+      <form method="get" action="{% url 'dashboard' %}" class="inline-form" style="flex:1">
+        <button type="submit" class="secondary" style="width:100%">Cancel</button>
+      </form>
+      <form method="post" class="inline-form" style="flex:1">{% csrf_token %}
+        <button type="submit" class="danger" style="width:100%">Log Out</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
