@@ -1,35 +1,53 @@
-{% extends "base.html" %}
-{% block title %}{% endblock %}
-{% block content %}
+{% extends "base.html" %} {% block title %}{% endblock %} {% block content %}
 <h2>Create your account</h2>
 <p class="muted">This will generate your personal ID number</p>
-<form method="post">{% csrf_token %}
+<form method="post">
+  {% csrf_token %}
   <label>I am a</label>
   <select name="role" id="role" onchange="toggleFields()">
-    <option>Patient</option><option>Doctor</option>
+    <option>Patient</option>
+    <option>Doctor</option>
   </select>
-  <label>Full name</label><input name="name" placeholder="Juan Dela Cruz" required>
-  <label>Password</label><input name="password" type="password" required>
+  <label>Full name</label
+  ><input name="name" placeholder="Juan Dela Cruz" required />
+  <label>Password</label><input name="password" type="password" required />
 
   <div id="patientFields">
     <div class="row">
-      <div><label>Sex</label><select name="sex"><option>Male</option><option>Female</option></select></div>
-      <div><label>Age</label><input name="age" type="number" min="0" max="120"></div>
+      <div>
+        <label>Sex</label
+        ><select name="sex">
+          <option>Male</option>
+          <option>Female</option>
+        </select>
+      </div>
+      <div>
+        <label>Age</label><input name="age" type="number" min="0" max="120" />
+      </div>
     </div>
     <label>Add medical history (optional)</label>
-    <input name="allergies" placeholder="Allergies, comma separated" style="margin-bottom:10px">
-    <input name="surgeries" placeholder="Past surgeries, comma separated">
+    <input
+      name="allergies"
+      placeholder="Allergies, comma separated"
+      style="margin-bottom: 10px"
+    />
+    <input name="surgeries" placeholder="Past surgeries, comma separated" />
   </div>
-  <div id="doctorFields" style="display:none">
-    <label>Specialty</label><input name="specialty" placeholder="e.g. Cardiology">
+  <div id="doctorFields" style="display: none">
+    <label>Specialty</label
+    ><input name="specialty" placeholder="e.g. Cardiology" />
   </div>
   <button type="submit">Create Account</button>
 </form>
 <script>
-function toggleFields(){
-  var isDoctor = document.getElementById('role').value === 'Doctor';
-  document.getElementById('patientFields').style.display = isDoctor ? 'none' : 'block';
-  document.getElementById('doctorFields').style.display = isDoctor ? 'block' : 'none';
-}
+  function toggleFields() {
+    var isDoctor = document.getElementById("role").value === "Doctor";
+    document.getElementById("patientFields").style.display = isDoctor
+      ? "none"
+      : "block";
+    document.getElementById("doctorFields").style.display = isDoctor
+      ? "block"
+      : "none";
+  }
 </script>
 {% endblock %}
