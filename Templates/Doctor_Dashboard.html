@@ -1,58 +1,49 @@
-{% extends "base.html" %} {% block title %}Find a Patient{% endblock %} {% block
-topbar_icons %}
-<a class="icon-btn" href="{% url 'dashboard' %}">&#128276;</a>
-{% endblock %} {% block content %}
+{% extends "base.html" %}
+{% block title %}Find a Patient{% endblock %}
+{% block topbar_icons %}
+  <a class="icon-btn" href="{% url 'dashboard' %}">&#128276;</a>
+{% endblock %}
+{% block content %}
 <form method="get">
   <label>Patient ID</label>
-  <input
-    name="q"
-    inputmode="numeric"
-    placeholder="Enter ID number"
-    value="{{ searched|default:'' }}"
-  />
+  <input name="q" inputmode="numeric" placeholder="Enter ID number" value="{{ searched|default:'' }}">
   <button type="submit" class="secondary">Search</button>
 </form>
 
-{% if searched %} {% if found %}
-<div class="card" style="margin-top: 18px">
-  {% if not has_access %}
-  <div class="pill locked">
-    &#128274; Locked &mdash; request access to view full record
-  </div>
+{% if searched %}
+  {% if found %}
+    <div class="card" style="margin-top:18px">
+      {% if not has_access %}
+        <div class="pill locked">&#128274; Locked &mdash; request access to view full record</div>
+      {% endif %}
+      <h2 style="margin-top:10px">{{ found.name }}</h2>
+      <p class="muted">{{ found.age }} &middot; {{ found.sex }} &middot; ID {{ found.user_id }}</p>
+    </div>
+    {% if has_access %}
+      <a class="btn" href="{% url 'record' found.user_id %}">Open Medical Record</a>
+    {% else %}
+      <form method="post" action="{% url 'send_request' found.user_id %}">{% csrf_token %}
+        <button type="submit">Request Access</button>
+      </form>
+      <a class="btn outline" href="{% url 'emergency' found.user_id %}">Emergency Access</a>
+    {% endif %}
+  {% else %}
+    <p class="muted" style="margin-top:18px">No patient with ID {{ searched }}.</p>
   {% endif %}
-  <h2 style="margin-top: 10px">{{ found.name }}</h2>
-  <p class="muted">
-    {{ found.age }} &middot; {{ found.sex }} &middot; ID {{ found.user_id }}
-  </p>
-</div>
-{% if has_access %}
-<a class="btn" href="{% url 'record' found.user_id %}">Open Medical Record</a>
-{% else %}
-<form method="post" action="{% url 'send_request' found.user_id %}">
-  {% csrf_token %}
-  <button type="submit">Request Access</button>
-</form>
-<a class="btn outline" href="{% url 'emergency' found.user_id %}"
-  >Emergency Access</a
->
-{% endif %} {% else %}
-<p class="muted" style="margin-top: 18px">No patient with ID {{ searched }}.</p>
-{% endif %} {% endif %}
+{% endif %}
 
-<div class="section-head"><h3 style="margin: 0">Notifications</h3></div>
+<div class="section-head"><h3 style="margin:0">Notifications</h3></div>
 {% for n, was_read in inbox %}
-<div class="list-item">
-  <div class="body">
-    {% if not was_read %}<span class="pill amber" style="margin-bottom: 4px"
-      >New</span
-    ><br />{% endif %}
-    <strong>{{ n.message }}</strong>
-    <span class="faint">{{ n.timestamp|date:"M d, H:i" }}</span>
+  <div class="list-item">
+    <div class="body">
+      {% if not was_read %}<span class="pill amber" style="margin-bottom:4px">New</span><br>{% endif %}
+      <strong>{{ n.message }}</strong>
+      <span class="faint">{{ n.timestamp|date:"M d, H:i" }}</span>
+    </div>
   </div>
-</div>
-{% empty %}
-<p class="empty">Nothing yet.</p>
-{% endfor %} {% endblock %} {% block tabbar %}
+{% empty %}<p class="empty">Nothing yet.</p>{% endfor %}
+{% endblock %}
+{% block tabbar %}
 <nav class="tabbar">
   <a class="active" href="{% url 'dashboard' %}">Home</a>
   <a href="#">Requests</a>
