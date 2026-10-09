@@ -1,11 +1,7 @@
-import sys
-from pathlib import Path
-
 from django.contrib import messages
 from django.shortcuts import redirect, render
 
-sys.path.append(str(Path(__file__).resolve().parent.parent))
-from MS_Main_Driver import MedScanSystem  # noqa: E402
+from logic.L_MedScan_System import MedScanSystem
 
 system = MedScanSystem.load()
 
@@ -31,7 +27,7 @@ def login_view(request):
             request.session["uid"] = user.user_id
             return redirect("dashboard")
         messages.error(request, "Wrong ID number or password.")
-    return render(request, "login.html")
+    return render(request, "G_Login.html")
 
 
 def register_view(request):
@@ -46,7 +42,7 @@ def register_view(request):
         system.save()
         messages.success(request, f"Registered! Your ID number is {user.user_id}. Use it to log in.")
         return redirect("login")
-    return render(request, "register.html")
+    return render(request, "G_Register.html")
 
 
 def logout_view(request):
@@ -55,7 +51,7 @@ def logout_view(request):
         return redirect("login")
     if not current_user(request):
         return redirect("login")
-    return render(request, "logout_confirm.html")
+    return render(request, "G_Logout_Confirm.html")
 
 
 def dashboard(request):
@@ -71,7 +67,7 @@ def dashboard(request):
         ctx["emergencies"] = [e for e in system.emergency_logs if e.patient_id == user.user_id]
         ctx["record"] = user.record
         system.save()
-        return render(request, "patient_dashboard.html", ctx)
+        return render(request, "G_Patient_Dashboard.html", ctx)
     q = request.GET.get("q", "").strip()
     if q.isdigit():
         patient = system.patients.get(int(q))
@@ -80,7 +76,7 @@ def dashboard(request):
         if patient:
             ctx["has_access"] = system.has_access(user.user_id, patient.user_id)
     system.save()
-    return render(request, "doctor_dashboard.html", ctx)
+    return render(request, "G_Doctor_Dashboard.html", ctx)
 
 
 def patient_record(request, pid):
@@ -92,7 +88,7 @@ def patient_record(request, pid):
     if not system.has_access(doctor.user_id, pid) and not emergency_used:
         messages.error(request, "You need the patient's approval (or an emergency override) to view this record.")
         return redirect(f"/dashboard/?q={pid}")
-    return render(request, "record.html", {
+    return render(request, "G_Record.html", {
         "user": doctor, "patient": patient, "record": patient.record,
         "latest": patient.record.latest_consultation(), "emergency": emergency_used,
     })
@@ -128,7 +124,7 @@ def emergency(request, pid):
             return redirect("record", pid=pid)
         messages.error(request, "An emergency reason is required.")
         return redirect(f"/dashboard/?q={pid}")
-    return render(request, "emergency_confirm.html", {"patient": patient})
+    return render(request, "G_Emergency_Confirm.html", {"patient": patient})
 
 
 def add_consultation(request, pid):

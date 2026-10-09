@@ -1,0 +1,17 @@
+{% extends "G_Base.html" %}
+{% block title %}{% endblock %}
+{% block content %}
+<div class="center-screen">
+  <div class="modal text-center">
+    <h2>Log out of MedScan?</h2>
+    <div class="btn-row">
+      <form method="get" action="{% url 'dashboard' %}" class="inline-form flex-1">
+        <button type="submit" class="secondary w-full">Cancel</button>
+      </form>
+      <form method="post" class="inline-form flex-1">{% csrf_token %}
+        <button type="submit" class="danger w-full">Log Out</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

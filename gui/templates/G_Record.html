@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "G_Base.html" %}
 {% block title %}Patient Record{% endblock %}
 {% block topbar_icons %}<a class="icon-btn" href="{% url 'dashboard' %}">&#128276;</a>{% endblock %}
 {% block content %}
@@ -24,7 +24,7 @@
 {% if latest %}
   <div class="card">
     <strong>{{ latest.date|date:"M d, Y" }} &mdash; Dr. {{ latest.doctor_name }}</strong>
-    <p class="muted" style="margin:4px 0 0">{{ latest.notes }}</p>
+    <p class="muted note">{{ latest.notes }}</p>
   </div>
 {% else %}<p class="empty">No previous consultations.</p>{% endif %}
 
@@ -36,6 +36,6 @@
 
 <h3>History</h3>
 {% for c in record.consultations reversed %}
-  <div class="card"><p class="muted" style="margin:0">{{ c.summary }}</p></div>
+  <div class="card"><p class="muted m-0">{{ c.summary }}</p></div>
 {% empty %}<p class="empty">Empty.</p>{% endfor %}
 {% endblock %}

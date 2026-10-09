@@ -1,5 +1,5 @@
-from MS_User import User
-from MS_Consultation import Consultation
+from models.M_User import User
+from models.M_Consultation import Consultation
 
 
 class Doctor(User):

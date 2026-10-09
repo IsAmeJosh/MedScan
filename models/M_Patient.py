@@ -1,5 +1,5 @@
-from MS_User import User
-from MS_Medical_Record import MedicalRecord
+from models.M_User import User
+from models.M_Medical_Record import MedicalRecord
 
 
 class Patient(User):

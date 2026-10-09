@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+{% extends "G_Base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block topbar_icons %}
   <span class="icon-btn">&#128274;</span>
   <span class="icon-btn">&#128276;</span>
 {% endblock %}
 {% block content %}
-<div class="section-head" style="margin-top:0">
-  <h3 style="margin:0">My health info</h3>
+<div class="section-head mt-0">
+  <h3 class="m-0">My health info</h3>
   <a href="#history-form">Edit</a>
 </div>
 <div class="card accent">
@@ -27,7 +27,7 @@
   <a class="tile" href="#history-form"><div class="box purple">&#9998;</div><span>Edit info</span></a>
 </div>
 
-<div class="section-head" id="requests"><h3 style="margin:0">Requests</h3></div>
+<div class="section-head" id="requests"><h3 class="m-0">Requests</h3></div>
 {% for r in requests %}
   <div class="list-item">
     <div class="body">
@@ -35,9 +35,9 @@
       <span class="faint">Status: {{ r.status }}</span>
     </div>
     {% if r.status == "Pending" %}
-    <div class="btn-row" style="margin-top:0">
+    <div class="btn-row mt-0">
       <form method="post" action="{% url 'respond' r.request_id 'approve' %}" class="inline-form">{% csrf_token %}
-        <button type="submit" class="small" style="background:var(--green)">Approve</button></form>
+        <button type="submit" class="small success">Approve</button></form>
       <form method="post" action="{% url 'respond' r.request_id 'deny' %}" class="inline-form">{% csrf_token %}
         <button type="submit" class="small danger">Deny</button></form>
     </div>
@@ -52,7 +52,7 @@
 {% for c in record.consultations reversed %}
   <div class="card">
     <strong>{{ c.date|date:"M d, Y H:i" }} &mdash; Dr. {{ c.doctor_name }}</strong>
-    <p class="muted" style="margin:4px 0 0">{{ c.notes }}</p>
+    <p class="muted note">{{ c.notes }}</p>
   </div>
 {% empty %}<p class="empty">No consultations yet.</p>{% endfor %}
 
@@ -70,7 +70,7 @@
 {% for n, was_read in inbox %}
   <div class="list-item">
     <div class="body">
-      {% if not was_read %}<span class="pill amber" style="margin-bottom:4px">New</span><br>{% endif %}
+      {% if not was_read %}<span class="pill amber mb-4">New</span><br>{% endif %}
       <strong>{{ n.message }}</strong>
       <span class="faint">{{ n.timestamp|date:"M d, H:i" }}</span>
     </div>

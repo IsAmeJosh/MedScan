@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "G_Base.html" %}
 {% block title %}Find a Patient{% endblock %}
 {% block topbar_icons %}
   <a class="icon-btn" href="{% url 'dashboard' %}">&#128276;</a>
@@ -12,11 +12,11 @@
 
 {% if searched %}
   {% if found %}
-    <div class="card" style="margin-top:18px">
+    <div class="card mt-18">
       {% if not has_access %}
         <div class="pill locked">&#128274; Locked &mdash; request access to view full record</div>
       {% endif %}
-      <h2 style="margin-top:10px">{{ found.name }}</h2>
+      <h2 class="mt-10">{{ found.name }}</h2>
       <p class="muted">{{ found.age }} &middot; {{ found.sex }} &middot; ID {{ found.user_id }}</p>
     </div>
     {% if has_access %}
@@ -28,15 +28,15 @@
       <a class="btn outline" href="{% url 'emergency' found.user_id %}">Emergency Access</a>
     {% endif %}
   {% else %}
-    <p class="muted" style="margin-top:18px">No patient with ID {{ searched }}.</p>
+    <p class="muted mt-18">No patient with ID {{ searched }}.</p>
   {% endif %}
 {% endif %}
 
-<div class="section-head"><h3 style="margin:0">Notifications</h3></div>
+<div class="section-head"><h3 class="m-0">Notifications</h3></div>
 {% for n, was_read in inbox %}
   <div class="list-item">
     <div class="body">
-      {% if not was_read %}<span class="pill amber" style="margin-bottom:4px">New</span><br>{% endif %}
+      {% if not was_read %}<span class="pill amber mb-4">New</span><br>{% endif %}
       <strong>{{ n.message }}</strong>
       <span class="faint">{{ n.timestamp|date:"M d, H:i" }}</span>
     </div>

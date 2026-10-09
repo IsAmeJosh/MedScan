@@ -1,15 +1,17 @@
-"""MedScanSystem ties all classes together. Run this file for a console demo;
-the Django website uses the same MedScanSystem object."""
+"""MedScanSystem ties all classes together. The Django website and the console
+demo (Main_Driver.py) both use this same class."""
 import os
 import pickle
 
-from MS_Patient import Patient
-from MS_Doctor import Doctor
-from MS_Access_Request import AccessRequest
-from MS_Emergency_Log import EmergencyLog
-from MS_Notifications import Notification
+from models.M_Patient import Patient
+from models.M_Doctor import Doctor
+from models.M_Access_Request import AccessRequest
+from models.M_Emergency_Log import EmergencyLog
+from models.M_Notification import Notification
 
-DATA_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "medscan_data.pkl")
+# save file stays in the project root (this file is one folder deeper, in logic/)
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DATA_FILE = os.path.join(ROOT_DIR, "medscan_data.pkl")
 
 
 class MedScanSystem:
@@ -92,19 +94,3 @@ class MedScanSystem:
 
     def inbox(self, user_id):
         return [n for n in reversed(self.notifications) if n.recipient_id == user_id]
-
-
-if __name__ == "__main__":
-    s = MedScanSystem()
-    doc = s.register_doctor("Reyes", "doc123", "General Medicine")
-    pat = s.register_patient("Juan Dela Cruz", "pat123", "Male", 30, "Penicillin", "Appendectomy")
-    print(doc, "|", pat)
-    req = s.request_access(doc, pat.user_id)
-    print("Access before approval:", s.has_access(doc.user_id, pat.user_id))
-    s.respond_to_request(req.request_id, True)
-    print("Access after approval:", s.has_access(doc.user_id, pat.user_id))
-    print(doc.add_consultation(pat, "Mild fever, advised rest.").summary())
-    print("Allergies:", pat.record.allergies, "| Surgeries:", pat.record.surgeries)
-    s.emergency_access(doc, pat.user_id, "Unconscious patient")
-    for n in s.inbox(pat.user_id):
-        print("Notification:", n.message)

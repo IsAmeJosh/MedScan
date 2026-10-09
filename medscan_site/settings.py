@@ -5,7 +5,7 @@ SECRET_KEY = "medscan-class-project-key"
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
 ROOT_URLCONF = "medscan_site.urls"
-INSTALLED_APPS = ["django.contrib.sessions", "django.contrib.messages"]
+INSTALLED_APPS = ["django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles"]
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -14,7 +14,7 @@ MIDDLEWARE = [
 ]
 TEMPLATES = [{
     "BACKEND": "django.template.backends.django.DjangoTemplates",
-    "DIRS": [BASE_DIR / "templates"],
+    "DIRS": [BASE_DIR / "gui" / "templates"],
     "APP_DIRS": True,
     "OPTIONS": {"context_processors": [
         "django.template.context_processors.request",
@@ -26,3 +26,4 @@ SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"
 MESSAGE_STORAGE = "django.contrib.messages.storage.cookie.CookieStorage"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 STATIC_URL = "static/"
+STATICFILES_DIRS = [BASE_DIR / "gui" / "static"]

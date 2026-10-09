@@ -1,4 +1,5 @@
-{% extends "base.html" %}
+{% extends "G_Base.html" %}
+{% load static %}
 {% block title %}{% endblock %}
 {% block content %}
 <h2>Create your account</h2>
@@ -17,7 +18,7 @@
       <div><label>Age</label><input name="age" type="number" min="0" max="120"></div>
     </div>
     <label>Add medical history (optional)</label>
-    <input name="allergies" placeholder="Allergies, comma separated" style="margin-bottom:10px">
+    <input name="allergies" placeholder="Allergies, comma separated" class="mb-10">
     <input name="surgeries" placeholder="Past surgeries, comma separated">
   </div>
   <div id="doctorFields" style="display:none">
@@ -25,11 +26,5 @@
   </div>
   <button type="submit">Create Account</button>
 </form>
-<script>
-function toggleFields(){
-  var isDoctor = document.getElementById('role').value === 'Doctor';
-  document.getElementById('patientFields').style.display = isDoctor ? 'none' : 'block';
-  document.getElementById('doctorFields').style.display = isDoctor ? 'block' : 'none';
-}
-</script>
+<script src="{% static 'js/G_Register.js' %}"></script>
 {% endblock %}

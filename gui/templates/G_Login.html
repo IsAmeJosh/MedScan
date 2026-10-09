@@ -1,10 +1,10 @@
-{% extends "base.html" %}
+{% extends "G_Base.html" %}
 {% block title %}{% endblock %}
 {% block content %}
-<div style="height:40px"></div>
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
-  <div style="width:48px;height:48px;border-radius:50%;background:var(--blue)"></div>
-  <span style="font-size:22px;font-weight:700">MedScan</span>
+<div class="spacer-40"></div>
+<div class="brand">
+  <div class="brand-logo"></div>
+  <span class="brand-name">MedScan</span>
 </div>
 <h2>Welcome back</h2>
 <p class="muted">Log in with your ID number to continue</p>
@@ -13,10 +13,10 @@
   <label>Password</label><input name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required>
   <button type="submit">Log In</button>
 </form>
-<p class="muted" style="text-align:center;margin-top:24px">
+<p class="muted text-center mt-24">
   Don't have an account? <a href="{% url 'register' %}">Sign up</a>
 </p>
-<p class="faint" style="text-align:center;margin-top:40px">
+<p class="faint text-center mt-40">
   Demo &middot; Doctor 2001 / doc123 &middot; Patient 1001 / pat123
 </p>
 {% endblock %}

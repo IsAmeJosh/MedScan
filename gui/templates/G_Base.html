@@ -1,0 +1,25 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedScan</title>
+<link rel="stylesheet" href="{% static 'css/G_Style.css' %}">
+</head>
+<body>
+<div class="phone">
+  <div class="topbar">
+    <h1>{% block title %}MedScan{% endblock %}</h1>
+    <div class="icons">
+      {% block topbar_icons %}{% endblock %}
+    </div>
+  </div>
+  <main>
+    {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block tabbar %}{% endblock %}
+</div>
+</body>
+</html>
