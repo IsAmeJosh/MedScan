@@ -1,0 +1,10 @@
+{% extends "G_Base.html" %}
+{% block content %}
+<div class="auth-card text-center">
+  <h1>You're all set!</h1>
+  <p class="muted">Your MedScan ID has been created. Use it to log in.</p>
+  <div class="big-id">{{ new_id }}</div>
+  <p class="faint mt-16">You can also log in with just the number at the end.</p>
+  <a class="btn w-full" href="{% url 'login' %}">Continue to Log In</a>
+</div>
+{% endblock %}

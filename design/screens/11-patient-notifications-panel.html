@@ -1,4 +1,11 @@
-/* MedScan stylesheet (desktop). Loaded by G_Base.html.
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedScan</title>
+<style>/* MedScan stylesheet (desktop). Loaded by G_Base.html.
    Layout: fixed sidebar on the left, content on the right, notification panel slides in from the right. */
 
 :root {
@@ -154,3 +161,148 @@ form.narrow { max-width:560px; }
 .note { margin:6px 0 0; }
 .text-center { text-align:center; }
 .w-full { width:100%; }
+</style>
+</head>
+<body class="has-shell">
+
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo"></div>
+    <span class="brand-name">MedScan</span>
+  </div>
+
+  <div class="me-card">
+    <div class="avatar">J</div>
+    <div>
+      <strong>Juan Dela Cruz</strong>
+      <span class="faint">Patient &middot; PT-2026-01001</span>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <a href="/dashboard/" class="active">Dashboard</a>
+    
+      <a href="/record/" class="">My Record</a>
+      <a href="/profile/" class="">Profile</a>
+    
+  </nav>
+
+  <div class="nav nav-bottom">
+    <button type="button" class="nav-button" id="open-notifications">
+      Notifications
+      <span class="badge" id="unread-badge" data-count="3" >3</span>
+    </button>
+    <a href="/logout/">Log out</a>
+  </div>
+</aside>
+
+
+
+<main class="content">
+  <div class="page">
+    
+    
+<div class="page-head">
+  <h1>Dashboard</h1>
+  <p class="muted m-0">Welcome back, Juan Dela Cruz.</p>
+</div>
+
+<div class="grid-2">
+  <div>
+    <div class="card accent">
+      <h2>Juan Dela Cruz</h2>
+      <p class="muted m-0">Patient ID &middot; PT-2026-01001</p>
+      <div class="stat-row">
+        <div class="stat"><span class="faint">Age</span><span class="val">34</span></div>
+        <div class="stat"><span class="faint">Sex</span><span class="val">Male</span></div>
+        <div class="stat"><span class="faint">Blood type</span><span class="val">O+</span></div>
+        <div class="stat"><span class="faint">Medications</span><span class="val">Amlodipine</span></div>
+      </div>
+      <span class="pill">&#9888; Allergic to Penicillin</span><span class="pill">&#9888; Allergic to Peanuts</span>
+      
+      <div><a class="btn secondary" href="/record/">View or edit my record</a></div>
+    </div>
+
+    <div class="section-head"><h2>Who viewed my record</h2></div>
+    <p class="empty">No doctor has opened your record yet.</p>
+  </div>
+
+  <div>
+    <h2>Access requests</h2>
+    
+      <div class="list-item">
+        <div class="body">
+          <strong>Dr. Antonio Santos wants access</strong>
+          <span class="faint">Cardiology &middot; Pending</span>
+        </div>
+        
+        <div class="actions">
+          <form method="post" action="/respond/4/approve/" class="inline-form"><input type="hidden" name="csrfmiddlewaretoken" value="YvwIMx34LqUPI8IOga5PMIShklXlYTzYIendRGlxEEkLDAbbypdrYTfH4KbOkOks">
+            <button type="submit" class="small success">Approve</button></form>
+          <form method="post" action="/respond/4/deny/" class="inline-form"><input type="hidden" name="csrfmiddlewaretoken" value="YvwIMx34LqUPI8IOga5PMIShklXlYTzYIendRGlxEEkLDAbbypdrYTfH4KbOkOks">
+            <button type="submit" class="small danger">Deny</button></form>
+        </div>
+        
+      </div>
+    
+      <div class="list-item">
+        <div class="body">
+          <strong>Dr. Maria Reyes</strong>
+          <span class="faint">General Medicine &middot; Approved</span>
+        </div>
+        
+        <div class="actions">
+          <span class="pill green">Approved</span>
+          <form method="post" action="/revoke/1/" class="inline-form"><input type="hidden" name="csrfmiddlewaretoken" value="YvwIMx34LqUPI8IOga5PMIShklXlYTzYIendRGlxEEkLDAbbypdrYTfH4KbOkOks">
+            <button type="submit" class="small outline">Revoke</button></form>
+        </div>
+        
+      </div>
+    
+
+    <div class="section-head"><h2>Emergency access log</h2></div>
+    
+      <div class="list-item">
+        <div class="body">
+          <strong>Dr. Liza Cruz &middot; Oct 09, 2026 15:39</strong>
+          <span class="faint">Reason: Patient unconscious on arrival, ER</span>
+        </div>
+        <span class="pill amber">Emergency</span>
+      </div>
+    
+  </div>
+</div>
+
+  </div>
+</main>
+
+
+<div class="drawer-backdrop show" id="drawer-backdrop"></div>
+<aside class="drawer open" id="notifications-drawer" aria-hidden="true" data-read-url="/notifications/read/">
+  <div class="drawer-head">
+    <h2 class="m-0">Notifications</h2>
+    <button type="button" class="icon-close" id="close-notifications" aria-label="Close">&times;</button>
+  </div>
+  
+    <div class="notice unread">
+      <p class="m-0">Dr. Antonio Santos requests access to your record.</p>
+      <span class="faint">Oct 09, 2026 &middot; 15:39</span>
+    </div>
+  
+    <div class="notice unread">
+      <p class="m-0">Dr. Liza Cruz opened your record in an emergency: Patient unconscious on arrival, ER</p>
+      <span class="faint">Oct 09, 2026 &middot; 15:39</span>
+    </div>
+  
+    <div class="notice unread">
+      <p class="m-0">Dr. Maria Reyes requests access to your record.</p>
+      <span class="faint">Oct 09, 2026 &middot; 15:39</span>
+    </div>
+  
+</aside>
+<form id="csrf-holder" hidden><input type="hidden" name="csrfmiddlewaretoken" value="YvwIMx34LqUPI8IOga5PMIShklXlYTzYIendRGlxEEkLDAbbypdrYTfH4KbOkOks"></form>
+
+
+</body>
+</html>

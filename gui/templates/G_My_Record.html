@@ -1,0 +1,51 @@
+{% extends "G_Base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>My Record</h1>
+  <p class="muted m-0">What your doctors see once you approve them.</p>
+</div>
+
+<div class="grid-2">
+  <div class="card"><h3>Allergies</h3>
+    {% for a in record.allergies %}<span class="pill">{{ a }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
+  <div class="card"><h3>Past surgeries</h3>
+    {% for s in record.surgeries %}<span class="pill">{{ s }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
+  <div class="card"><h3>Current medications</h3>
+    {% for m in record.medications %}<span class="pill">{{ m }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
+  <div class="card"><h3>Blood type &middot; Contact</h3>
+    <p class="m-0"><strong>{{ record.blood_type|default:"Not set" }}</strong> &middot; {{ user.contact_number|default:"No contact number" }}</p></div>
+</div>
+
+<details class="card white">
+  <summary>Edit my information</summary>
+  <form method="post" action="{% url 'update_info' %}">{% csrf_token %}
+    <label>Allergies (comma separated)</label>
+    <input name="allergies" value="{{ record.allergies|join:', ' }}">
+    <label>Past surgeries (comma separated)</label>
+    <input name="surgeries" value="{{ record.surgeries|join:', ' }}">
+    <label>Current medications (comma separated)</label>
+    <input name="medications" value="{{ record.medications|join:', ' }}">
+    <div class="row">
+      <div>
+        <label>Blood type</label>
+        <select name="blood_type">
+          {% for b in blood_types %}<option value="{{ b }}" {% if b == record.blood_type %}selected{% endif %}>{{ b|default:"Not set" }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label>Contact number</label>
+        <input name="contact_number" placeholder="09XX XXX XXXX" value="{{ user.contact_number }}">
+      </div>
+    </div>
+    <button type="submit">Save Changes</button>
+  </form>
+</details>
+
+<div class="section-head"><h2>Consultation notes</h2></div>
+{% for c in record.consultations reversed %}
+  <div class="card">
+    <strong>{{ c.date|date:"M d, Y H:i" }} &mdash; Dr. {{ c.doctor_name }}</strong>
+    <p class="muted note">{{ c.notes }}</p>
+  </div>
+{% empty %}<p class="empty">No consultations yet.</p>{% endfor %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "G_Base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>Requests</h1>
+  <p class="muted m-0">{{ summary.pending }} pending &middot; {{ summary.approved }} approved &middot; {{ summary.denied }} denied &middot; {{ summary.revoked }} revoked</p>
+</div>
+
+{% for r, patient in rows %}
+  <div class="list-item">
+    <div class="body">
+      <strong>{{ patient.name }}</strong>
+      <span class="faint">{{ patient.display_id }}</span>
+    </div>
+    {% if r.status == "Approved" %}
+      <span class="pill green">Approved</span>
+      <a class="btn small" href="{% url 'record' patient.user_id %}">Open record</a>
+    {% elif r.status == "Pending" %}<span class="pill amber">Pending</span>
+    {% elif r.status == "Revoked" %}<span class="pill red">Revoked</span>
+    {% else %}<span class="pill red">Denied</span>{% endif %}
+  </div>
+{% empty %}<p class="empty">You haven't sent any requests yet. <a href="{% url 'search' %}">Search for a patient</a>.</p>{% endfor %}
+{% endblock %}

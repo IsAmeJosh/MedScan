@@ -1,22 +1,20 @@
 {% extends "G_Base.html" %}
-{% block title %}{% endblock %}
 {% block content %}
-<div class="spacer-40"></div>
-<div class="brand">
-  <div class="brand-logo"></div>
-  <span class="brand-name">MedScan</span>
+<div class="auth-card">
+  <div class="brand">
+    <div class="brand-logo"></div>
+    <span class="brand-name">MedScan</span>
+  </div>
+  <h1>Log in</h1>
+  <p class="muted">Patients and doctors use the same form. Your ID decides where you go.</p>
+  <form method="post">{% csrf_token %}
+    <label>ID number</label>
+    <input name="user_id" placeholder="e.g. 1001 or PT-2026-01001" autofocus required>
+    <label>Password</label>
+    <input name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required>
+    <button type="submit" class="w-full">Log In</button>
+  </form>
+  <p class="muted text-center mt-24 m-0">Don't have an account? <a href="{% url 'register' %}">Sign up</a></p>
+  <p class="faint text-center mt-16 m-0">Demo &middot; Doctor 2001 / doc123 &middot; Patient 1001 / pat123</p>
 </div>
-<h2>Welcome back</h2>
-<p class="muted">Log in with your ID number to continue</p>
-<form method="post">{% csrf_token %}
-  <label>ID Number</label><input name="user_id" inputmode="numeric" placeholder="e.g. 1001" required>
-  <label>Password</label><input name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required>
-  <button type="submit">Log In</button>
-</form>
-<p class="muted text-center mt-24">
-  Don't have an account? <a href="{% url 'register' %}">Sign up</a>
-</p>
-<p class="faint text-center mt-40">
-  Demo &middot; Doctor 2001 / doc123 &middot; Patient 1001 / pat123
-</p>
 {% endblock %}

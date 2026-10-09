@@ -1,4 +1,11 @@
-/* MedScan stylesheet (desktop). Loaded by G_Base.html.
+
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedScan</title>
+<style>/* MedScan stylesheet (desktop). Loaded by G_Base.html.
    Layout: fixed sidebar on the left, content on the right, notification panel slides in from the right. */
 
 :root {
@@ -154,3 +161,100 @@ form.narrow { max-width:560px; }
 .note { margin:6px 0 0; }
 .text-center { text-align:center; }
 .w-full { width:100%; }
+</style>
+</head>
+<body class="has-shell">
+
+
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo"></div>
+    <span class="brand-name">MedScan MD</span>
+  </div>
+
+  <div class="me-card">
+    <div class="avatar">M</div>
+    <div>
+      <strong>Dr. Maria Reyes</strong>
+      <span class="faint">Doctor &middot; DR-2026-02001</span>
+    </div>
+  </div>
+
+  <nav class="nav">
+    <a href="/dashboard/" class="">Dashboard</a>
+    
+      <a href="/search/" class="">Search Patient</a>
+      <a href="/requests/" class="">Requests</a>
+      <a href="/emergency/" class="active">Emergency Access</a>
+    
+  </nav>
+
+  <div class="nav nav-bottom">
+    <button type="button" class="nav-button" id="open-notifications">
+      Notifications
+      <span class="badge" id="unread-badge" data-count="3" >3</span>
+    </button>
+    <a href="/logout/">Log out</a>
+  </div>
+</aside>
+
+
+
+<main class="content">
+  <div class="page">
+    
+    
+<div class="page-head">
+  <h1>Emergency Access</h1>
+</div>
+
+<div class="card warn">
+  <strong>&#9888; This bypasses patient approval</strong>
+  <p class="m-0">Emergency access is logged, and the patient is notified right away.</p>
+</div>
+
+<form method="post" class="narrow"><input type="hidden" name="csrfmiddlewaretoken" value="eLAz21DI2Ys1768xgIbfFeHwElJM0SLNIeQDD2Z5NbRv2qUCaQQpT3rk043W8w3F">
+  <label>Patient ID</label>
+  
+    <input name="patient_id" placeholder="PT-2026-01001" value="" required autofocus>
+  
+  <label>Reason for emergency access</label>
+  <textarea name="reason" rows="3" placeholder="e.g. Patient unconscious on arrival, ER" required></textarea>
+  <div class="btn-row">
+    <button type="submit" class="danger">Access Record Now</button>
+    <a class="btn secondary" href="/dashboard/">Cancel</a>
+  </div>
+</form>
+
+  </div>
+</main>
+
+
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="notifications-drawer" aria-hidden="true" data-read-url="/notifications/read/">
+  <div class="drawer-head">
+    <h2 class="m-0">Notifications</h2>
+    <button type="button" class="icon-close" id="close-notifications" aria-label="Close">&times;</button>
+  </div>
+  
+    <div class="notice unread">
+      <p class="m-0">Ana Lopez approved your access request.</p>
+      <span class="faint">Oct 09, 2026 &middot; 15:39</span>
+    </div>
+  
+    <div class="notice unread">
+      <p class="m-0">Mark Villanueva denied your access request.</p>
+      <span class="faint">Oct 09, 2026 &middot; 15:39</span>
+    </div>
+  
+    <div class="notice unread">
+      <p class="m-0">Juan Dela Cruz approved your access request.</p>
+      <span class="faint">Oct 09, 2026 &middot; 15:39</span>
+    </div>
+  
+</aside>
+<form id="csrf-holder" hidden><input type="hidden" name="csrfmiddlewaretoken" value="eLAz21DI2Ys1768xgIbfFeHwElJM0SLNIeQDD2Z5NbRv2qUCaQQpT3rk043W8w3F"></form>
+
+
+</body>
+</html>

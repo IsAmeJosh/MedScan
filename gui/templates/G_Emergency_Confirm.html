@@ -1,17 +1,26 @@
 {% extends "G_Base.html" %}
-{% block title %}{% endblock %}
 {% block content %}
-<div class="modal-overlay sheet static">
-  <div class="modal sheet flush">
-    <div class="warn-icon">&#9888;</div>
-    <h2>Emergency Access</h2>
-    <p class="muted">This will be logged and {{ patient.name }} will be notified immediately.</p>
-    <form method="post">{% csrf_token %}
-      <label>Reason for emergency access</label>
-      <input name="reason" placeholder="e.g. Unconscious patient" required>
-      <button type="submit" class="danger">Confirm Emergency Access</button>
-    </form>
-    <a class="btn ghost mt-10 text-center" href="{% url 'dashboard' %}">Cancel</a>
-  </div>
+<div class="page-head">
+  <h1>Emergency Access</h1>
 </div>
+
+<div class="card warn">
+  <strong>&#9888; This bypasses patient approval</strong>
+  <p class="m-0">Emergency access is logged, and the patient is notified right away.</p>
+</div>
+
+<form method="post" class="narrow">{% csrf_token %}
+  <label>Patient ID</label>
+  {% if patient %}
+    <input value="{{ patient.display_id }} &middot; {{ patient.name }}" readonly>
+  {% else %}
+    <input name="patient_id" placeholder="PT-2026-01001" value="{{ form.patient_id|default:'' }}" required autofocus>
+  {% endif %}
+  <label>Reason for emergency access</label>
+  <textarea name="reason" rows="3" placeholder="e.g. Patient unconscious on arrival, ER" required>{{ form.reason|default:'' }}</textarea>
+  <div class="btn-row">
+    <button type="submit" class="danger">Access Record Now</button>
+    <a class="btn secondary" href="{% url 'dashboard' %}">Cancel</a>
+  </div>
+</form>
 {% endblock %}

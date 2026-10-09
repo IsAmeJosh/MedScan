@@ -7,19 +7,69 @@
 <title>MedScan</title>
 <link rel="stylesheet" href="{% static 'css/G_Style.css' %}">
 </head>
-<body>
-<div class="phone">
-  <div class="topbar">
-    <h1>{% block title %}MedScan{% endblock %}</h1>
-    <div class="icons">
-      {% block topbar_icons %}{% endblock %}
+<body class="{% if user %}has-shell{% else %}auth-page{% endif %}">
+{% if user %}
+{% with page=request.resolver_match.url_name %}
+<aside class="sidebar">
+  <div class="brand">
+    <div class="brand-logo"></div>
+    <span class="brand-name">MedScan{% if user.role == "Doctor" %} MD{% endif %}</span>
+  </div>
+
+  <div class="me-card">
+    <div class="avatar">{{ user.name|slice:":1" }}</div>
+    <div>
+      <strong>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</strong>
+      <span class="faint">{{ user.role }} &middot; {{ user.display_id }}</span>
     </div>
   </div>
-  <main>
+
+  <nav class="nav">
+    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">Dashboard</a>
+    {% if user.role == "Doctor" %}
+      <a href="{% url 'search' %}" class="{% if page == 'search' or page == 'record' %}active{% endif %}">Search Patient</a>
+      <a href="{% url 'doctor_requests' %}" class="{% if page == 'doctor_requests' %}active{% endif %}">Requests</a>
+      <a href="{% url 'emergency_form' %}" class="{% if page == 'emergency_form' or page == 'emergency' %}active{% endif %}">Emergency Access</a>
+    {% else %}
+      <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}active{% endif %}">My Record</a>
+      <a href="{% url 'profile' %}" class="{% if page == 'profile' %}active{% endif %}">Profile</a>
+    {% endif %}
+  </nav>
+
+  <div class="nav nav-bottom">
+    <button type="button" class="nav-button" id="open-notifications">
+      Notifications
+      <span class="badge" id="unread-badge" data-count="{{ unread }}" {% if not unread %}hidden{% endif %}>{{ unread }}</span>
+    </button>
+    <a href="{% url 'logout' %}">Log out</a>
+  </div>
+</aside>
+{% endwith %}
+{% endif %}
+
+<main class="content">
+  <div class="page">
     {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
     {% block content %}{% endblock %}
-  </main>
-  {% block tabbar %}{% endblock %}
-</div>
+  </div>
+</main>
+
+{% if user %}
+<div class="drawer-backdrop" id="drawer-backdrop"></div>
+<aside class="drawer" id="notifications-drawer" aria-hidden="true" data-read-url="{% url 'notifications_read' %}">
+  <div class="drawer-head">
+    <h2 class="m-0">Notifications</h2>
+    <button type="button" class="icon-close" id="close-notifications" aria-label="Close">&times;</button>
+  </div>
+  {% for n in inbox_items %}
+    <div class="notice {% if not n.is_read %}unread{% endif %}">
+      <p class="m-0">{{ n.message }}</p>
+      <span class="faint">{{ n.timestamp|date:"M d, Y" }} &middot; {{ n.timestamp|date:"H:i" }}</span>
+    </div>
+  {% empty %}<p class="empty">Nothing yet.</p>{% endfor %}
+</aside>
+<form id="csrf-holder" hidden>{% csrf_token %}</form>
+<script src="{% static 'js/G_Shell.js' %}"></script>
+{% endif %}
 </body>
 </html>

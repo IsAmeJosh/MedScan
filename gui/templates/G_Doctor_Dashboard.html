@@ -1,53 +1,36 @@
 {% extends "G_Base.html" %}
-{% block title %}Find a Patient{% endblock %}
-{% block topbar_icons %}
-  <a class="icon-btn" href="{% url 'dashboard' %}">&#128276;</a>
-{% endblock %}
 {% block content %}
-<form method="get">
-  <label>Patient ID</label>
-  <input name="q" inputmode="numeric" placeholder="Enter ID number" value="{{ searched|default:'' }}">
-  <button type="submit" class="secondary">Search</button>
-</form>
+<div class="page-head">
+  <h1>Dashboard</h1>
+  <p class="muted m-0">Welcome, Dr. {{ user.name }} &middot; {{ user.specialty }}</p>
+</div>
 
-{% if searched %}
-  {% if found %}
-    <div class="card mt-18">
-      {% if not has_access %}
-        <div class="pill locked">&#128274; Locked &mdash; request access to view full record</div>
-      {% endif %}
-      <h2 class="mt-10">{{ found.name }}</h2>
-      <p class="muted">{{ found.age }} &middot; {{ found.sex }} &middot; ID {{ found.user_id }}</p>
-    </div>
-    {% if has_access %}
-      <a class="btn" href="{% url 'record' found.user_id %}">Open Medical Record</a>
-    {% else %}
-      <form method="post" action="{% url 'send_request' found.user_id %}">{% csrf_token %}
-        <button type="submit">Request Access</button>
-      </form>
-      <a class="btn outline" href="{% url 'emergency' found.user_id %}">Emergency Access</a>
-    {% endif %}
-  {% else %}
-    <p class="muted mt-18">No patient with ID {{ searched }}.</p>
-  {% endif %}
-{% endif %}
+<div class="grid-4">
+  <div class="stat-card"><span class="faint">Pending</span><span class="val">{{ summary.pending }}</span></div>
+  <div class="stat-card"><span class="faint">Approved</span><span class="val">{{ summary.approved }}</span></div>
+  <div class="stat-card"><span class="faint">Denied</span><span class="val">{{ summary.denied }}</span></div>
+  <div class="stat-card"><span class="faint">Revoked</span><span class="val">{{ summary.revoked }}</span></div>
+</div>
 
-<div class="section-head"><h3 class="m-0">Notifications</h3></div>
-{% for n, was_read in inbox %}
+<div class="btn-row">
+  <a class="btn" href="{% url 'search' %}">Search a patient</a>
+  <a class="btn outline" href="{% url 'emergency_form' %}">Emergency Access</a>
+</div>
+
+<div class="section-head">
+  <h2>Recent requests</h2>
+  <a href="{% url 'doctor_requests' %}">See all</a>
+</div>
+{% for r, patient in recent %}
   <div class="list-item">
     <div class="body">
-      {% if not was_read %}<span class="pill amber mb-4">New</span><br>{% endif %}
-      <strong>{{ n.message }}</strong>
-      <span class="faint">{{ n.timestamp|date:"M d, H:i" }}</span>
+      <strong>{{ patient.name }}</strong>
+      <span class="faint">{{ patient.display_id }}</span>
     </div>
+    {% if r.status == "Approved" %}<a class="btn small" href="{% url 'record' patient.user_id %}">Open record</a>
+    {% elif r.status == "Pending" %}<span class="pill amber">Pending</span>
+    {% elif r.status == "Revoked" %}<span class="pill red">Revoked</span>
+    {% else %}<span class="pill red">Denied</span>{% endif %}
   </div>
-{% empty %}<p class="empty">Nothing yet.</p>{% endfor %}
-{% endblock %}
-{% block tabbar %}
-<nav class="tabbar">
-  <a class="active" href="{% url 'dashboard' %}">Home</a>
-  <a href="#">Requests</a>
-  <a href="#">Alerts</a>
-  <a href="{% url 'logout' %}">Profile</a>
-</nav>
+{% empty %}<p class="empty">No requests yet. Search for a patient to send one.</p>{% endfor %}
 {% endblock %}

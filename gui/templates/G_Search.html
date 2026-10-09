@@ -1,0 +1,52 @@
+{% extends "G_Base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>Search Patient</h1>
+  <p class="muted m-0">Enter a patient ID, such as 1001 or PT-2026-01001.</p>
+</div>
+
+<form method="get" class="search-row">
+  <div>
+    <label class="mt-0">Patient ID</label>
+    <input name="q" placeholder="PT-2026-01001" value="{{ searched|default:'' }}" autofocus>
+  </div>
+  <button type="submit">Search</button>
+</form>
+
+{% if searched %}
+  {% if found %}
+    <div class="card white mt-24">
+      <h2>{{ found.name }}</h2>
+      <p class="muted">{{ found.display_id }} &middot; Age {{ found.age }} &middot; {{ found.sex }}</p>
+
+      {% if status == "approved" %}
+        <span class="pill green">Access approved</span>
+        <div><a class="btn" href="{% url 'record' found.user_id %}">Open Medical Record</a></div>
+      {% else %}
+        {% if status == "pending" %}
+          <span class="pill amber">Request pending</span>
+          <p class="muted mt-10 m-0">Waiting for the patient to approve.</p>
+        {% elif status == "denied" %}
+          <span class="pill red">Access denied</span>
+          <p class="muted mt-10 m-0">{{ found.name }} did not approve your last request.</p>
+        {% elif status == "revoked" %}
+          <span class="pill red">Access revoked</span>
+          <p class="muted mt-10 m-0">{{ found.name }} took back your access.</p>
+        {% else %}
+          <span class="pill locked">&#128274; Locked &mdash; request access to view the full record</span>
+        {% endif %}
+        <div class="btn-row">
+          {% if status != "pending" %}
+          <form method="post" action="{% url 'send_request' found.user_id %}" class="inline-form">{% csrf_token %}
+            <button type="submit">{% if status == "denied" or status == "revoked" %}Request Again{% else %}Send Access Request{% endif %}</button>
+          </form>
+          {% endif %}
+          <a class="btn outline" href="{% url 'emergency' found.user_id %}">Emergency Access</a>
+        </div>
+      {% endif %}
+    </div>
+  {% else %}
+    <p class="muted mt-24">No patient found for &ldquo;{{ searched }}&rdquo;.</p>
+  {% endif %}
+{% endif %}
+{% endblock %}

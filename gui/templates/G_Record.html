@@ -1,41 +1,40 @@
 {% extends "G_Base.html" %}
-{% block title %}Patient Record{% endblock %}
-{% block topbar_icons %}<a class="icon-btn" href="{% url 'dashboard' %}">&#128276;</a>{% endblock %}
 {% block content %}
 {% if emergency %}
-<div class="msg error">&#9888; Emergency access &mdash; this was logged and the patient was notified.</div>
+<div class="msg warning">&#9888; Emergency access &mdash; this was logged and the patient was notified.</div>
 {% endif %}
 
-<div class="card accent">
-  <h3>{{ patient.name }}</h3>
-  <p class="muted">Patient ID &middot; {{ patient.user_id }}</p>
-  <div class="stat-row">
-    <div class="stat"><div class="faint">Age</div><div class="val">{{ patient.age }}</div></div>
-    <div class="stat"><div class="faint">Sex</div><div class="val">{{ patient.sex }}</div></div>
-  </div>
-  {% for a in record.allergies %}<span class="pill warn">&#9888; Allergic to {{ a }}</span>{% endfor %}
-  {% if not record.allergies %}<span class="pill warn">No known allergies</span>{% endif %}
+<div class="page-head">
+  <h1>{{ patient.name }} &mdash; Medical Record</h1>
+  <p class="muted m-0">{{ patient.display_id }} &middot; Age {{ patient.age }} &middot; {{ patient.sex }}</p>
 </div>
 
-<h3>Past Surgeries</h3>
-{% for s in record.surgeries %}<span class="pill">{{ s }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}
+<div class="grid-2">
+  <div class="card"><h3>Allergies</h3>
+    {% for a in record.allergies %}<span class="pill amber">&#9888; {{ a }}</span>{% empty %}<p class="empty m-0">No known allergies.</p>{% endfor %}</div>
+  <div class="card"><h3>Past surgeries</h3>
+    {% for s in record.surgeries %}<span class="pill">{{ s }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
+  <div class="card"><h3>Current medications</h3>
+    {% for m in record.medications %}<span class="pill">{{ m }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
+  <div class="card"><h3>Blood type &middot; Contact</h3>
+    <p class="m-0"><strong>{{ record.blood_type|default:"Not set" }}</strong> &middot; {{ patient.contact_number|default:"No contact number" }}</p></div>
+</div>
 
-<h3>Last Consultation</h3>
-{% if latest %}
-  <div class="card">
+<div class="card"><h3>Last consultation</h3>
+  {% if latest %}
     <strong>{{ latest.date|date:"M d, Y" }} &mdash; Dr. {{ latest.doctor_name }}</strong>
     <p class="muted note">{{ latest.notes }}</p>
-  </div>
-{% else %}<p class="empty">No previous consultations.</p>{% endif %}
+  {% else %}<p class="empty m-0">No previous consultations.</p>{% endif %}
+</div>
 
-<h3>New Consultation Notes</h3>
+<div class="section-head"><h2>New consultation note</h2></div>
 <form method="post" action="{% url 'consult' patient.user_id %}">{% csrf_token %}
-  <textarea name="notes" rows="4" placeholder="Write consultation notes..." required></textarea>
-  <button type="submit">Add Consultation Note</button>
+  <textarea name="notes" rows="4" placeholder="Patient presented with..." required></textarea>
+  <button type="submit">Save to Record</button>
 </form>
 
-<h3>History</h3>
+<div class="section-head"><h2>Consultation history</h2></div>
 {% for c in record.consultations reversed %}
   <div class="card"><p class="muted m-0">{{ c.summary }}</p></div>
-{% empty %}<p class="empty">Empty.</p>{% endfor %}
+{% empty %}<p class="empty">No consultations yet.</p>{% endfor %}
 {% endblock %}

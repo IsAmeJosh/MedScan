@@ -1,0 +1,40 @@
+{% extends "G_Base.html" %}
+{% block content %}
+<div class="page-head">
+  <h1>Profile</h1>
+  <p class="muted m-0">Your account details.</p>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Account</h3>
+    <p class="m-0"><strong>{{ user.name }}</strong></p>
+    <p class="muted">{{ user.display_id }}</p>
+    <p class="muted m-0">{{ user.age }} &middot; {{ user.sex }}</p>
+    <p class="muted m-0">{{ user.contact_number|default:"No contact number" }}</p>
+    <div><a class="btn secondary" href="{% url 'my_record' %}">Edit my information</a></div>
+  </div>
+  <div class="card">
+    <h3>My MedScan QR</h3>
+    <div class="qr-box">QR code<br>coming soon</div>
+    <p class="faint mt-10 m-0">For now, give your doctor your ID: {{ user.display_id }}</p>
+  </div>
+</div>
+
+<div class="section-head"><h2>Doctors with access</h2></div>
+{% for r, doctor in requests %}{% if r.status == "Approved" %}
+  <div class="list-item">
+    <div class="body">
+      <strong>Dr. {{ doctor.name }}</strong>
+      <span class="faint">{{ doctor.specialty }}</span>
+    </div>
+    <form method="post" action="{% url 'revoke' r.request_id %}" class="inline-form">{% csrf_token %}
+      <input type="hidden" name="next" value="profile">
+      <button type="submit" class="small outline">Revoke access</button>
+    </form>
+  </div>
+{% endif %}{% endfor %}
+<p class="empty">Only doctors you approved appear here. Revoking takes effect immediately.</p>
+
+<a class="btn outline" href="{% url 'logout' %}">Log out</a>
+{% endblock %}
