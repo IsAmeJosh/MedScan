@@ -36,7 +36,7 @@ class MedScanSystem:
         if system is None:
             system = MedScanSystem()
             system.attach_store(store)
-            system.register_doctor("Reyes", "doc123", "General Medicine")
+            system.register_doctor("Reyes", "doc123", "General Medicine", "Bayanihan Family Clinic")
             system.register_patient("Juan Dela Cruz", "pat123", "Male", 30, "Penicillin", "Appendectomy",
                                     contact_number="09171234567", blood_type="O+")
             system.save()
@@ -83,10 +83,10 @@ class MedScanSystem:
         self._next_patient += 1
         return p
 
-    def register_doctor(self, name, password, specialty):
+    def register_doctor(self, name, password, specialty, clinic=""):
         """Create a doctor. Raises ValueError with a readable message on bad input."""
         name, password = self._check_credentials(name, password)
-        d = Doctor(self._next_doctor, name, password, specialty)
+        d = Doctor(self._next_doctor, name, password, specialty, clinic=(clinic or "").strip())
         self.doctors[d.user_id] = d
         self._next_doctor += 1
         return d
@@ -262,6 +262,44 @@ class MedScanSystem:
     def view_rows_for_patient(self, patient_id):
         """[(view, doctor)] for every time a doctor opened this patient's record, newest first."""
         return [(v, self.doctors.get(v.doctor_id)) for v in reversed(self.record_views) if v.patient_id == patient_id]
+
+    def doctor_groups_for_patient(self, patient_id):
+        """The patient's doctors, sorted by where their latest request stands:
+        {"with_access": [...], "waiting": [...], "past": [...]}, each a list of
+        (request, doctor, last_view). One row per doctor (the newest request wins)."""
+        groups = {"with_access": [], "waiting": [], "past": []}
+        seen = set()
+        for req, doctor in self.request_rows_for_patient(patient_id):
+            if req.doctor_id in seen:
+                continue
+            seen.add(req.doctor_id)
+            group = {"Approved": "with_access", "Pending": "waiting"}.get(req.status, "past")
+            groups[group].append((req, doctor, self.last_view(req.doctor_id, patient_id)))
+        return groups
+
+    def pending_count_for_patient(self, patient_id):
+        """How many requests are waiting for this patient's answer."""
+        return sum(r.patient_id == patient_id and r.status == "Pending" for r in self.requests)
+
+    def last_view(self, doctor_id, patient_id):
+        """The newest time this doctor opened this patient's record, or None."""
+        return next((v for v in reversed(self.record_views)
+                     if v.doctor_id == doctor_id and v.patient_id == patient_id), None)
+
+    def patients_for_doctor(self, doctor_id):
+        """[patient] who have approved this doctor, in ID order."""
+        return [p for pid, p in self.patients.items() if self.has_access(doctor_id, pid)]
+
+    def emergency_rows_for_doctor(self, doctor_id):
+        """[(log, patient)] for every emergency opening by this doctor, newest first."""
+        return [(e, self.patients.get(e.patient_id)) for e in reversed(self.emergency_logs) if e.doctor_id == doctor_id]
+
+    def doctor_stats(self, doctor_id):
+        """Numbers for the doctor's dashboard cards."""
+        notes = sum(c.doctor_id == doctor_id for p in self.patients.values() for c in p.record.consultations)
+        summary = self.request_summary_for_doctor(doctor_id)
+        return {"patients": len(self.patients_for_doctor(doctor_id)), "pending": summary["pending"],
+                "notes": notes, "emergencies": sum(e.doctor_id == doctor_id for e in self.emergency_logs)}
 
     # ---- notifications ----
     def _notify(self, recipient_id, message, request_id=None):

@@ -1,40 +1,46 @@
 {% extends "G_Base.html" %}
+{% block title %}Profile{% endblock %}
+{% block crumbs %}<b>Profile</b>{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1>Profile</h1>
-  <p class="muted m-0">Your account details.</p>
+<div class="page-h">
+  <div><h1>Profile</h1><p>Your account details.</p></div>
+  <div class="actions"><a class="btn ghost" href="{% url 'my_record' %}">{% icon "edit" "sm" %}Edit my information</a></div>
 </div>
 
-<div class="grid-2">
-  <div class="card">
-    <h3>Account</h3>
-    <p class="m-0"><strong>{{ user.name }}</strong></p>
-    <p class="muted">{{ user.display_id }}</p>
-    <p class="muted m-0">{{ user.age }} &middot; {{ user.sex }}</p>
-    <p class="muted m-0">{{ user.contact_number|default:"No contact number" }}</p>
-    <div><a class="btn secondary" href="{% url 'my_record' %}">Edit my information</a></div>
+<div class="card mb-16">
+  <div class="card-h">
+    <div class="avatar lg">{{ user.name|initials }}</div>
+    <div><h2 style="font-size:18px">{{ user.name }}</h2><span class="muted">{{ user.display_id }}</span></div>
   </div>
-  <div class="card">
-    <h3>My MedScan QR</h3>
-    <div class="qr-box">QR code<br>coming soon</div>
-    <p class="faint mt-10 m-0">For now, give your doctor your ID: {{ user.display_id }}</p>
+  <div class="kv">
+    <div><span>Sex</span><b>{{ user.sex }}</b></div>
+    <div><span>Age</span><b>{{ user.age }}</b></div>
+    <div><span>Contact number</span><b>{{ user.contact_number|default:"Not given" }}</b></div>
+    <div><span>Account since</span><b>{{ user.created_year }}</b></div>
   </div>
 </div>
 
-<div class="section-head"><h2>Doctors with access</h2></div>
-{% for r, doctor in requests %}{% if r.status == "Approved" %}
-  <div class="list-item">
-    <div class="body">
-      <strong>Dr. {{ doctor.name }}</strong>
-      <span class="faint">{{ doctor.specialty }}</span>
+<div class="grid g2">
+  <div class="card">
+    <div class="card-h">{% icon "steth" %}<h2>Doctors with access</h2><a class="link" href="{% url 'my_doctors' %}">Manage</a></div>
+    <div class="list">
+      {% for r, doctor, last in doctors.with_access %}
+        <div class="item">
+          <div class="avatar {{ doctor.user_id|tint }}">{{ doctor.name|initials }}</div>
+          <div class="grow"><b>Dr. {{ doctor.name }}</b><span class="muted small">{{ doctor.workplace }}</span></div>
+          <form method="post" action="{% url 'revoke' r.request_id %}" class="inline-form">{% csrf_token %}
+            <input type="hidden" name="next" value="profile">
+            <button type="submit" class="sm danger-ghost">Revoke access</button></form>
+        </div>
+      {% empty %}<p class="empty">No doctor has access right now.</p>{% endfor %}
     </div>
-    <form method="post" action="{% url 'revoke' r.request_id %}" class="inline-form">{% csrf_token %}
-      <input type="hidden" name="next" value="profile">
-      <button type="submit" class="small outline">Revoke access</button>
-    </form>
   </div>
-{% endif %}{% endfor %}
-<p class="empty">Only doctors you approved appear here. Revoking takes effect immediately.</p>
-
-<a class="btn outline" href="{% url 'logout' %}">Log out</a>
+  <div class="card">
+    <div class="card-h">{% icon "user" %}<h2>My MedScan QR</h2></div>
+    <div class="card-b">
+      <div class="locked" style="margin-top:0"><p class="muted">QR code coming soon</p></div>
+      <p class="faint small mt-16">For now, give your doctor your ID: <b>{{ user.display_id }}</b></p>
+    </div>
+  </div>
+</div>
 {% endblock %}

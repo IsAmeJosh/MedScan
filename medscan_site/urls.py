@@ -14,10 +14,13 @@ urlpatterns = [
     path("record/", views.my_record, name="my_record"),
     path("record/edit/", views.update_info, name="update_info"),
     path("profile/", views.profile, name="profile"),
+    path("doctors/", views.my_doctors, name="my_doctors"),
+    path("access-log/", views.access_log, name="access_log"),
     path("respond/<int:rid>/<str:decision>/", views.respond, name="respond"),
     path("revoke/<int:rid>/", views.revoke, name="revoke"),
     # doctor
     path("search/", views.search_patient, name="search"),
+    path("patients/", views.my_patients, name="my_patients"),
     path("requests/", views.doctor_requests, name="doctor_requests"),
     path("request/<int:pid>/", views.send_request, name="send_request"),
     path("patient/<int:pid>/", views.patient_record, name="record"),

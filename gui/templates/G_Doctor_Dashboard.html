@@ -1,36 +1,46 @@
 {% extends "G_Base.html" %}
+{% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1>Dashboard</h1>
-  <p class="muted m-0">Welcome, Dr. {{ user.name }} &middot; {{ user.specialty }}</p>
-</div>
-
-<div class="grid-4">
-  <div class="stat-card"><span class="faint">Pending</span><span class="val">{{ summary.pending }}</span></div>
-  <div class="stat-card"><span class="faint">Approved</span><span class="val">{{ summary.approved }}</span></div>
-  <div class="stat-card"><span class="faint">Denied</span><span class="val">{{ summary.denied }}</span></div>
-  <div class="stat-card"><span class="faint">Revoked</span><span class="val">{{ summary.revoked }}</span></div>
-</div>
-
-<div class="btn-row">
-  <a class="btn" href="{% url 'search' %}">Search a patient</a>
-  <a class="btn outline" href="{% url 'emergency_form' %}">Emergency Access</a>
-</div>
-
-<div class="section-head">
-  <h2>Recent requests</h2>
-  <a href="{% url 'doctor_requests' %}">See all</a>
-</div>
-{% for r, patient in recent %}
-  <div class="list-item">
-    <div class="body">
-      <strong>{{ patient.name }}</strong>
-      <span class="faint">{{ patient.display_id }}</span>
-    </div>
-    {% if r.status == "Approved" %}<a class="btn small" href="{% url 'record' patient.user_id %}">Open record</a>
-    {% elif r.status == "Pending" %}<span class="pill amber">Pending</span>
-    {% elif r.status == "Revoked" %}<span class="pill red">Revoked</span>
-    {% else %}<span class="pill red">Denied</span>{% endif %}
+<div class="page-h">
+  <div><h1>Welcome, Dr. {{ user.name }}</h1><p>{{ user.workplace }}</p></div>
+  <div class="actions">
+    <a class="btn danger-ghost" href="{% url 'emergency_form' %}">{% icon "shield" "sm" %}Emergency access</a>
+    <a class="btn" href="{% url 'search' %}">{% icon "search" "sm" %}Find a patient</a>
   </div>
-{% empty %}<p class="empty">No requests yet. Search for a patient to send one.</p>{% endfor %}
+</div>
+
+<div class="grid g4 mb-16">
+  <div class="card stat"><div class="k"><span class="ic teal">{% icon "users" "sm" %}</span>Patients with access</div><div class="v">{{ stats.patients }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic amber">{% icon "clock" "sm" %}</span>Pending requests</div><div class="v">{{ stats.pending }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic blue">{% icon "file" "sm" %}</span>Notes written</div><div class="v">{{ stats.notes }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic red">{% icon "shield" "sm" %}</span>Emergency uses</div><div class="v">{{ stats.emergencies }}</div></div>
+</div>
+
+<div class="grid g-main">
+  <div class="card">
+    <div class="card-h">{% icon "users" %}<h2>My patients</h2><a class="link" href="{% url 'my_patients' %}">See all</a></div>
+    <div class="list">
+      {% for p in patients %}
+        <div class="item">
+          <div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
+          <div class="grow"><b>{{ p.name }}</b><span class="muted small">{{ p.display_id }} &middot; {{ p.sex }}, {{ p.age }}</span></div>
+          {% if p.record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ p.record.allergies|length }} allerg{{ p.record.allergies|length|pluralize:"y,ies" }}</span>{% endif %}
+          <a class="btn sm" href="{% url 'record' p.user_id %}">Open record</a>
+        </div>
+      {% empty %}<p class="empty">No patient has approved you yet. Search for a patient to send a request.</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-h">{% icon "send" %}<h2>Recent requests</h2><a class="link" href="{% url 'doctor_requests' %}">See all</a></div>
+    <div class="list">
+      {% for r, patient in recent %}
+        <div class="item">
+          <div class="grow"><b>{{ patient.name }}</b><span class="muted small">{{ patient.display_id }}</span></div>
+          {% include "G_Status_Pill.html" %}
+        </div>
+      {% empty %}<p class="empty">No requests yet. Search for a patient to send one.</p>{% endfor %}
+    </div>
+  </div>
+</div>
 {% endblock %}

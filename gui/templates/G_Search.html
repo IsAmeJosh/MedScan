@@ -1,52 +1,77 @@
 {% extends "G_Base.html" %}
+{% block title %}Search Patient{% endblock %}
+{% block crumbs %}<b>Search Patient</b>{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1>Search Patient</h1>
-  <p class="muted m-0">Enter a patient ID, such as 1001 or PT-2026-01001.</p>
+<div class="page-h">
+  <div><h1>Search Patient</h1><p>Enter a patient ID, such as 1001 or PT-2026-01001. You can open the record once the patient approves.</p></div>
 </div>
 
-<form method="get" class="search-row">
+<form method="get" class="card mb-16"><div class="card-b row">
+  <div class="with-icon" style="flex:1">{% icon "search" "sm" %}<input name="q" placeholder="PT-2026-01001" value="{{ searched|default:'' }}" autofocus></div>
+  <button type="submit" class="lg">Search</button>
+</div></form>
+
+<div class="grid g-main">
   <div>
-    <label class="mt-0">Patient ID</label>
-    <input name="q" placeholder="PT-2026-01001" value="{{ searched|default:'' }}" autofocus>
-  </div>
-  <button type="submit">Search</button>
-</form>
+  {% if searched %}
+    {% if found %}
+      <div class="card"><div class="card-b row" style="align-items:flex-start;gap:16px">
+        <div class="avatar lg {{ found.user_id|tint }}">{{ found.name|initials }}</div>
+        <div style="flex:1">
+          <div class="row" style="justify-content:space-between">
+            <div><h2 style="font-size:18px">{{ found.name }}</h2><span class="muted">{{ found.display_id }} &middot; {{ found.sex }} &middot; {{ found.age }} years</span></div>
+            {% if status == "approved" %}<span class="pill green">Access approved</span>
+            {% elif status == "pending" %}<span class="pill amber">Request pending</span>
+            {% elif status == "denied" %}<span class="pill red">Access denied</span>
+            {% elif status == "revoked" %}<span class="pill gray">Access revoked</span>
+            {% else %}<span class="pill gray nodot">{% icon "lock" "sm" %}Locked</span>{% endif %}
+          </div>
 
-{% if searched %}
-  {% if found %}
-    <div class="card white mt-24">
-      <h2>{{ found.name }}</h2>
-      <p class="muted">{{ found.display_id }} &middot; Age {{ found.age }} &middot; {{ found.sex }}</p>
-
-      {% if status == "approved" %}
-        <span class="pill green">Access approved</span>
-        <div><a class="btn" href="{% url 'record' found.user_id %}">Open Medical Record</a></div>
-      {% else %}
-        {% if status == "pending" %}
-          <span class="pill amber">Request pending</span>
-          <p class="muted mt-10 m-0">Waiting for the patient to approve.</p>
-        {% elif status == "denied" %}
-          <span class="pill red">Access denied</span>
-          <p class="muted mt-10 m-0">{{ found.name }} did not approve your last request.</p>
-        {% elif status == "revoked" %}
-          <span class="pill red">Access revoked</span>
-          <p class="muted mt-10 m-0">{{ found.name }} took back your access.</p>
-        {% else %}
-          <span class="pill locked">&#128274; Locked &mdash; request access to view the full record</span>
-        {% endif %}
-        <div class="btn-row">
-          {% if status != "pending" %}
-          <form method="post" action="{% url 'send_request' found.user_id %}" class="inline-form">{% csrf_token %}
-            <button type="submit">{% if status == "denied" or status == "revoked" %}Request Again{% else %}Send Access Request{% endif %}</button>
-          </form>
+          {% if status == "approved" %}
+            <div class="row mt-16"><a class="btn" href="{% url 'record' found.user_id %}">{% icon "file" "sm" %}Open medical record</a></div>
+          {% else %}
+            <div class="locked">
+              <span class="ic gray">{% icon "lock" %}</span>
+              {% if status == "pending" %}
+                <b>Waiting for {{ found.name }} to answer</b>
+                <p class="muted small">You will get a notification as soon as they approve or deny.</p>
+              {% elif status == "denied" %}
+                <b>{{ found.name }} did not approve your last request.</b>
+                <p class="muted small">You can ask again, or use emergency access if this is an emergency.</p>
+              {% elif status == "revoked" %}
+                <b>{{ found.name }} took back your access.</b>
+                <p class="muted small">You can ask again, or use emergency access if this is an emergency.</p>
+              {% else %}
+                <b>This record is private</b>
+                <p class="muted small">{{ found.name }} will get a notification and can approve or deny. You will be told as soon as they answer.</p>
+              {% endif %}
+              <div class="row">
+                {% if status != "pending" %}
+                <form method="post" action="{% url 'send_request' found.user_id %}" class="inline-form">{% csrf_token %}
+                  <button type="submit">{% icon "send" "sm" %}{% if status == "denied" or status == "revoked" %}Request Again{% else %}Send Access Request{% endif %}</button>
+                </form>
+                {% endif %}
+                <a class="btn danger-ghost" href="{% url 'emergency' found.user_id %}">{% icon "shield" "sm" %}Emergency Access</a>
+              </div>
+            </div>
           {% endif %}
-          <a class="btn outline" href="{% url 'emergency' found.user_id %}">Emergency Access</a>
         </div>
-      {% endif %}
-    </div>
+      </div></div>
+    {% else %}
+      <div class="card"><div class="card-b row"><span class="ic gray">{% icon "search" "sm" %}</span><p class="muted">No patient found for &ldquo;{{ searched }}&rdquo;. Check the ID and try again.</p></div></div>
+    {% endif %}
   {% else %}
-    <p class="muted mt-24">No patient found for &ldquo;{{ searched }}&rdquo;.</p>
+    <div class="card"><div class="card-b row"><span class="ic teal">{% icon "search" "sm" %}</span><p class="muted">Type a patient ID above to see their record status.</p></div></div>
   {% endif %}
-{% endif %}
+  </div>
+
+  <div class="card">
+    <div class="card-h">{% icon "shieldok" %}<h3>How access works</h3></div>
+    <div class="card-b stack" style="gap:12px">
+      <div class="row" style="align-items:flex-start"><span class="pill teal nodot">1</span><span class="muted small">Send a request. The patient is notified right away.</span></div>
+      <div class="row" style="align-items:flex-start"><span class="pill teal nodot">2</span><span class="muted small">The patient approves or denies from their dashboard.</span></div>
+      <div class="row" style="align-items:flex-start"><span class="pill teal nodot">3</span><span class="muted small">Once approved, the full record opens here and every view is logged.</span></div>
+    </div>
+  </div>
+</div>
 {% endblock %}

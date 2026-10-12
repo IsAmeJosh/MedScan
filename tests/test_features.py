@@ -52,7 +52,7 @@ class Features(unittest.TestCase):
         other = login(s.register_patient("Other", "o", "M", 30).user_id, "o")
         other.post("/revoke/1/")
         check("other patient cannot revoke", s.requests[0].is_approved())
-        check("revoke button on patient dashboard", "Revoke" in html(pat.get("/dashboard/")))
+        check("revoke button on My Doctors", "Revoke access" in html(pat.get("/doctors/")))
         check("revoke button on profile", "Revoke access" in html(pat.get("/profile/")))
         r = pat.post("/revoke/1/", {"next": "profile"})
         check("revoke works + redirect to profile", s.requests[0].status == "Revoked" and r.status_code == 302 and r["Location"] == "/profile/")
@@ -76,7 +76,7 @@ class Features(unittest.TestCase):
 
         # ---- QR placeholder
         prof = html(pat.get("/profile/"))
-        check("profile shows QR placeholder, no qr code package needed", "coming soon" in prof and "<svg" not in prof)
+        check("profile shows QR placeholder, no qr code package needed", "coming soon" in prof and "data:image" not in prof)
         check("search page has no scan controls", "scan-button" not in html(doc.get("/search/")))
 
         # ---- earlier behaviour still fine

@@ -1,74 +1,104 @@
 {% extends "G_Base.html" %}
+{% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1>Dashboard</h1>
-  <p class="muted m-0">Welcome back, {{ user.name }}.</p>
+<div class="page-h">
+  <div><h1>Welcome back, {{ user.name }}</h1><p>Here is who can see your record and what changed recently.</p></div>
+  <div class="actions"><a class="btn ghost" href="{% url 'my_record' %}">{% icon "file" "sm" %}View my record</a></div>
 </div>
 
-<div class="grid-2">
-  <div>
-    <div class="card accent">
+<div class="grid g-main">
+  <div class="stack">
+    <div class="hero">
+      <span class="ring"></span><span class="ring two"></span>
+      <span class="id-chip">{% icon "user" "sm" %}{{ user.display_id }}</span>
       <h2>{{ user.name }}</h2>
-      <p class="muted m-0">Patient ID &middot; {{ user.display_id }}</p>
-      <div class="stat-row">
-        <div class="stat"><span class="faint">Age</span><span class="val">{{ user.age }}</span></div>
-        <div class="stat"><span class="faint">Sex</span><span class="val">{{ user.sex }}</span></div>
-        <div class="stat"><span class="faint">Blood type</span><span class="val">{{ record.blood_type|default:"&mdash;" }}</span></div>
-        <div class="stat"><span class="faint">Medications</span><span class="val">{{ record.medications|join:", "|default:"None" }}</span></div>
+      <p>{{ user.sex }} &middot; {{ user.age }} years{% if user.contact_number %} &middot; Contact {{ user.contact_number }}{% endif %}</p>
+      <div class="facts">
+        <div><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
+        <div><span>Allergies</span><b>{{ record.allergies|length }}</b></div>
+        <div><span>Medications</span><b>{{ record.medications|length }}</b></div>
+        <div><span>Consultations</span><b>{{ record.consultations|length }}</b></div>
       </div>
-      {% for a in record.allergies %}<span class="pill">&#9888; Allergic to {{ a }}</span>{% endfor %}
-      {% if not record.allergies %}<span class="pill">No known allergies</span>{% endif %}
-      <div><a class="btn secondary" href="{% url 'my_record' %}">View or edit my record</a></div>
+      <div class="wrap">
+        {% for a in record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ a }}</span>
+        {% empty %}<span class="tag">No known allergies</span>{% endfor %}
+      </div>
     </div>
 
-    <div class="section-head"><h2>Who viewed my record</h2></div>
-    {% for v, doctor in views %}
-      <div class="list-item">
-        <div class="body">
-          <strong>Dr. {{ doctor.name }}</strong>
-          <span class="faint">{{ v.timestamp|date:"M d, Y H:i" }}</span>
-        </div>
-        {% if v.via == "emergency" %}<span class="pill amber">Emergency</span>{% else %}<span class="pill green">Approved</span>{% endif %}
+    <div class="card">
+      <div class="card-h">{% icon "inbox" %}<h2>Access requests</h2>
+        {% if doctors.waiting %}<span class="pill amber">{{ doctors.waiting|length }} waiting</span>{% endif %}
+        <a class="link" href="{% url 'my_doctors' %}">View all</a></div>
+      <div class="list">
+        {% for r, doctor, last in doctors.waiting %}
+          <div class="item">
+            <div class="avatar {{ doctor.user_id|tint }}">{{ doctor.name|initials }}</div>
+            <div class="grow"><b>Dr. {{ doctor.name }} wants access</b><span class="muted small">{{ doctor.workplace }}</span></div>
+            <form method="post" action="{% url 'respond' r.request_id 'deny' %}" class="inline-form">{% csrf_token %}
+              <button type="submit" class="sm danger-ghost">{% icon "x" "sm" %}Deny</button></form>
+            <form method="post" action="{% url 'respond' r.request_id 'approve' %}" class="inline-form">{% csrf_token %}
+              <button type="submit" class="sm success">{% icon "check" "sm" %}Approve</button></form>
+          </div>
+        {% empty %}<p class="empty">No requests waiting for you.</p>{% endfor %}
       </div>
-    {% empty %}<p class="empty">No doctor has opened your record yet.</p>{% endfor %}
+    </div>
+
+    <div class="card">
+      <div class="card-h">{% icon "history" %}<h2>Who viewed my record</h2><a class="link" href="{% url 'access_log' %}">Open access log</a></div>
+      <div class="list">
+        {% for v, doctor in views %}
+          <div class="item">
+            {% if v.via == "emergency" %}<span class="ic red">{% icon "shield" "sm" %}</span>{% else %}<span class="ic teal">{% icon "eye" "sm" %}</span>{% endif %}
+            <div class="grow"><b>Dr. {{ doctor.name }} viewed your record</b><span class="muted small">{{ v.timestamp|date:"M d, Y H:i" }} &middot; {{ doctor.workplace }}</span></div>
+            {% if v.via == "emergency" %}<span class="pill red">Emergency</span>{% else %}<span class="pill green">Approved</span>{% endif %}
+          </div>
+        {% empty %}<p class="empty">No doctor has opened your record yet.</p>{% endfor %}
+      </div>
+    </div>
   </div>
 
-  <div>
-    <h2>Access requests</h2>
-    {% for r, doctor in requests %}
-      <div class="list-item">
-        <div class="body">
-          <strong>Dr. {{ doctor.name }}{% if r.status == "Pending" %} wants access{% endif %}</strong>
-          <span class="faint">{{ doctor.specialty }} &middot; {{ r.status }}</span>
-        </div>
-        {% if r.status == "Pending" %}
-        <div class="actions">
-          <form method="post" action="{% url 'respond' r.request_id 'approve' %}" class="inline-form">{% csrf_token %}
-            <button type="submit" class="small success">Approve</button></form>
-          <form method="post" action="{% url 'respond' r.request_id 'deny' %}" class="inline-form">{% csrf_token %}
-            <button type="submit" class="small danger">Deny</button></form>
-        </div>
-        {% elif r.status == "Approved" %}
-        <div class="actions">
-          <span class="pill green">Approved</span>
-          <form method="post" action="{% url 'revoke' r.request_id %}" class="inline-form">{% csrf_token %}
-            <button type="submit" class="small outline">Revoke</button></form>
-        </div>
-        {% elif r.status == "Revoked" %}<span class="pill red">Revoked</span>
-        {% else %}<span class="pill red">Denied</span>{% endif %}
+  <div class="stack">
+    <div class="card">
+      <div class="card-h">{% icon "steth" %}<h2>Doctors with access</h2><a class="link" href="{% url 'my_doctors' %}">Manage</a></div>
+      <div class="list">
+        {% for r, doctor, last in doctors.with_access %}
+          <div class="item">
+            <div class="avatar {{ doctor.user_id|tint }}">{{ doctor.name|initials }}</div>
+            <div class="grow"><b>Dr. {{ doctor.name }}</b><span class="muted small">{{ doctor.workplace }}</span></div>
+            <span class="pill green">Active</span>
+          </div>
+        {% empty %}<p class="empty">No doctor has access yet.</p>{% endfor %}
       </div>
-    {% empty %}<p class="empty">No requests yet.</p>{% endfor %}
+    </div>
 
-    <div class="section-head"><h2>Emergency access log</h2></div>
-    {% for e, doctor in emergencies %}
-      <div class="list-item">
-        <div class="body">
-          <strong>Dr. {{ doctor.name }} &middot; {{ e.timestamp|date:"M d, Y H:i" }}</strong>
-          <span class="faint">Reason: {{ e.reason }}</span>
-        </div>
-        <span class="pill amber">Emergency</span>
+    <div class="card">
+      <div class="card-h">{% icon "pulse" %}<h2>Last consultation</h2></div>
+      <div class="card-b">
+        {% with latest=record.latest_consultation %}
+        {% if latest %}
+          <b>{{ latest.date|date:"M d, Y" }}</b>
+          <p class="muted note-text" style="margin-top:6px">{{ latest.notes }}</p>
+          <p class="faint small mt-16">Dr. {{ latest.doctor_name }}</p>
+        {% else %}<p class="empty">No consultations yet.</p>{% endif %}
+        {% endwith %}
       </div>
-    {% empty %}<p class="empty">Nobody has used emergency access on your record.</p>{% endfor %}
+    </div>
+
+    {% if emergencies %}
+    <div class="card">
+      <div class="card-h">{% icon "shield" %}<h2>Emergency access log</h2></div>
+      <div class="list">
+        {% for e, doctor in emergencies %}
+          <div class="item"><div class="grow"><b>Dr. {{ doctor.name }}</b><span class="muted small">{{ e.timestamp|date:"M d, H:i" }} &middot; Reason: {{ e.reason }}</span></div><span class="pill red">Emergency</span></div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="card"><div class="card-b row">
+      <span class="ic green" style="width:40px;height:40px;border-radius:10px">{% icon "shieldok" %}</span>
+      <div><b>Your record is private</b><p class="muted small">Only doctors you approve can open it. Emergency use is always logged.</p></div>
+    </div></div>
   </div>
 </div>
 {% endblock %}

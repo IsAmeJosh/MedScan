@@ -1,26 +1,39 @@
 {% extends "G_Base.html" %}
+{% block title %}Emergency Access{% endblock %}
+{% block crumbs %}<b>Emergency Access</b>{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1>Emergency Access</h1>
+<div class="page-h">
+  <div><h1>Emergency Access</h1><p>Open a record without the patient's approval when they cannot give it.</p></div>
 </div>
 
-<div class="card warn">
-  <strong>&#9888; This bypasses patient approval</strong>
-  <p class="m-0">Emergency access is logged, and the patient is notified right away.</p>
-</div>
+<div class="grid g-main">
+  <form method="post" class="card"><div class="card-b">{% csrf_token %}
+    <div class="banner amber">{% icon "alert" %}<div><b>This bypasses patient approval.</b><br>Your name, the time and your reason are logged, and the patient is notified right away.</div></div>
+    <div class="field">
+      <label>Patient ID</label>
+      {% if patient %}
+        <input value="{{ patient.display_id }} &middot; {{ patient.name }}" readonly>
+      {% else %}
+        <div class="with-icon">{% icon "user" "sm" %}<input name="patient_id" placeholder="PT-2026-01001" value="{{ form.patient_id|default:'' }}" required autofocus></div>
+      {% endif %}
+    </div>
+    <div class="field">
+      <label>Reason for emergency access</label>
+      <textarea name="reason" rows="3" placeholder="e.g. Patient unconscious on arrival, ER" required>{{ form.reason|default:'' }}</textarea>
+    </div>
+    <div class="row">
+      <button type="submit" class="danger">{% icon "shield" "sm" %}Open record now</button>
+      <a class="btn ghost" href="{% url 'dashboard' %}">Cancel</a>
+    </div>
+  </div></form>
 
-<form method="post" class="narrow">{% csrf_token %}
-  <label>Patient ID</label>
-  {% if patient %}
-    <input value="{{ patient.display_id }} &middot; {{ patient.name }}" readonly>
-  {% else %}
-    <input name="patient_id" placeholder="PT-2026-01001" value="{{ form.patient_id|default:'' }}" required autofocus>
-  {% endif %}
-  <label>Reason for emergency access</label>
-  <textarea name="reason" rows="3" placeholder="e.g. Patient unconscious on arrival, ER" required>{{ form.reason|default:'' }}</textarea>
-  <div class="btn-row">
-    <button type="submit" class="danger">Access Record Now</button>
-    <a class="btn secondary" href="{% url 'dashboard' %}">Cancel</a>
+  <div class="card">
+    <div class="card-h">{% icon "history" %}<h3>Your emergency log</h3></div>
+    <div class="list">
+      {% for e, p in log %}
+        <div class="item"><div class="grow"><b>{{ p.name }}</b><span class="muted small">{{ e.timestamp|date:"M d, H:i" }} &middot; {{ e.reason }}</span></div><span class="pill red">Logged</span></div>
+      {% empty %}<p class="empty">You have not used emergency access.</p>{% endfor %}
+    </div>
   </div>
-</form>
+</div>
 {% endblock %}

@@ -1,51 +1,52 @@
 {% extends "G_Base.html" %}
+{% block title %}My Record{% endblock %}
+{% block crumbs %}<b>My Record</b>{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1>My Record</h1>
-  <p class="muted m-0">What your doctors see once you approve them.</p>
+<div class="page-h">
+  <div><h1>My Record</h1><p>This is exactly what an approved doctor sees.</p></div>
 </div>
 
-<div class="grid-2">
-  <div class="card"><h3>Allergies</h3>
-    {% for a in record.allergies %}<span class="pill">{{ a }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
-  <div class="card"><h3>Past surgeries</h3>
-    {% for s in record.surgeries %}<span class="pill">{{ s }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
-  <div class="card"><h3>Current medications</h3>
-    {% for m in record.medications %}<span class="pill">{{ m }}</span>{% empty %}<p class="empty m-0">None recorded.</p>{% endfor %}</div>
-  <div class="card"><h3>Blood type &middot; Contact</h3>
-    <p class="m-0"><strong>{{ record.blood_type|default:"Not set" }}</strong> &middot; {{ user.contact_number|default:"No contact number" }}</p></div>
+<div class="card mb-16">
+  <div class="card-h">
+    <div class="avatar lg">{{ user.name|initials }}</div>
+    <div><h2 style="font-size:18px">{{ user.name }}</h2><span class="muted">{{ user.display_id }} &middot; {{ user.sex }} &middot; {{ user.age }} years</span></div>
+  </div>
+  <div class="kv">
+    <div><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
+    <div><span>Contact number</span><b>{{ user.contact_number|default:"Not given" }}</b></div>
+    <div><span>Consultations</span><b>{{ record.consultations|length }}</b></div>
+    <div><span>Last visit</span><b>{{ record.latest_consultation.date|date:"M d, Y"|default:"None yet" }}</b></div>
+  </div>
 </div>
 
-<details class="card white">
-  <summary>Edit my information</summary>
-  <form method="post" action="{% url 'update_info' %}">{% csrf_token %}
-    <label>Allergies (comma separated)</label>
-    <input name="allergies" value="{{ record.allergies|join:', ' }}">
-    <label>Past surgeries (comma separated)</label>
-    <input name="surgeries" value="{{ record.surgeries|join:', ' }}">
-    <label>Current medications (comma separated)</label>
-    <input name="medications" value="{{ record.medications|join:', ' }}">
-    <div class="row">
-      <div>
-        <label>Blood type</label>
+<div class="grid g3 mb-16">
+  <div class="card"><div class="card-h">{% icon "alert" %}<h3>Allergies</h3></div><div class="card-b wrap">
+    {% for a in record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
+  <div class="card"><div class="card-h">{% icon "pill" %}<h3>Current medications</h3></div><div class="card-b wrap">
+    {% for m in record.medications %}<span class="tag">{% icon "pill" "sm" %}{{ m }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
+  <div class="card"><div class="card-h">{% icon "pulse" %}<h3>Past surgeries</h3></div><div class="card-b wrap">
+    {% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
+</div>
+
+<details class="card mb-16">
+  <summary>{% icon "edit" %}Edit my information</summary>
+  <form method="post" action="{% url 'update_info' %}" class="card-b">{% csrf_token %}
+    <div class="grid g3" style="gap:12px">
+      <div class="field"><label>Allergies (comma separated)</label><input name="allergies" value="{{ record.allergies|join:', ' }}"></div>
+      <div class="field"><label>Current medications (comma separated)</label><input name="medications" value="{{ record.medications|join:', ' }}"></div>
+      <div class="field"><label>Past surgeries (comma separated)</label><input name="surgeries" value="{{ record.surgeries|join:', ' }}"></div>
+      <div class="field"><label>Blood type</label>
         <select name="blood_type">
           {% for b in blood_types %}<option value="{{ b }}" {% if b == record.blood_type %}selected{% endif %}>{{ b|default:"Not set" }}</option>{% endfor %}
-        </select>
-      </div>
-      <div>
-        <label>Contact number</label>
-        <input name="contact_number" placeholder="09XX XXX XXXX" value="{{ user.contact_number }}">
-      </div>
+        </select></div>
+      <div class="field"><label>Contact number</label><input name="contact_number" placeholder="09XX XXX XXXX" value="{{ user.contact_number }}"></div>
     </div>
-    <button type="submit">Save Changes</button>
+    <button type="submit">{% icon "check" "sm" %}Save changes</button>
   </form>
 </details>
 
-<div class="section-head"><h2>Consultation notes</h2></div>
-{% for c in record.consultations reversed %}
-  <div class="card">
-    <strong>{{ c.date|date:"M d, Y H:i" }} &mdash; Dr. {{ c.doctor_name }}</strong>
-    <p class="muted note">{{ c.notes }}</p>
-  </div>
-{% empty %}<p class="empty">No consultations yet.</p>{% endfor %}
+<div class="card">
+  <div class="card-h">{% icon "file" %}<h2>Consultation notes</h2><span class="pill gray nodot">{{ record.consultations|length }}</span></div>
+  {% include "G_Timeline.html" %}
+</div>
 {% endblock %}

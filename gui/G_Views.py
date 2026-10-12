@@ -27,6 +27,12 @@ def _patient(request):
     return user if user and user.role == "Patient" else None
 
 
+def _back_to(request, allowed, default):
+    """Redirect to the page named in the form's 'next' field if it is one of ours, otherwise to default."""
+    target = request.POST.get("next")
+    return redirect(target if target in allowed else default)
+
+
 # ---------- before login ----------
 def login_view(request):
     """Show the login form and log the user in. The ID can be 1001 or PT-2026-01001."""
@@ -50,7 +56,8 @@ def register_view(request):
         f = request.POST
         try:
             if f.get("role") == "Doctor":
-                user = system.register_doctor(f.get("name"), f.get("password"), f.get("specialty") or "General")
+                user = system.register_doctor(f.get("name"), f.get("password"), f.get("specialty") or "General",
+                                              f.get("clinic", ""))
             else:
                 user = system.register_patient(f.get("name"), f.get("password"), f.get("sex", ""),
                                                f.get("age"), f.get("allergies", ""), f.get("surgeries", ""),
@@ -94,19 +101,20 @@ def notifications_read(request):
 
 # ---------- both roles ----------
 def dashboard(request):
-    """Patient home (health card, requests, emergency log) or doctor home (request summary)."""
+    """Patient home (health card, requests, who viewed the record) or doctor home (numbers, patients, requests)."""
     user = current_user(request)
     if not user:
         return redirect("login")
     if user.role == "Patient":
         return render(request, "G_Patient_Dashboard.html", {
             "record": user.record,
-            "requests": system.request_rows_for_patient(user.user_id),
-            "emergencies": system.emergency_rows_for_patient(user.user_id),
-            "views": system.view_rows_for_patient(user.user_id)[:10],
+            "doctors": system.doctor_groups_for_patient(user.user_id),
+            "views": system.view_rows_for_patient(user.user_id)[:4],
+            "emergencies": system.emergency_rows_for_patient(user.user_id)[:3],
         })
     return render(request, "G_Doctor_Dashboard.html", {
-        "summary": system.request_summary_for_doctor(user.user_id),
+        "stats": system.doctor_stats(user.user_id),
+        "patients": system.patients_for_doctor(user.user_id)[:5],
         "recent": system.request_rows_for_doctor(user.user_id)[:5],
     })
 
@@ -143,7 +151,26 @@ def profile(request):
     patient = _patient(request)
     if not patient:
         return redirect("dashboard")
-    return render(request, "G_Profile.html", {"requests": system.request_rows_for_patient(patient.user_id)})
+    return render(request, "G_Profile.html", {"doctors": system.doctor_groups_for_patient(patient.user_id)})
+
+
+def my_doctors(request):
+    """Doctors with access, requests waiting for an answer, and doctors whose access ended."""
+    patient = _patient(request)
+    if not patient:
+        return redirect("dashboard")
+    return render(request, "G_My_Doctors.html", {"doctors": system.doctor_groups_for_patient(patient.user_id)})
+
+
+def access_log(request):
+    """Every time a doctor opened the patient's record, and every emergency override."""
+    patient = _patient(request)
+    if not patient:
+        return redirect("dashboard")
+    return render(request, "G_Access_Log.html", {
+        "views": system.view_rows_for_patient(patient.user_id),
+        "emergencies": system.emergency_rows_for_patient(patient.user_id),
+    })
 
 
 def respond(request, rid, decision):
@@ -154,7 +181,7 @@ def respond(request, rid, decision):
         if system.respond_to_request(rid, patient.user_id, approve):
             system.save()
             messages.success(request, "Access approved." if approve else "Access denied.")
-    return redirect("dashboard")
+    return _back_to(request, ["my_doctors"], "dashboard")
 
 
 def revoke(request, rid):
@@ -164,7 +191,7 @@ def revoke(request, rid):
         if system.revoke_access(rid, patient.user_id):
             system.save()
             messages.success(request, "Access revoked.")
-    return redirect("profile" if request.POST.get("next") == "profile" else "dashboard")
+    return _back_to(request, ["profile", "my_doctors"], "dashboard")
 
 
 # ---------- doctor pages ----------
@@ -195,6 +222,14 @@ def doctor_requests(request):
     })
 
 
+def my_patients(request):
+    """Patients who have approved this doctor."""
+    doctor = _doctor(request)
+    if not doctor:
+        return redirect("dashboard")
+    return render(request, "G_My_Patients.html", {"patients": system.patients_for_doctor(doctor.user_id)})
+
+
 def send_request(request, pid):
     """Doctor asks a patient for access."""
     doctor = _doctor(request)
@@ -220,6 +255,7 @@ def patient_record(request, pid):
     return render(request, "G_Record.html", {
         "patient": patient, "record": patient.record,
         "latest": patient.record.latest_consultation(), "emergency": emergency_used,
+        "has_access": system.has_access(doctor.user_id, pid),
     })
 
 
@@ -239,9 +275,11 @@ def emergency(request, pid=None):
             return redirect("record", pid=target)
         else:
             messages.error(request, "No patient with that ID.")
-        return render(request, "G_Emergency_Confirm.html",
-                      {"patient": system.get_patient(pid), "form": request.POST})
-    return render(request, "G_Emergency_Confirm.html", {"patient": system.get_patient(pid)})
+        return render(request, "G_Emergency_Confirm.html", {
+            "patient": system.get_patient(pid), "form": request.POST,
+            "log": system.emergency_rows_for_doctor(doctor.user_id)})
+    return render(request, "G_Emergency_Confirm.html", {
+        "patient": system.get_patient(pid), "log": system.emergency_rows_for_doctor(doctor.user_id)})
 
 
 def add_consultation(request, pid):

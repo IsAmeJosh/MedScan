@@ -1,3 +1,5 @@
+import mimetypes
+mimetypes.add_type("text/css", ".css", True)  # Windows sometimes reports .css as text/plain
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -16,11 +18,14 @@ TEMPLATES = [{
     "BACKEND": "django.template.backends.django.DjangoTemplates",
     "DIRS": [BASE_DIR / "gui" / "templates"],
     "APP_DIRS": True,
-    "OPTIONS": {"context_processors": [
-        "django.template.context_processors.request",
-        "django.contrib.messages.context_processors.messages",
-        "gui.G_Context.shell",
-    ]},
+    "OPTIONS": {
+        "context_processors": [
+            "django.template.context_processors.request",
+            "django.contrib.messages.context_processors.messages",
+            "gui.G_Context.shell",
+        ],
+        "builtins": ["gui.G_Icons"],  # lets every template use {% icon "name" %}
+    },
 }]
 DATABASES = {}
 SESSION_ENGINE = "django.contrib.sessions.backends.signed_cookies"

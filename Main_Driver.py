@@ -6,7 +6,7 @@ from logic.L_MedScan_System import MedScanSystem
 def run_console_demo():
     """Walk through the core flow in memory: request, approve, note, emergency."""
     s = MedScanSystem()
-    doc = s.register_doctor("Reyes", "doc123", "General Medicine")
+    doc = s.register_doctor("Reyes", "doc123", "General Medicine", "Bayanihan Family Clinic")
     pat = s.register_patient("Juan Dela Cruz", "pat123", "Male", 30, "Penicillin", "Appendectomy")
     print(doc, "|", pat)
     req = s.request_access(doc, pat.user_id)

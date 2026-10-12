@@ -1,22 +1,29 @@
 {% extends "G_Base.html" %}
+{% block title %}My Requests{% endblock %}
+{% block crumbs %}<b>My Requests</b>{% endblock %}
 {% block content %}
-<div class="page-head">
-  <h1>Requests</h1>
-  <p class="muted m-0">{{ summary.pending }} pending &middot; {{ summary.approved }} approved &middot; {{ summary.denied }} denied &middot; {{ summary.revoked }} revoked</p>
+<div class="page-h">
+  <div><h1>My Requests</h1><p>Every access request you have sent, newest first.</p></div>
 </div>
 
-{% for r, patient in rows %}
-  <div class="list-item">
-    <div class="body">
-      <strong>{{ patient.name }}</strong>
-      <span class="faint">{{ patient.display_id }}</span>
-    </div>
-    {% if r.status == "Approved" %}
-      <span class="pill green">Approved</span>
-      <a class="btn small" href="{% url 'record' patient.user_id %}">Open record</a>
-    {% elif r.status == "Pending" %}<span class="pill amber">Pending</span>
-    {% elif r.status == "Revoked" %}<span class="pill red">Revoked</span>
-    {% else %}<span class="pill red">Denied</span>{% endif %}
+<div class="grid g4 mb-16">
+  <div class="card stat"><div class="k"><span class="ic amber">{% icon "clock" "sm" %}</span>Pending</div><div class="v">{{ summary.pending }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic green">{% icon "check" "sm" %}</span>Approved</div><div class="v">{{ summary.approved }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic red">{% icon "x" "sm" %}</span>Denied</div><div class="v">{{ summary.denied }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic gray">{% icon "lock" "sm" %}</span>Revoked</div><div class="v">{{ summary.revoked }}</div></div>
+</div>
+
+<div class="card">
+  <div class="list">
+    {% for r, patient in rows %}
+      <div class="item">
+        <div class="avatar {{ patient.user_id|tint }}">{{ patient.name|initials }}</div>
+        <div class="grow"><b>{{ patient.name }}</b><span class="muted small">{{ patient.display_id }}</span></div>
+        {% include "G_Status_Pill.html" %}
+        {% if r.status == "Approved" %}<a class="btn sm" href="{% url 'record' patient.user_id %}">Open record</a>
+        {% else %}<a class="btn sm ghost" href="{% url 'search' %}?q={{ patient.user_id }}">View</a>{% endif %}
+      </div>
+    {% empty %}<p class="empty">You haven't sent any requests yet. <a href="{% url 'search' %}">Search for a patient</a>.</p>{% endfor %}
   </div>
-{% empty %}<p class="empty">You haven't sent any requests yet. <a href="{% url 'search' %}">Search for a patient</a>.</p>{% endfor %}
+</div>
 {% endblock %}

@@ -22,7 +22,8 @@ TABLES = {
             name VARCHAR(100) NOT NULL,
             password VARCHAR(100) NOT NULL,
             specialty VARCHAR(100) NOT NULL,
-            created_year INT NOT NULL
+            created_year INT NOT NULL,
+            clinic VARCHAR(150) NOT NULL DEFAULT ''
         ) ENGINE=InnoDB""",
     "patients": """
         CREATE TABLE IF NOT EXISTS patients (
@@ -128,6 +129,10 @@ class MySQLStore(Store):
         with conn.cursor() as cur:
             for sql in TABLES.values():
                 cur.execute(sql)
+            # databases made before doctors had a clinic get the new column added
+            cur.execute("SHOW COLUMNS FROM doctors LIKE 'clinic'")
+            if not cur.fetchone():
+                cur.execute("ALTER TABLE doctors ADD COLUMN clinic VARCHAR(150) NOT NULL DEFAULT ''")
         conn.commit()
 
     # ---- load ----
@@ -140,13 +145,13 @@ class MySQLStore(Store):
                 cur.execute("SELECT user_id, name, password, sex, age, contact_number, blood_type, created_year "
                             "FROM patients ORDER BY user_id")
                 patient_rows = cur.fetchall()
-                cur.execute("SELECT user_id, name, password, specialty, created_year FROM doctors ORDER BY user_id")
+                cur.execute("SELECT user_id, name, password, specialty, created_year, clinic FROM doctors ORDER BY user_id")
                 doctor_rows = cur.fetchall()
                 if not patient_rows and not doctor_rows:
                     return None
                 system = MedScanSystem()
-                for uid, name, password, specialty, year in doctor_rows:
-                    system.doctors[uid] = Doctor(uid, name, password, specialty, year)
+                for uid, name, password, specialty, year, clinic in doctor_rows:
+                    system.doctors[uid] = Doctor(uid, name, password, specialty, year, clinic)
                 for uid, name, password, sex, age, contact, blood, year in patient_rows:
                     patient = Patient(uid, name, password, sex, age, contact, year)
                     patient.record.blood_type = blood
@@ -206,8 +211,9 @@ class MySQLStore(Store):
     @staticmethod
     def _save_people(cur, system):
         """Doctors, patients, their record items and consultations."""
-        cur.executemany("INSERT INTO doctors VALUES (%s, %s, %s, %s, %s)",
-                        [(d.user_id, d.name, d.credential_for_storage(), d.specialty, d.created_year)
+        cur.executemany("INSERT INTO doctors (user_id, name, password, specialty, created_year, clinic) "
+                        "VALUES (%s, %s, %s, %s, %s, %s)",
+                        [(d.user_id, d.name, d.credential_for_storage(), d.specialty, d.created_year, d.clinic)
                          for d in system.doctors.values()])
         cur.executemany("INSERT INTO patients VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
                         [(p.user_id, p.name, p.credential_for_storage(), p.sex, p.age, p.contact_number,

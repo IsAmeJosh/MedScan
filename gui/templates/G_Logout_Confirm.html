@@ -1,12 +1,17 @@
 {% extends "G_Base.html" %}
+{% block title %}Log out{% endblock %}
+{% block crumbs %}<b>Log out</b>{% endblock %}
 {% block content %}
-<div class="card white narrow">
-  <h2>Log out of MedScan?</h2>
-  <p class="muted">You will need your ID and password to come back.</p>
-  <div class="btn-row">
-    <a class="btn secondary" href="{% url 'dashboard' %}">Cancel</a>
-    <form method="post" class="inline-form">{% csrf_token %}
-      <button type="submit" class="danger">Log Out</button>
+<div class="card center-card">
+  <div class="card-b">
+    <span class="ic gray" style="width:44px;height:44px;border-radius:12px">{% icon "logout" %}</span>
+    <h2 class="mt-16" style="font-size:18px">Log out of MedScan?</h2>
+    <p class="muted" style="margin-top:4px">You will need your ID and password to come back.</p>
+  </div>
+  <div class="card-foot">
+    <a class="btn ghost" href="{% url 'dashboard' %}">Cancel</a>
+    <form method="post" class="inline-form" style="margin-left:auto">{% csrf_token %}
+      <button type="submit" class="danger">{% icon "logout" "sm" %}Log out</button>
     </form>
   </div>
 </div>

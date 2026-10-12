@@ -4,72 +4,100 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MedScan</title>
-<link rel="stylesheet" href="{% static 'css/G_Style.css' %}">
+<title>{% block title %}MedScan{% endblock %} &middot; MedScan</title>
+<link rel="stylesheet" href="{% static 'css/G_Style.css' %}?v=2">
 </head>
 <body class="{% if user %}has-shell{% else %}auth-page{% endif %}">
 {% if user %}
 {% with page=request.resolver_match.url_name %}
 <aside class="sidebar">
-  <div class="brand">
-    <div class="brand-logo"></div>
-    <span class="brand-name">MedScan{% if user.role == "Doctor" %} MD{% endif %}</span>
-  </div>
+  <a class="logo" href="{% url 'dashboard' %}">
+    <span class="logo-mark">{% logo %}</span>
+    <div><b>MedScan</b><span>{% if user.role == "Doctor" %}Clinician Portal{% else %}Patient Portal{% endif %}</span></div>
+  </a>
 
-  <div class="me-card">
-    <div class="avatar">{{ user.name|slice:":1" }}</div>
-    <div>
-      <strong>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</strong>
-      <span class="faint">{{ user.role }} &middot; {{ user.display_id }}</span>
-    </div>
-  </div>
-
+  <div class="nav-label">Menu</div>
   <nav class="nav">
-    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Dashboard</a>
     {% if user.role == "Doctor" %}
-      <a href="{% url 'search' %}" class="{% if page == 'search' or page == 'record' %}active{% endif %}">Search Patient</a>
-      <a href="{% url 'doctor_requests' %}" class="{% if page == 'doctor_requests' %}active{% endif %}">Requests</a>
-      <a href="{% url 'emergency_form' %}" class="{% if page == 'emergency_form' or page == 'emergency' %}active{% endif %}">Emergency Access</a>
+      <a href="{% url 'search' %}" class="{% if page == 'search' %}on{% endif %}">{% icon "search" %}Search Patient</a>
+      <a href="{% url 'my_patients' %}" class="{% if page == 'my_patients' or page == 'record' %}on{% endif %}">{% icon "users" %}My Patients</a>
+      <a href="{% url 'doctor_requests' %}" class="{% if page == 'doctor_requests' %}on{% endif %}">{% icon "send" %}My Requests{% if pending_count %}<span class="count">{{ pending_count }}</span>{% endif %}</a>
     {% else %}
-      <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}active{% endif %}">My Record</a>
-      <a href="{% url 'profile' %}" class="{% if page == 'profile' %}active{% endif %}">Profile</a>
+      <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}My Record</a>
+      <a href="{% url 'my_doctors' %}" class="{% if page == 'my_doctors' %}on{% endif %}">{% icon "steth" %}My Doctors{% if waiting_count %}<span class="count red">{{ waiting_count }}</span>{% endif %}</a>
+      <a href="{% url 'access_log' %}" class="{% if page == 'access_log' %}on{% endif %}">{% icon "history" %}Access Log</a>
     {% endif %}
   </nav>
 
-  <div class="nav nav-bottom">
-    <button type="button" class="nav-button" id="open-notifications">
-      Notifications
-      <span class="badge" id="unread-badge" data-count="{{ unread }}" {% if not unread %}hidden{% endif %}>{{ unread }}</span>
-    </button>
-    <a href="{% url 'logout' %}">Log out</a>
+  {% if user.role == "Doctor" %}
+  <div class="nav-label">Urgent</div>
+  <nav class="nav">
+    <a href="{% url 'emergency_form' %}" class="danger {% if page == 'emergency_form' or page == 'emergency' %}on{% endif %}">{% icon "shield" %}Emergency Access</a>
+  </nav>
+  {% else %}
+  <div class="nav-label">Account</div>
+  <nav class="nav">
+    <a href="{% url 'profile' %}" class="{% if page == 'profile' %}on{% endif %}">{% icon "user" %}Profile</a>
+  </nav>
+  {% endif %}
+
+  <div class="side-foot">
+    <div class="me">
+      <div class="avatar">{{ user.name|initials }}</div>
+      <div><b>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</b><span>{{ user.display_id }}</span></div>
+      <a class="out" href="{% url 'logout' %}" title="Log out">{% icon "logout" "sm" %}</a>
+    </div>
   </div>
 </aside>
-{% endwith %}
-{% endif %}
 
-<main class="content">
-  <div class="page">
+<div class="main">
+  <header class="top">
+    <div class="crumbs">{% if user.role == "Doctor" %}Clinician{% else %}Patient{% endif %} <span>/</span> {% block crumbs %}<b>Dashboard</b>{% endblock %}</div>
+    {% if user.role == "Doctor" %}
+      <form class="top-search" method="get" action="{% url 'search' %}">{% icon "search" "sm" %}<input name="q" placeholder="Find a patient by ID"></form>
+    {% else %}
+      <span class="top-spacer"></span>
+    {% endif %}
+    <button type="button" class="icon-btn" id="open-notifications" title="Notifications">
+      {% icon "bell" "sm" %}
+      <span class="badge" id="unread-badge" data-count="{{ unread }}" {% if not unread %}hidden{% endif %}>{{ unread }}</span>
+    </button>
+    <span class="top-date">{% icon "cal" "sm" %}{% now "D, M j, Y" %}</span>
+  </header>
+
+  <div class="content">
     {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
     {% block content %}{% endblock %}
   </div>
-</main>
+</div>
+{% endwith %}
 
-{% if user %}
 <div class="drawer-backdrop" id="drawer-backdrop"></div>
 <aside class="drawer" id="notifications-drawer" aria-hidden="true" data-read-url="{% url 'notifications_read' %}">
-  <div class="drawer-head">
-    <h2 class="m-0">Notifications</h2>
-    <button type="button" class="icon-close" id="close-notifications" aria-label="Close">&times;</button>
+  <div class="card-h">
+    <h2>Notifications</h2>
+    {% if unread %}<span class="pill teal nodot">{{ unread }} new</span>{% endif %}
+    <button type="button" class="icon-btn" id="close-notifications" aria-label="Close">{% icon "x" "sm" %}</button>
   </div>
   {% for n in inbox_items %}
     <div class="notice {% if not n.is_read %}unread{% endif %}">
-      <p class="m-0">{{ n.message }}</p>
-      <span class="faint">{{ n.timestamp|date:"M d, Y" }} &middot; {{ n.timestamp|date:"H:i" }}</span>
+      {% if "emergency" in n.message %}<span class="ic red">{% icon "shield" "sm" %}</span>
+      {% elif "requests access" in n.message %}<span class="ic amber">{% icon "inbox" "sm" %}</span>
+      {% elif "approved" in n.message %}<span class="ic green">{% icon "check" "sm" %}</span>
+      {% elif "denied" in n.message or "revoked" in n.message %}<span class="ic gray">{% icon "lock" "sm" %}</span>
+      {% else %}<span class="ic teal">{% icon "bell" "sm" %}</span>{% endif %}
+      <div>
+        <p>{{ n.message }}</p>
+        <span class="faint small">{{ n.timestamp|date:"M d, Y" }} &middot; {{ n.timestamp|date:"H:i" }}</span>
+      </div>
     </div>
   {% empty %}<p class="empty">Nothing yet.</p>{% endfor %}
 </aside>
 <form id="csrf-holder" hidden>{% csrf_token %}</form>
 <script src="{% static 'js/G_Shell.js' %}"></script>
+{% else %}
+{% block auth %}{% endblock %}
 {% endif %}
 </body>
 </html>

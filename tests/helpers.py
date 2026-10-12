@@ -15,7 +15,7 @@ def build_sample_system():
     """A system with something in every table, for the store tests."""
     system = MedScanSystem.load(MemoryStore())
     reyes = system.doctors[2001]
-    santos = system.register_doctor("Antonio Santos", "doc456", "Cardiology")
+    santos = system.register_doctor("Antonio Santos", "doc456", "Cardiology", "Northview Medical Center")
     juan = system.patients[1001]
     ana = system.register_patient("Ana Lopez", "ana123", "Female", 28, "Latex, Dust", "",
                                   contact_number="09281112222", medications="Cetirizine", blood_type="A+")
@@ -40,7 +40,7 @@ def snapshot(system):
                list(p.record.medications),
                [(c.consultation_id, c.doctor_id, c.doctor_name, c.notes, c.date) for c in p.record.consultations])
               for p in system.patients.values()]
-    doctors = [(d.user_id, d.name, d.specialty, d.display_id) for d in system.doctors.values()]
+    doctors = [(d.user_id, d.name, d.specialty, d.clinic, d.display_id) for d in system.doctors.values()]
     return {
         "doctors": doctors,
         "patients": people,

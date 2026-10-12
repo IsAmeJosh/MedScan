@@ -1,0 +1,34 @@
+{% extends "G_Base.html" %}
+{% block title %}My Doctors{% endblock %}
+{% block crumbs %}<b>My Doctors</b>{% endblock %}
+{% block content %}
+<div class="page-h">
+  <div><h1>My Doctors</h1><p>Doctors you have allowed to open your record. You can take access back at any time.</p></div>
+</div>
+
+<div class="grid g3 mb-16">
+  <div class="card stat"><div class="k"><span class="ic green">{% icon "shieldok" "sm" %}</span>With access</div><div class="v">{{ doctors.with_access|length }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic amber">{% icon "clock" "sm" %}</span>Waiting for you</div><div class="v">{{ doctors.waiting|length }}</div></div>
+  <div class="card stat"><div class="k"><span class="ic gray">{% icon "history" "sm" %}</span>Past access</div><div class="v">{{ doctors.past|length }}</div></div>
+</div>
+
+<h2 class="section-title">With access</h2>
+<div class="grid g2">
+  {% for r, doctor, last in doctors.with_access %}{% include "G_Doctor_Card.html" %}
+  {% empty %}<p class="empty">No doctor has access to your record right now.</p>{% endfor %}
+</div>
+
+{% if doctors.waiting %}
+<h2 class="section-title">Waiting for your answer</h2>
+<div class="grid g2">
+  {% for r, doctor, last in doctors.waiting %}{% include "G_Doctor_Card.html" %}{% endfor %}
+</div>
+{% endif %}
+
+{% if doctors.past %}
+<h2 class="section-title">Past access</h2>
+<div class="grid g2">
+  {% for r, doctor, last in doctors.past %}{% include "G_Doctor_Card.html" %}{% endfor %}
+</div>
+{% endif %}
+{% endblock %}

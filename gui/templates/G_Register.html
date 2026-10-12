@@ -1,44 +1,73 @@
 {% extends "G_Base.html" %}
 {% load static %}
-{% block content %}
-<div class="auth-card wide">
-  <h1>Create your account</h1>
-  <p class="muted">This will generate your personal ID number.</p>
-  <form method="post">{% csrf_token %}
-    <label>I am a</label>
-    <select name="role" id="role">
-      <option {% if form.role != "Doctor" %}selected{% endif %}>Patient</option>
-      <option {% if form.role == "Doctor" %}selected{% endif %}>Doctor</option>
-    </select>
-    <label>Full name</label>
-    <input name="name" placeholder="Juan Dela Cruz" value="{{ form.name|default:'' }}" required>
-    <label>Password</label>
-    <input name="password" type="password" required>
-
-    <div id="patientFields">
-      <div class="row">
-        <div>
-          <label>Sex</label>
-          <select name="sex">
-            <option {% if form.sex != "Female" %}selected{% endif %}>Male</option>
-            <option {% if form.sex == "Female" %}selected{% endif %}>Female</option>
-          </select>
+{% block title %}Create account{% endblock %}
+{% block auth %}
+<div class="auth">
+  {% include "G_Auth_Art.html" %}
+  <div class="auth-form">
+    <div class="box wide">
+      <h1>Create your account</h1>
+      <p>This will generate your personal MedScan ID.</p>
+      {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
+      <form method="post">{% csrf_token %}
+        <div class="two-col">
+          <div class="field">
+            <label for="role">I am a</label>
+            <select name="role" id="role">
+              <option {% if form.role != "Doctor" %}selected{% endif %}>Patient</option>
+              <option {% if form.role == "Doctor" %}selected{% endif %}>Doctor</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" required>
+          </div>
         </div>
-        <div><label>Age</label><input name="age" type="number" min="0" max="120" value="{{ form.age|default:'' }}"></div>
-      </div>
-      <label>Contact number (optional)</label>
-      <input name="contact_number" placeholder="09XX XXX XXXX" value="{{ form.contact_number|default:'' }}">
-      <label>Medical history (optional)</label>
-      <input name="allergies" placeholder="Allergies, comma separated" value="{{ form.allergies|default:'' }}" class="mb-10">
-      <input name="surgeries" placeholder="Past surgeries, comma separated" value="{{ form.surgeries|default:'' }}">
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" name="name" placeholder="Juan Dela Cruz" value="{{ form.name|default:'' }}" required>
+        </div>
+
+        <div id="patientFields">
+          <div class="two-col">
+            <div class="field">
+              <label>Sex</label>
+              <select name="sex">
+                <option {% if form.sex != "Female" %}selected{% endif %}>Male</option>
+                <option {% if form.sex == "Female" %}selected{% endif %}>Female</option>
+              </select>
+            </div>
+            <div class="field"><label>Age</label><input name="age" type="number" min="0" max="120" value="{{ form.age|default:'' }}"></div>
+          </div>
+          <div class="field">
+            <label>Contact number (optional)</label>
+            <input name="contact_number" placeholder="09XX XXX XXXX" value="{{ form.contact_number|default:'' }}">
+          </div>
+          <div class="field">
+            <label>Medical history (optional)</label>
+            <div class="two-col">
+              <input name="allergies" placeholder="Allergies, comma separated" value="{{ form.allergies|default:'' }}">
+              <input name="surgeries" placeholder="Past surgeries, comma separated" value="{{ form.surgeries|default:'' }}">
+            </div>
+          </div>
+        </div>
+        <div id="doctorFields">
+          <div class="two-col">
+            <div class="field">
+              <label>Specialty</label>
+              <input name="specialty" placeholder="e.g. Cardiology" value="{{ form.specialty|default:'' }}">
+            </div>
+            <div class="field">
+              <label>Hospital or clinic</label>
+              <input name="clinic" placeholder="e.g. Bayanihan Family Clinic" value="{{ form.clinic|default:'' }}">
+            </div>
+          </div>
+        </div>
+        <button type="submit" class="lg w-full">Create account</button>
+      </form>
+      <p class="muted text-center mt-24">Already have an account? <a href="{% url 'login' %}"><b>Log in</b></a></p>
     </div>
-    <div id="doctorFields">
-      <label>Specialty</label>
-      <input name="specialty" placeholder="e.g. Cardiology" value="{{ form.specialty|default:'' }}">
-    </div>
-    <button type="submit" class="w-full">Create Account</button>
-  </form>
-  <p class="muted text-center mt-24 m-0">Already have an account? <a href="{% url 'login' %}">Log in</a></p>
+  </div>
 </div>
 <script src="{% static 'js/G_Register.js' %}"></script>
 {% endblock %}
