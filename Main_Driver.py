@@ -11,6 +11,7 @@ def run_console_demo():
     db.reset()  # fresh tables with the test accounts from database/seed.sql
     s = MedScanSystem(db)
     doc, pat = s.get_doctor(2001), s.get_patient(1001)
+    assert doc is not None and pat is not None, "the test accounts from database/seed.sql are missing"
     print(doc, "|", pat)
     req = s.request_access(doc, pat.user_id)
     assert req is not None, "the first request should be accepted"
@@ -26,6 +27,7 @@ def run_console_demo():
     assert second is not None
     print("Consultation IDs:", note.consultation_id, second.consultation_id)
     pat = s.get_patient(pat.user_id)  # read again from the database
+    assert pat is not None
     print("Allergies:", pat.record.allergies, "| Surgeries:", pat.record.surgeries, "| Age:", pat.age)
     s.open_record(doc, pat.user_id)
     print("Record views logged:", len(s.view_rows_for_patient(pat.user_id)))
