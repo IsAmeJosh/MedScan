@@ -1,47 +1,47 @@
 {% extends "G_Base.html" %}
-{% block title %}My Record{% endblock %}
-{% block crumbs %}<b>My Record</b>{% endblock %}
+{% block title %}My Health{% endblock %}
 {% block content %}
 <div class="page-h">
-  <div><h1>My Record</h1><p>This is exactly what an approved doctor sees.</p></div>
+  <div><h1>My Health</h1></div>
+  <div class="actions"><a class="btn" href="#edit" data-open="edit">{% icon "edit" "sm" %}Edit my information</a></div>
 </div>
 
 <div class="card mb-16">
   <div class="card-h">
     <div class="avatar lg">{{ user.name|initials }}</div>
-    <div><h2 style="font-size:18px">{{ user.name }}</h2><span class="muted">{{ user.display_id }} &middot; {{ user.sex }} &middot; {{ user.age }} years</span></div>
+    <div><h2 class="name-lg">{{ user.name }}</h2><span class="muted">{{ user.display_id }}</span></div>
   </div>
   <div class="kv">
+    <div><span>Sex and age</span><b>{{ user.sex }}, {{ user.age }}</b></div>
     <div><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
-    <div><span>Contact number</span><b>{{ user.contact_number|default:"Not given" }}</b></div>
-    <div><span>Consultations</span><b>{{ record.consultations|length }}</b></div>
-    <div><span>Last visit</span><b>{{ record.latest_consultation.date|date:"M d, Y"|default:"None yet" }}</b></div>
+    <div><span>Mobile number</span><b>{{ user.contact_number|mobile }}</b></div>
+    <div><span>Member since</span><b>{{ user.created_year }}</b></div>
   </div>
 </div>
 
-<div class="grid g3 mb-16">
-  <div class="card"><div class="card-h">{% icon "alert" %}<h3>Allergies</h3></div><div class="card-b wrap">
+<div class="grid g3 eq mb-16">
+  <div class="card fill"><div class="card-h">{% icon "alert" %}<h3>Allergies</h3></div><div class="card-b wrap">
     {% for a in record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
-  <div class="card"><div class="card-h">{% icon "pill" %}<h3>Current medications</h3></div><div class="card-b wrap">
+  <div class="card fill"><div class="card-h">{% icon "pill" %}<h3>Current medications</h3></div><div class="card-b wrap">
     {% for m in record.medications %}<span class="tag">{% icon "pill" "sm" %}{{ m }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
-  <div class="card"><div class="card-h">{% icon "pulse" %}<h3>Past surgeries</h3></div><div class="card-b wrap">
+  <div class="card fill"><div class="card-h">{% icon "pulse" %}<h3>Past surgeries</h3></div><div class="card-b wrap">
     {% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
 </div>
 
-<details class="card mb-16">
+<details class="card mb-16" id="edit">
   <summary>{% icon "edit" %}Edit my information</summary>
-  <form method="post" action="{% url 'update_info' %}" class="card-b">{% csrf_token %}
-    <div class="grid g3" style="gap:12px">
-      <div class="field"><label>Allergies (comma separated)</label><input name="allergies" value="{{ record.allergies|join:', ' }}"></div>
-      <div class="field"><label>Current medications (comma separated)</label><input name="medications" value="{{ record.medications|join:', ' }}"></div>
-      <div class="field"><label>Past surgeries (comma separated)</label><input name="surgeries" value="{{ record.surgeries|join:', ' }}"></div>
+  <form method="post" action="{% url 'update_info' %}" class="card-b" data-validate-form>{% csrf_token %}
+    <div class="grid g3 tight">
+      <div class="field"><label>Allergies</label><input name="allergies" data-chips placeholder="Type one, press Enter" value="{{ record.allergies|join:', ' }}"></div>
+      <div class="field"><label>Current medications</label><input name="medications" data-chips placeholder="Type one, press Enter" value="{{ record.medications|join:', ' }}"></div>
+      <div class="field"><label>Past surgeries</label><input name="surgeries" data-chips placeholder="Type one, press Enter" value="{{ record.surgeries|join:', ' }}"></div>
       <div class="field"><label>Blood type</label>
         <select name="blood_type">
           {% for b in blood_types %}<option value="{{ b }}" {% if b == record.blood_type %}selected{% endif %}>{{ b|default:"Not set" }}</option>{% endfor %}
         </select></div>
-      <div class="field"><label>Contact number</label><input name="contact_number" placeholder="09XX XXX XXXX" value="{{ user.contact_number }}"></div>
+      <div class="field"><label>Mobile number</label><input name="contact_number" type="tel" inputmode="tel" maxlength="20" placeholder="0917 123 4567" value="{{ user.contact_number|mobile }}" required data-format="mobile" data-validate="mobile-required" data-hint="One number per account. You can log in with it."></div>
     </div>
-    <button type="submit">{% icon "check" "sm" %}Save changes</button>
+    <button type="submit" data-submit>{% icon "check" "sm" %}Save changes</button>
   </form>
 </details>
 

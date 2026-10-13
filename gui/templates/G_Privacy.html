@@ -1,0 +1,41 @@
+{% extends "G_Base.html" %}
+{% block title %}Privacy{% endblock %}
+{% block content %}
+<div class="page-h">
+  <div><h1>Privacy</h1></div>
+</div>
+
+<div class="tabs mb-16">
+  <a class="tab {% if tab == 'doctors' %}on{% endif %}" href="{% url 'privacy' %}">Doctors <span>{{ doctor_total }}</span></a>
+  <a class="tab {% if tab == 'activity' %}on{% endif %}" href="?tab=activity">Who opened my record <span>{{ activity_total }}</span></a>
+</div>
+
+{% if tab == "doctors" %}
+  {% if doctors.waiting %}
+  <h2 class="section-title">Waiting for your answer</h2>
+  <div class="grid g2 eq">{% for r, doctor, last in doctors.waiting %}{% include "G_Doctor_Card.html" %}{% endfor %}</div>
+  {% endif %}
+
+  {% if doctors.with_access %}
+  <h2 class="section-title">Can open your record</h2>
+  <div class="grid g2 eq">{% for r, doctor, last in doctors.with_access %}{% include "G_Doctor_Card.html" %}{% endfor %}</div>
+  {% endif %}
+
+  {% if doctors.past %}
+  <h2 class="section-title">Past access</h2>
+  <div class="grid g2 eq">{% for r, doctor, last in doctors.past %}{% include "G_Doctor_Card.html" %}{% endfor %}</div>
+  {% endif %}
+
+  {% if not doctor_total %}
+  <div class="card"><p class="empty card-b">No doctor has asked for access yet. Give a doctor your ID, <b>{{ user.display_id }}</b>, and approve their request when it arrives.</p></div>
+  {% endif %}
+{% else %}
+  <div class="card">
+    <div class="list">
+      {% for a in activity %}{% include "G_Activity_Item.html" %}
+      {% empty %}<p class="empty">Nobody has opened your record yet.</p>{% endfor %}
+    </div>
+    {% include "G_Pager.html" with page=activity %}
+  </div>
+{% endif %}
+{% endblock %}

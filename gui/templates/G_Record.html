@@ -1,53 +1,60 @@
 {% extends "G_Base.html" %}
 {% block title %}{{ patient.name }}{% endblock %}
-{% block crumbs %}<a href="{% url 'my_patients' %}">My Patients</a> <span>/</span> <b>{{ patient.name }}</b>{% endblock %}
 {% block content %}
 {% if emergency and not has_access %}
 <div class="banner amber">{% icon "alert" %}<div><b>Emergency access.</b> This was logged and the patient was notified.</div></div>
 {% endif %}
 
 <div class="card mb-16">
-  <div class="card-b row" style="gap:16px">
-    <div class="avatar lg {{ patient.user_id|tint }}">{{ patient.name|initials }}</div>
-    <div style="flex:1">
-      <div class="row"><h1 style="font-size:21px">{{ patient.name }}</h1>
-        {% if has_access %}<span class="pill green">Access approved</span>{% else %}<span class="pill red">Emergency</span>{% endif %}</div>
-      <span class="muted">{{ patient.display_id }} &middot; {{ patient.sex }} &middot; {{ patient.age }} years &middot; {{ record.blood_type|default:"Blood type not set" }} &middot; {{ patient.contact_number|default:"No contact number" }}</span>
+  <div class="card-b row between">
+    <div class="row">
+      <div class="avatar lg {{ patient.user_id|tint }}">{{ patient.name|initials }}</div>
+      <div>
+        <div class="row"><h1 class="name-md">{{ patient.name }}</h1>
+          {% if has_access %}<span class="pill green">Access approved</span>{% else %}<span class="pill red">Emergency</span>{% endif %}</div>
+        <span class="muted">{{ patient.display_id }} &middot; {{ patient.sex }} &middot; {{ patient.age }} years &middot; {{ patient.contact_number|mobile|default:"No contact number" }}</span>
+      </div>
     </div>
+    <a class="btn ghost" href="{% url 'patients' %}">{% icon "back" "sm" %}Patients</a>
+  </div>
+  <div class="vitals">
+    <div class="vital"><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
+    <div class="vital"><span>Last visit</span><b>{{ latest.date|date:"M d, Y"|default:"None yet" }}</b></div>
+    <div class="vital"><span>Notes</span><b>{{ record.consultations|length }}</b></div>
+    <div class="vital"><span>Access</span><b>{% if has_access %}Approved{% else %}Emergency{% endif %}</b></div>
   </div>
   {% if record.allergies %}
-  <div class="banner red" style="margin:0 20px 18px">{% icon "alert" "sm" %}<div><b>Allergies:</b> {{ record.allergies|join:", " }}. Check before prescribing.</div></div>
+  <div class="banner red flush">{% icon "alert" "sm" %}<div><b>Allergies:</b> {{ record.allergies|join:", " }}. Check before prescribing.</div></div>
   {% endif %}
 </div>
 
-<div class="grid g-main">
-  <div class="stack">
-    <div class="card">
-      <div class="card-h">{% icon "edit" %}<h2>New consultation note</h2></div>
-      <form method="post" action="{% url 'consult' patient.user_id %}" class="card-b">{% csrf_token %}
-        <div class="field"><label for="notes">Notes</label>
-          <textarea id="notes" name="notes" rows="4" placeholder="Patient presented with..." required></textarea></div>
-        <div class="row" style="justify-content:flex-end"><button type="submit">{% icon "check" "sm" %}Save to record</button></div>
-      </form>
-    </div>
-    <div class="card">
-      <div class="card-h">{% icon "file" %}<h2>Consultation history</h2><span class="pill gray nodot">{{ record.consultations|length }}</span></div>
-      {% include "G_Timeline.html" %}
-    </div>
-  </div>
+<div class="grid g3 eq mb-16">
+  <div class="card fill"><div class="card-h">{% icon "alert" %}<h3>Allergies</h3></div><div class="card-b wrap">
+    {% for a in record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
+  <div class="card fill"><div class="card-h">{% icon "pill" %}<h3>Medications</h3></div><div class="card-b wrap">
+    {% for m in record.medications %}<span class="tag">{% icon "pill" "sm" %}{{ m }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
+  <div class="card fill"><div class="card-h">{% icon "pulse" %}<h3>Past surgeries</h3></div><div class="card-b wrap">
+    {% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
+</div>
 
-  <div class="stack">
-    <div class="card"><div class="card-h">{% icon "alert" %}<h3>Allergies</h3></div><div class="card-b wrap">
-      {% for a in record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<p class="empty">No known allergies.</p>{% endfor %}</div></div>
-    <div class="card"><div class="card-h">{% icon "pill" %}<h3>Medications</h3></div><div class="card-b wrap">
-      {% for m in record.medications %}<span class="tag">{% icon "pill" "sm" %}{{ m }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
-    <div class="card"><div class="card-h">{% icon "pulse" %}<h3>Past surgeries</h3></div><div class="card-b wrap">
-      {% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
-    <div class="card"><div class="card-h">{% icon "drop" %}<h3>On file</h3></div><div class="list">
-      <div class="item"><span class="grow muted">Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
-      <div class="item"><span class="grow muted">Contact</span><b>{{ patient.contact_number|default:"None" }}</b></div>
-      <div class="item"><span class="grow muted">Last visit</span><b>{{ latest.date|date:"M d, Y"|default:"None yet" }}</b></div>
-    </div></div>
+<div class="grid g2 eq">
+  <div class="card fill">
+    <div class="card-h">{% icon "edit" %}<h2>New consultation note</h2></div>
+    <form method="post" action="{% url 'consult' patient.user_id %}" class="card-b">{% csrf_token %}
+      <div class="phrases">
+        <button type="button" class="phrase" data-phrase="#notes">+ Follow-up in 1 week</button>
+        <button type="button" class="phrase" data-phrase="#notes">+ Advised rest and fluids</button>
+        <button type="button" class="phrase" data-phrase="#notes">+ Labs requested</button>
+        <button type="button" class="phrase" data-phrase="#notes">+ Referred to a specialist</button>
+      </div>
+      <div class="field"><label for="notes">Notes</label>
+        <textarea maxlength="5000" id="notes" data-counter name="notes" rows="7" placeholder="Patient presented with..." required></textarea></div>
+      <div class="row between"><span></span><button type="submit">{% icon "check" "sm" %}Save to record</button></div>
+    </form>
+  </div>
+  <div class="card fill">
+    <div class="card-h">{% icon "file" %}<h2>Consultation history</h2><span class="pill gray nodot ml-auto">{{ record.consultations|length }}</span></div>
+    {% include "G_Timeline.html" %}
   </div>
 </div>
 {% endblock %}

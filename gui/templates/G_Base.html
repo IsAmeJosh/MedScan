@@ -5,9 +5,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}MedScan{% endblock %} &middot; MedScan</title>
-<link rel="stylesheet" href="{% static 'css/G_Style.css' %}?v=2">
+<link rel="stylesheet" href="{% static 'css/G_Style.css' %}?v=7">
 </head>
-<body class="{% if user %}has-shell{% else %}auth-page{% endif %}">
+<body class="{% if user %}has-shell{% else %}auth-page{% endif %}"{% if user %} data-idle-minutes="{{ idle_minutes }}" data-keepalive-url="{% url 'keepalive' %}" data-logout-url="{% url 'logout' %}" data-login-url="{% url 'login' %}"{% endif %}>
 {% if user %}
 {% with page=request.resolver_match.url_name %}
 <aside class="sidebar">
@@ -16,31 +16,15 @@
     <div><b>MedScan</b><span>{% if user.role == "Doctor" %}Clinician Portal{% else %}Patient Portal{% endif %}</span></div>
   </a>
 
-  <div class="nav-label">Menu</div>
   <nav class="nav">
-    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Dashboard</a>
+    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
     {% if user.role == "Doctor" %}
-      <a href="{% url 'search' %}" class="{% if page == 'search' %}on{% endif %}">{% icon "search" %}Search Patient</a>
-      <a href="{% url 'my_patients' %}" class="{% if page == 'my_patients' or page == 'record' %}on{% endif %}">{% icon "users" %}My Patients</a>
-      <a href="{% url 'doctor_requests' %}" class="{% if page == 'doctor_requests' %}on{% endif %}">{% icon "send" %}My Requests{% if pending_count %}<span class="count">{{ pending_count }}</span>{% endif %}</a>
+      <a href="{% url 'patients' %}" class="{% if page == 'patients' or page == 'record' %}on{% endif %}">{% icon "users" %}Patients<span class="count" id="count-ready" {% if not ready_count %}hidden{% endif %}>{{ ready_count }}</span></a>
     {% else %}
-      <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}My Record</a>
-      <a href="{% url 'my_doctors' %}" class="{% if page == 'my_doctors' %}on{% endif %}">{% icon "steth" %}My Doctors{% if waiting_count %}<span class="count red">{{ waiting_count }}</span>{% endif %}</a>
-      <a href="{% url 'access_log' %}" class="{% if page == 'access_log' %}on{% endif %}">{% icon "history" %}Access Log</a>
+      <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}My Health</a>
+      <a href="{% url 'privacy' %}" class="{% if page == 'privacy' %}on{% endif %}">{% icon "shield" %}Privacy<span class="count red" id="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
     {% endif %}
   </nav>
-
-  {% if user.role == "Doctor" %}
-  <div class="nav-label">Urgent</div>
-  <nav class="nav">
-    <a href="{% url 'emergency_form' %}" class="danger {% if page == 'emergency_form' or page == 'emergency' %}on{% endif %}">{% icon "shield" %}Emergency Access</a>
-  </nav>
-  {% else %}
-  <div class="nav-label">Account</div>
-  <nav class="nav">
-    <a href="{% url 'profile' %}" class="{% if page == 'profile' %}on{% endif %}">{% icon "user" %}Profile</a>
-  </nav>
-  {% endif %}
 
   <div class="side-foot">
     <div class="me">
@@ -53,9 +37,15 @@
 
 <div class="main">
   <header class="top">
-    <div class="crumbs">{% if user.role == "Doctor" %}Clinician{% else %}Patient{% endif %} <span>/</span> {% block crumbs %}<b>Dashboard</b>{% endblock %}</div>
     {% if user.role == "Doctor" %}
-      <form class="top-search" method="get" action="{% url 'search' %}">{% icon "search" "sm" %}<input name="q" placeholder="Find a patient by ID"></form>
+      <form class="top-search" method="get" action="{% url 'patients' %}" autocomplete="off" role="search">
+        {% icon "search" "sm" %}
+        <input id="top-search-input" name="q" placeholder="Find a patient: name, ID or mobile number" aria-label="Find a patient" data-suggest-url="{% url 'patient_suggest' %}">
+        <kbd title="Press / to search">/</kbd>
+        <div class="suggest" id="suggest" hidden></div>
+      </form>
+      <span class="top-spacer"></span>
+      <a class="btn danger-ghost sm" href="{% url 'emergency_form' %}" data-emergency>{% icon "shield" "sm" %}Emergency</a>
     {% else %}
       <span class="top-spacer"></span>
     {% endif %}
@@ -63,41 +53,72 @@
       {% icon "bell" "sm" %}
       <span class="badge" id="unread-badge" data-count="{{ unread }}" {% if not unread %}hidden{% endif %}>{{ unread }}</span>
     </button>
-    <span class="top-date">{% icon "cal" "sm" %}{% now "D, M j, Y" %}</span>
   </header>
 
   <div class="content">
-    {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
     {% block content %}{% endblock %}
   </div>
 </div>
 {% endwith %}
 
+<div class="toasts" aria-live="polite">
+  {% for m in messages %}
+    <div class="toast {{ m.tags }}" role="status">
+      {% if m.tags == "error" %}{% icon "alert" "sm" %}{% else %}{% icon "check" "sm" %}{% endif %}
+      <span>{{ m }}</span>
+      <button type="button" class="toast-x" aria-label="Dismiss">&times;</button>
+    </div>
+  {% endfor %}
+</div>
+
+<div class="scrim" id="search-scrim" aria-hidden="true"></div>
 <div class="drawer-backdrop" id="drawer-backdrop"></div>
-<aside class="drawer" id="notifications-drawer" aria-hidden="true" data-read-url="{% url 'notifications_read' %}">
+<aside class="drawer" id="notifications-drawer" aria-hidden="true" data-read-url="{% url 'notifications_read' %}"
+       data-poll-url="{% url 'notifications_poll' %}" data-poll-seconds="{{ poll_seconds }}">
   <div class="card-h">
     <h2>Notifications</h2>
-    {% if unread %}<span class="pill teal nodot">{{ unread }} new</span>{% endif %}
+    <span class="pill teal nodot" id="new-count" {% if not unread %}hidden{% endif %}>{{ unread }} new</span>
+    <button type="button" class="sm ghost" id="mark-all-read" {% if not unread %}hidden{% endif %}>Mark all read</button>
     <button type="button" class="icon-btn" id="close-notifications" aria-label="Close">{% icon "x" "sm" %}</button>
   </div>
-  {% for n in inbox_items %}
-    <div class="notice {% if not n.is_read %}unread{% endif %}">
-      {% if "emergency" in n.message %}<span class="ic red">{% icon "shield" "sm" %}</span>
-      {% elif "requests access" in n.message %}<span class="ic amber">{% icon "inbox" "sm" %}</span>
-      {% elif "approved" in n.message %}<span class="ic green">{% icon "check" "sm" %}</span>
-      {% elif "denied" in n.message or "revoked" in n.message %}<span class="ic gray">{% icon "lock" "sm" %}</span>
-      {% else %}<span class="ic teal">{% icon "bell" "sm" %}</span>{% endif %}
-      <div>
-        <p>{{ n.message }}</p>
-        <span class="faint small">{{ n.timestamp|date:"M d, Y" }} &middot; {{ n.timestamp|date:"H:i" }}</span>
-      </div>
-    </div>
-  {% empty %}<p class="empty">Nothing yet.</p>{% endfor %}
+  <div id="notification-list">{% include "G_Notification_List.html" %}</div>
 </aside>
+
+<dialog id="confirm-dialog" class="modal">
+  <form method="dialog">
+    <h2 id="confirm-title">Are you sure?</h2>
+    <p id="confirm-text" class="muted"></p>
+    <div class="modal-actions">
+      <button value="cancel" class="ghost">Cancel</button>
+      <button value="ok" id="confirm-ok">Confirm</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="idle-dialog" class="modal">
+  <h2>Still there?</h2>
+  <p class="muted">For your security you will be logged out in <b id="idle-seconds">60</b> seconds.</p>
+  <div class="modal-actions">
+    <a class="btn ghost" href="{% url 'logout' %}">Log out now</a>
+    <button type="button" id="idle-stay">Stay logged in</button>
+  </div>
+</dialog>
+{% if user.role == "Doctor" %}{% include "G_Emergency_Dialog.html" %}{% endif %}
 <form id="csrf-holder" hidden>{% csrf_token %}</form>
-<script src="{% static 'js/G_Shell.js' %}"></script>
 {% else %}
 {% block auth %}{% endblock %}
 {% endif %}
+<script src="{% static 'js/G_Format.js' %}?v=7"></script>
+<script src="{% static 'js/G_Fields.js' %}?v=7"></script>
+<script src="{% static 'js/G_Chips.js' %}?v=7"></script>
+<script src="{% static 'js/G_Dialogs.js' %}?v=7"></script>
+{% if user %}
+<script src="{% static 'js/G_Shell.js' %}?v=7"></script>
+<script src="{% static 'js/G_Idle.js' %}?v=7"></script>
+{% if user.role == "Doctor" %}
+<script src="{% static 'js/G_Suggest.js' %}?v=7"></script>
+<script src="{% static 'js/G_Emergency.js' %}?v=7"></script>
+{% endif %}
+{% endif %}
+{% block scripts %}{% endblock %}
 </body>
 </html>

@@ -28,6 +28,7 @@ ICONS = {
     "plus": '<path d="M12 5v14M5 12h14"/>',
     "cal": '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
     "hosp": '<path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M12 8v5M9.5 10.5h5"/><path d="M10 21v-4h4v4"/>',
+    "eyeoff": '<path d="M9.9 4.2A10 10 0 0 1 12 4c6.5 0 10 8 10 8a17 17 0 0 1-2.3 3.3"/><path d="M6.6 6.6A17 17 0 0 0 2 12s3.5 8 10 8a10 10 0 0 0 5.4-1.6"/><path d="m2 2 20 20"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
     "eye": '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
     "users": '<circle cx="9" cy="8" r="4"/><path d="M2 21a7 7 0 0 1 14 0"/><path d="M16 4.1a4 4 0 0 1 0 7.8M22 21a7 7 0 0 0-4-6.3"/>',
     "send": '<path d="m22 2-7 20-4-9-9-4z"/><path d="M22 2 11 13"/>',
@@ -35,6 +36,10 @@ ICONS = {
     "edit": '<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
     "key": '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3M17 6l3 3M15 8l2 2"/>',
     "chev": '<path d="m9 18 6-6-6-6"/>',
+    "arrow": '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+    "back": '<path d="M19 12H5"/><path d="m11 18-6-6 6-6"/>',
+    "trend": '<path d="m3 17 6-6 4 4 8-8"/><path d="M15 7h6v6"/>',
+    "heart": '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
 }
 
 LOGO = '<path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/>'
@@ -43,7 +48,8 @@ LOGO = '<path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/>'
 @register.simple_tag
 def icon(name, size=""):
     """Return the SVG for one icon. size can be "sm" (15px) or "lg" (22px)."""
-    return mark_safe(f'<svg class="i {size}" viewBox="0 0 24 24" aria-hidden="true">{ICONS[name]}</svg>')
+    # an unknown name draws an empty icon instead of crashing the page; tests/test_templates.py catches typos
+    return mark_safe(f'<svg class="i {size}" viewBox="0 0 24 24" aria-hidden="true">{ICONS.get(name, "")}</svg>')
 
 
 @register.simple_tag

@@ -1,39 +1,28 @@
 {% extends "G_Base.html" %}
 {% block title %}Emergency Access{% endblock %}
-{% block crumbs %}<b>Emergency Access</b>{% endblock %}
 {% block content %}
+{# The same thing as the pop-up, for browsers without scripts. #}
 <div class="page-h">
-  <div><h1>Emergency Access</h1><p>Open a record without the patient's approval when they cannot give it.</p></div>
+  <div><h1>Emergency Access</h1></div>
 </div>
 
-<div class="grid g-main">
-  <form method="post" class="card"><div class="card-b">{% csrf_token %}
-    <div class="banner amber">{% icon "alert" %}<div><b>This bypasses patient approval.</b><br>Your name, the time and your reason are logged, and the patient is notified right away.</div></div>
-    <div class="field">
-      <label>Patient ID</label>
-      {% if patient %}
-        <input value="{{ patient.display_id }} &middot; {{ patient.name }}" readonly>
-      {% else %}
-        <div class="with-icon">{% icon "user" "sm" %}<input name="patient_id" placeholder="PT-2026-01001" value="{{ form.patient_id|default:'' }}" required autofocus></div>
-      {% endif %}
-    </div>
-    <div class="field">
-      <label>Reason for emergency access</label>
-      <textarea name="reason" rows="3" placeholder="e.g. Patient unconscious on arrival, ER" required>{{ form.reason|default:'' }}</textarea>
-    </div>
-    <div class="row">
-      <button type="submit" class="danger">{% icon "shield" "sm" %}Open record now</button>
-      <a class="btn ghost" href="{% url 'dashboard' %}">Cancel</a>
-    </div>
-  </div></form>
-
-  <div class="card">
-    <div class="card-h">{% icon "history" %}<h3>Your emergency log</h3></div>
-    <div class="list">
-      {% for e, p in log %}
-        <div class="item"><div class="grow"><b>{{ p.name }}</b><span class="muted small">{{ e.timestamp|date:"M d, H:i" }} &middot; {{ e.reason }}</span></div><span class="pill red">Logged</span></div>
-      {% empty %}<p class="empty">You have not used emergency access.</p>{% endfor %}
-    </div>
+<form method="post" class="card confirm-card" data-confirm="This opens the record without the patient's approval. Your name, the time and your reason are logged, and the patient is told right away." data-confirm-title="Open this record in an emergency?" data-confirm-button="Open record" data-confirm-tone="danger"><div class="card-b">{% csrf_token %}
+  <div class="banner amber">{% icon "alert" %}<div><b>This bypasses patient approval.</b><br>Your name, the time and your reason are logged, and the patient is notified right away.</div></div>
+  <div class="field">
+    <label>Patient ID or mobile number</label>
+    {% if patient %}
+      <input value="{{ patient.display_id }} &middot; {{ patient.name }}" readonly>
+    {% else %}
+      <div class="with-icon">{% icon "user" "sm" %}<input name="patient_id" placeholder="PT-2026-01001 or 0917 123 4567" value="{{ form.patient_id|default:'' }}" required autofocus></div>
+    {% endif %}
   </div>
-</div>
+  <div class="field">
+    <label>Reason for emergency access</label>
+    <textarea maxlength="500" data-counter name="reason" rows="3" placeholder="e.g. Patient unconscious on arrival, ER" required>{{ form.reason|default:'' }}</textarea>
+  </div>
+  <div class="row">
+    <button type="submit" class="danger">{% icon "shield" "sm" %}Open record now</button>
+    <a class="btn ghost" href="{% url 'dashboard' %}">Cancel</a>
+  </div>
+</div></form>
 {% endblock %}

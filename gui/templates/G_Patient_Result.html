@@ -1,0 +1,33 @@
+{# The result of looking a patient up. Needs: found (the patient) and status (approved, pending, denied, revoked or none). #}
+<div class="card mb-16"><div class="card-b">
+  <div class="row between">
+    <div class="row">
+      <div class="avatar lg {{ found.user_id|tint }}">{{ found.name|initials }}</div>
+      <div><h2 class="name-lg">{{ found.name }}</h2><span class="muted">{{ found.display_id }} &middot; {{ found.sex }} &middot; {{ found.age }} years</span></div>
+    </div>
+    {% if status == "approved" %}<span class="pill green">Access approved</span>
+    {% elif status == "pending" %}<span class="pill amber">Request pending</span>
+    {% elif status == "denied" %}<span class="pill red">Access denied</span>
+    {% elif status == "revoked" %}<span class="pill gray">Access revoked</span>
+    {% else %}<span class="pill gray nodot">{% icon "lock" "sm" %}Locked</span>{% endif %}
+  </div>
+
+  {% if status == "approved" %}
+    <div class="split"><a class="btn" href="{% url 'record' found.user_id %}">{% icon "file" "sm" %}Open medical record</a></div>
+  {% else %}
+    <p class="muted small mt-16">
+      {% if status == "pending" %}Waiting for {{ found.name }} to answer. You will get a notification as soon as they approve or deny.
+      {% elif status == "denied" %}{{ found.name }} did not approve your last request. You can ask again, or use emergency access if this is an emergency.
+      {% elif status == "revoked" %}{{ found.name }} took back your access. You can ask again, or use emergency access if this is an emergency.
+      {% else %}This record is private. {{ found.name }} will get a notification and can approve or deny.{% endif %}
+    </p>
+    <div class="split">
+      {% if status != "pending" %}
+        <form method="post" action="{% url 'send_request' found.user_id %}" class="inline-form">{% csrf_token %}
+          <button type="submit">{% icon "send" "sm" %}{% if status == "denied" or status == "revoked" %}Request again{% else %}Send access request{% endif %}</button>
+        </form>
+      {% else %}<span></span>{% endif %}
+      <a class="btn danger-ghost" href="{% url 'emergency' found.user_id %}" data-emergency data-patient-id="{{ found.user_id }}" data-patient-name="{{ found.name }} ({{ found.display_id }})">{% icon "shield" "sm" %}Emergency access</a>
+    </div>
+  {% endif %}
+</div></div>

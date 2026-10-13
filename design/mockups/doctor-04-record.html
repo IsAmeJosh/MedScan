@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Patient record (mockup)</title>
+<link rel="stylesheet" href="../../gui/static/css/G_Style.css">
+<link rel="stylesheet" href="base.css">
+<link rel="stylesheet" href="layout.css">
+<script src="icons.js"></script>
+</head>
+<body class="has-shell">
+<aside class="sidebar">
+  <a class="logo" href="#"><span class="logo-mark"><svg class="logo-cross" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/></svg></span><div><b>MedScan</b><span>Clinician Portal</span></div></a>
+  <nav class="nav"><a href="#" class=""><i data-i="home" data-s=""></i>Home</a><a href="#" class="on"><i data-i="users" data-s=""></i>Patients<span class="count">2</span></a></nav>
+  <div class="side-foot"><div class="me"><div class="avatar">MR</div><div><b>Dr. Maria Reyes</b><span>DR-2026-02001</span></div><a class="out" href="#"><i data-i="logout" data-s="sm"></i></a></div></div>
+</aside>
+<div class="main">
+  <header class="top"><form class="top-search" onsubmit="return false"><i data-i="search" data-s="sm"></i><input placeholder="Find a patient: name, ID or mobile number" value=""><kbd>/</kbd></form>
+        <span class="top-spacer"></span>
+        <a class="btn danger-ghost sm" href="#"><i data-i="shield" data-s="sm"></i>Emergency</a>
+    <button type="button" class="icon-btn"><i data-i="bell" data-s="sm"></i><span class="badge">1</span></button>
+  </header>
+  <div class="content">
+
+<div class="card mb-16">
+  <div class="card-b row between">
+    <div class="row" style="gap:18px"><div class="avatar lg c1">JD</div><div><div class="row"><h1 style="font-size:22px">Juan Dela Cruz</h1><span class="pill green">Access approved</span></div>
+      <span class="muted">PT-2026-01001 &middot; Male &middot; 34 years &middot; 0917 123 4567</span></div></div>
+    <a class="btn ghost" href="#"><i data-i="back" data-s="sm"></i>Patients</a>
+  </div>
+  <div class="vitals">
+    <div class="vital"><span>Blood type</span><b>O+</b></div><div class="vital"><span>Last visit</span><b>Oct 9, 2026</b></div>
+    <div class="vital"><span>Notes</span><b>3</b></div><div class="vital"><span>Approved on</span><b>Oct 9, 2026</b></div>
+  </div>
+  <div class="banner red" style="margin:0 20px 18px"><i data-i="alert" data-s="sm"></i><div><b>Allergies:</b> Penicillin, Peanuts. Check before prescribing.</div></div>
+</div>
+
+<div class="grid g3 eq mb-16">
+  <div class="card fill"><div class="card-h"><i data-i="alert" data-s=""></i><h3>Allergies</h3></div><div class="card-b wrap"><span class="tag allergy"><i data-i="alert" data-s="sm"></i>Penicillin</span><span class="tag allergy"><i data-i="alert" data-s="sm"></i>Peanuts</span></div></div>
+  <div class="card fill"><div class="card-h"><i data-i="pill" data-s=""></i><h3>Medications</h3></div><div class="card-b wrap"><span class="tag"><i data-i="pill" data-s="sm"></i>Amlodipine 5mg</span></div></div>
+  <div class="card fill"><div class="card-h"><i data-i="pulse" data-s=""></i><h3>Past surgeries</h3></div><div class="card-b wrap"><span class="tag">Appendectomy (2021)</span></div></div>
+</div>
+
+<div class="grid g2 eq">
+  <div class="card fill">
+    <div class="card-h"><i data-i="edit" data-s=""></i><h2>New consultation note</h2></div>
+    <div class="card-b">
+      <div class="phrases"><span class="phrase">+ Follow-up in 1 week</span><span class="phrase">+ Advised rest and fluids</span><span class="phrase">+ Labs requested</span><span class="phrase">+ Referred to specialist</span></div>
+      <div class="field"><textarea rows="7" placeholder="Patient presented with..."></textarea></div>
+      <div class="row between"><span class="note">0 / 5000</span><a class="btn" href="#"><i data-i="check" data-s="sm"></i>Save to record</a></div>
+    </div>
+  </div>
+  <div class="card fill">
+    <div class="card-h"><i data-i="file" data-s=""></i><h2>Consultation history</h2><span class="pill gray nodot" style="margin-left:auto">3</span></div>
+    <div class="timeline">
+      <div class="t"><div class="rail"><span class="node"></span><span class="bar"></span></div><div class="body"><div class="row"><b>Oct 9, 2026</b><span class="faint small">14:20 &middot; Dr. Reyes</span></div><p class="muted note-text">Follow-up: BP 130/85, headache resolved. Continue Amlodipine 5mg daily.</p></div></div>
+      <div class="t"><div class="rail"><span class="node"></span><span class="bar"></span></div><div class="body"><div class="row"><b>Oct 2, 2026</b><span class="faint small">10:05 &middot; Dr. Reyes</span></div><p class="muted note-text">Persistent headache for 3 days. BP 140/90. Advised rest, hydration, follow-up in one week.</p></div></div>
+      <div class="t"><div class="rail"><span class="node"></span><span class="bar"></span></div><div class="body"><div class="row"><b>Sep 14, 2026</b><span class="faint small">09:40 &middot; Dr. Santos</span></div><p class="muted note-text">Routine check-up. No concerns.</p></div></div>
+    </div>
+  </div>
+</div>
+  </div>
+</div>
+
+
+<span class="mock-tag">DESIGN MOCKUP</span>
+</body></html>

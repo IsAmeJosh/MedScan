@@ -10,13 +10,15 @@
       {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
       <form method="post">{% csrf_token %}
         <div class="field">
-          <label for="user_id">ID number</label>
-          <div class="with-icon">{% icon "user" "sm" %}<input id="user_id" name="user_id" placeholder="e.g. 1001 or PT-2026-01001" autofocus required></div>
+          <label for="user_id">ID or mobile number</label>
+          <div class="with-icon">{% icon "user" "sm" %}<input id="user_id" name="user_id" placeholder="1001, PT-2026-01001 or 0917 123 4567" autocomplete="username" autofocus required data-remember="medscan_login_id" data-remember-box="remember"></div>
         </div>
         <div class="field">
           <label for="password">Password</label>
-          <div class="with-icon">{% icon "key" "sm" %}<input id="password" name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required></div>
+          <div class="with-icon pw-wrap">{% icon "key" "sm" %}<input id="password" name="password" type="password" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" required autocomplete="current-password" data-toggle-password><button type="button" class="pw-eye" aria-label="Show password" aria-pressed="false"><span class="eye-on">{% icon "eye" "sm" %}</span><span class="eye-off">{% icon "eyeoff" "sm" %}</span></button></div>
+          <p class="caps-note" hidden>Caps Lock is on</p>
         </div>
+        <label class="check-line"><input type="checkbox" id="remember"> Remember my ID on this computer</label>
         <button type="submit" class="lg w-full mt-16">Log in</button>
       </form>
       <p class="muted text-center mt-24">New to MedScan? <a href="{% url 'register' %}"><b>Create an account</b></a></p>

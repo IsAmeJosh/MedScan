@@ -1,10 +1,9 @@
-"""The pages added with the v2 design: My Doctors, Access Log, My Patients, and the doctor's clinic."""
+"""Details of the current pages: the doctor's clinic, Privacy (doctors and activity), Patients, Home."""
 import unittest
 
 from django.test import Client
 
-from gui import G_Views as V
-from tests.helpers import fresh_system
+from tests.helpers import PASSWORD, approve, fresh_system, rows
 
 
 def login(uid, pw):
@@ -15,18 +14,18 @@ def login(uid, pw):
 
 class GuiV2(unittest.TestCase):
     def setUp(self):
-        self.s = fresh_system()
-        self.reyes = self.s.doctors[2001]
-        self.santos = self.s.register_doctor("Antonio Santos", "d", "Cardiology", "Northview Medical Center")
-        self.lim = self.s.register_doctor("Jose Lim", "d", "Dermatology")
+        self.s = fresh_system(self)
+        self.reyes = self.s.get_doctor(2001)
+        self.santos = self.s.register_doctor("Antonio Santos", PASSWORD, "Cardiology", "Northview Medical Center")
+        self.lim = self.s.register_doctor("Jose Lim", PASSWORD, "Dermatology")
 
     def test_doctor_clinic_and_workplace(self):
         self.assertEqual(self.reyes.clinic, "Bayanihan Family Clinic")
         self.assertEqual(self.santos.workplace, "Cardiology at Northview Medical Center")
         self.assertEqual(self.lim.workplace, "Dermatology")  # no clinic given
-        Client().post("/register/", {"role": "Doctor", "name": "Cruz", "password": "p",
+        Client().post("/register/", {"role": "Doctor", "name": "Cruz", "password": PASSWORD,
                                      "specialty": "ENT", "clinic": "  Rizal Clinic "})
-        cruz = max(self.s.doctors.values(), key=lambda d: d.user_id)
+        cruz = self.s.get_doctor(rows("SELECT MAX(user_id) AS id FROM doctors")[0]["id"])
         self.assertEqual((cruz.name, cruz.clinic), ("Cruz", "Rizal Clinic"))
 
     def test_doctor_groups_one_row_per_doctor(self):
@@ -48,33 +47,34 @@ class GuiV2(unittest.TestCase):
         self.assertEqual(groups["past"], [])
         self.assertEqual(s.pending_count_for_patient(1001), 2)
 
-    def test_my_doctors_page(self):
+    def test_privacy_page_lists_doctors_with_their_clinics_and_takes_answers(self):
         s = self.s
         r1 = s.request_access(self.reyes, 1001); s.respond_to_request(r1.request_id, 1001, True)
         r2 = s.request_access(self.santos, 1001)
         pat = login(1001, "pat123")
-        page = pat.get("/doctors/").content.decode()
+        page = pat.get("/privacy/").content.decode()
         self.assertIn("Doctor in <b>General Medicine</b> at <b>Bayanihan Family Clinic</b>", page)
+        self.assertIn("Doctor in <b>Cardiology</b> at <b>Northview Medical Center</b>", page)
         self.assertIn("Waiting for your answer", page)
         self.assertIn("Revoke access", page)
-        r = pat.post(f"/respond/{r2.request_id}/approve/", {"next": "my_doctors"})
-        self.assertEqual((r.status_code, r["Location"]), (302, "/doctors/"))
+        r = pat.post(f"/respond/{r2.request_id}/approve/", {"next": "privacy"})
+        self.assertEqual((r.status_code, r["Location"]), (302, "/privacy/"))
         self.assertTrue(s.has_access(self.santos.user_id, 1001))
-        r = pat.post(f"/revoke/{r1.request_id}/", {"next": "my_doctors"})
-        self.assertEqual(r["Location"], "/doctors/")
-        self.assertIn("Past access", pat.get("/doctors/").content.decode())
-        self.assertEqual(login(2001, "doc123").get("/doctors/").status_code, 302)  # doctors cannot open it
+        r = pat.post(f"/revoke/{r1.request_id}/", {"next": "privacy"})
+        self.assertEqual(r["Location"], "/privacy/")
+        self.assertIn("Past access", pat.get("/privacy/").content.decode())
+        self.assertEqual(login(2001, "doc123").get("/privacy/").status_code, 302)  # doctors cannot open it
 
-    def test_access_log_page(self):
+    def test_the_activity_tab_shows_views_and_emergency_reasons(self):
         s = self.s
         r1 = s.request_access(self.reyes, 1001); s.respond_to_request(r1.request_id, 1001, True)
         s.open_record(self.reyes, 1001)
         s.emergency_access(self.santos, 1001, "Collapsed in the lobby")
-        page = login(1001, "pat123").get("/access-log/").content.decode()
+        page = login(1001, "pat123").get("/privacy/?tab=activity").content.decode()
         self.assertIn("Dr. Reyes", page)
         self.assertIn("Collapsed in the lobby", page)
 
-    def test_my_patients_and_doctor_dashboard(self):
+    def test_patients_page_and_doctor_home(self):
         s = self.s
         doc = login(2001, "doc123")
         self.assertIn("No patient has approved you yet", doc.get("/patients/").content.decode())
@@ -87,17 +87,13 @@ class GuiV2(unittest.TestCase):
 
     def test_every_page_renders_without_leaks(self):
         doc, pat = login(2001, "doc123"), login(1001, "pat123")
-        pages = [(doc, "/dashboard/"), (doc, "/search/"), (doc, "/search/?q=1001"), (doc, "/patients/"),
-                 (doc, "/requests/"), (doc, "/emergency/"), (doc, "/logout/"),
-                 (pat, "/dashboard/"), (pat, "/record/"), (pat, "/doctors/"), (pat, "/access-log/"),
-                 (pat, "/profile/"), (Client(), "/"), (Client(), "/register/")]
+        pages = [(doc, "/dashboard/"), (doc, "/patients/"), (doc, "/patients/?q=1001"), (doc, "/patients/?tab=waiting"),
+                 (doc, "/patients/?tab=ended"), (doc, "/emergency/"), (doc, "/logout/"),
+                 (pat, "/dashboard/"), (pat, "/record/"), (pat, "/privacy/"), (pat, "/privacy/?tab=activity"),
+                 (pat, "/logout/"), (Client(), "/"), (Client(), "/register/")]
         for client, url in pages:
             r = client.get(url)
             body = r.content.decode()
             self.assertEqual(r.status_code, 200, url)
             self.assertNotIn("{%", body, url)
             self.assertNotIn("{{", body, url)
-
-
-if __name__ == "__main__":
-    unittest.main()

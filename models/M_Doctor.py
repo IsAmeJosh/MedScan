@@ -19,7 +19,8 @@ class Doctor(User):
         return f"{self.specialty} at {self.clinic}" if self.clinic else self.specialty
 
     def add_consultation(self, patient, notes, consultation_id):
-        """Create a note and attach it to the patient's record (abstraction: callers do not see how)."""
+        """Create a note and file it in the patient's record (abstraction: callers do not see how).
+        The ID is None until the note has been saved in the database."""
         c = Consultation(consultation_id, self.user_id, self.name, notes)
         patient.record.add_consultation(c)
         return c

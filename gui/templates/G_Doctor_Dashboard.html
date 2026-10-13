@@ -1,45 +1,71 @@
 {% extends "G_Base.html" %}
-{% block title %}Dashboard{% endblock %}
+{% block title %}Home{% endblock %}
 {% block content %}
-<div class="page-h">
-  <div><h1>Welcome, Dr. {{ user.name }}</h1><p>{{ user.workplace }}</p></div>
-  <div class="actions">
-    <a class="btn danger-ghost" href="{% url 'emergency_form' %}">{% icon "shield" "sm" %}Emergency access</a>
-    <a class="btn" href="{% url 'search' %}">{% icon "search" "sm" %}Find a patient</a>
+{% include "G_Welcome_Card.html" %}
+<div class="hero-doc">
+  <div>
+    <span class="eyebrow">{% now "l, F j" %}</span>
+    <h1>Hello, Dr. {{ user.name }}</h1>
+    <p>{{ ready|length }} patient{{ ready|length|pluralize }} {{ ready|length|pluralize:"is,are" }} ready to open and {{ stats.pending }} request{{ stats.pending|pluralize }} {{ stats.pending|pluralize:"is,are" }} waiting for an answer.</p>
+  </div>
+  <div class="row">
+    <a class="btn light" href="{% url 'patients' %}">{% icon "search" "sm" %}Find a patient</a>
+    <a class="btn outline-light" href="{% url 'emergency_form' %}" data-emergency>{% icon "shield" "sm" %}Emergency access</a>
   </div>
 </div>
 
-<div class="grid g4 mb-16">
-  <div class="card stat"><div class="k"><span class="ic teal">{% icon "users" "sm" %}</span>Patients with access</div><div class="v">{{ stats.patients }}</div></div>
-  <div class="card stat"><div class="k"><span class="ic amber">{% icon "clock" "sm" %}</span>Pending requests</div><div class="v">{{ stats.pending }}</div></div>
-  <div class="card stat"><div class="k"><span class="ic blue">{% icon "file" "sm" %}</span>Notes written</div><div class="v">{{ stats.notes }}</div></div>
-  <div class="card stat"><div class="k"><span class="ic red">{% icon "shield" "sm" %}</span>Emergency uses</div><div class="v">{{ stats.emergencies }}</div></div>
+<div class="grid g4 eq mb-16">
+  <div class="card kpi"><span class="ic lg teal">{% icon "users" %}</span><div><div class="num">{{ stats.patients }}</div><div class="lbl">Patients</div></div></div>
+  <div class="card kpi"><span class="ic lg green">{% icon "check" %}</span><div><div class="num">{{ ready|length }}</div><div class="lbl">Ready to open</div></div></div>
+  <div class="card kpi"><span class="ic lg amber">{% icon "clock" %}</span><div><div class="num">{{ stats.pending }}</div><div class="lbl">Waiting for an answer</div></div></div>
+  <div class="card kpi"><span class="ic lg blue">{% icon "edit" %}</span><div><div class="num">{{ stats.notes }}</div><div class="lbl">Notes written</div></div></div>
 </div>
 
-<div class="grid g-main">
-  <div class="card">
-    <div class="card-h">{% icon "users" %}<h2>My patients</h2><a class="link" href="{% url 'my_patients' %}">See all</a></div>
+<div class="grid g2 eq">
+  <div class="card fill">
+    <div class="card-h">{% icon "check" %}<h2>Ready to open</h2>{% if ready %}<span class="pill teal ml-auto">{{ ready|length }} new</span>{% endif %}</div>
     <div class="list">
-      {% for p in patients %}
-        <div class="item">
+      {% for p in ready %}
+        <a class="lr" href="{% url 'record' p.user_id %}">
           <div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
-          <div class="grow"><b>{{ p.name }}</b><span class="muted small">{{ p.display_id }} &middot; {{ p.sex }}, {{ p.age }}</span></div>
-          {% if p.record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ p.record.allergies|length }} allerg{{ p.record.allergies|length|pluralize:"y,ies" }}</span>{% endif %}
-          <a class="btn sm" href="{% url 'record' p.user_id %}">Open record</a>
-        </div>
-      {% empty %}<p class="empty">No patient has approved you yet. Search for a patient to send a request.</p>{% endfor %}
+          <div class="grow"><b>{{ p.name }}</b><span class="sub">{{ p.sex }}, {{ p.age }} &middot; approved your request</span></div>
+          <span class="chev">{% icon "chev" "sm" %}</span>
+        </a>
+      {% empty %}<p class="empty">Nobody is waiting. When a patient approves a request, they show up here.</p>{% endfor %}
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-h">{% icon "send" %}<h2>Recent requests</h2><a class="link" href="{% url 'doctor_requests' %}">See all</a></div>
+  <div class="card fill">
+    <div class="card-h">{% icon "trend" %}<h2>Notes this week</h2><span class="muted small ml-auto">{{ week_total }} note{{ week_total|pluralize }}</span></div>
+    <div class="bars">
+      {% for d in week %}
+        <div class="bar{% if d.today %} today{% endif %}"><b>{{ d.count }}</b><i style="height:{{ d.height }}%"></i><span>{{ d.label }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card fill">
+    <div class="card-h">{% icon "history" %}<h2>Recently opened</h2><a class="link" href="{% url 'patients' %}">All patients</a></div>
     <div class="list">
-      {% for r, patient in recent %}
-        <div class="item">
-          <div class="grow"><b>{{ patient.name }}</b><span class="muted small">{{ patient.display_id }}</span></div>
-          {% include "G_Status_Pill.html" %}
-        </div>
-      {% empty %}<p class="empty">No requests yet. Search for a patient to send one.</p>{% endfor %}
+      {% for p in recent %}
+        <a class="lr" href="{% url 'record' p.user_id %}">
+          <div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
+          <div class="grow"><b>{{ p.name }}</b><span class="sub">{{ p.display_id }}</span></div>
+          <span class="chev">{% icon "chev" "sm" %}</span>
+        </a>
+      {% empty %}<p class="empty">Records you open show up here. To find a patient, use the search box above (press / to jump to it).</p>{% endfor %}
+    </div>
+  </div>
+
+  <div class="card fill">
+    <div class="card-h">{% icon "bell" %}<h2>Latest activity</h2></div>
+    <div class="feed">
+      {% for n in feed %}
+        <a class="f" href="{% url 'notification_open' n.notification_id %}">
+          <span class="dot{% if n.is_read %} read{% endif %}"></span>
+          <div><b>{{ n.message }}</b><div class="t">{{ n.timestamp|ago }}</div></div>
+        </a>
+      {% empty %}<p class="empty">Answers to your requests show up here.</p>{% endfor %}
     </div>
   </div>
 </div>

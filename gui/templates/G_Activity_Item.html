@@ -1,0 +1,11 @@
+{# One thing that happened to a patient's record. Needs: a (kind, doctor, when, detail). #}
+<div class="lr">
+  {% if a.kind == "override" %}<span class="ic red">{% icon "shield" "sm" %}</span>
+  {% elif a.kind == "emergency_view" %}<span class="ic amber">{% icon "eye" "sm" %}</span>
+  {% else %}<span class="ic teal">{% icon "eye" "sm" %}</span>{% endif %}
+  <div class="grow">
+    <b>Dr. {{ a.doctor.name }} {% if a.kind == "override" %}used emergency access{% elif a.kind == "emergency_view" %}opened your record (emergency){% else %}opened your record{% endif %}</b>
+    <span class="sub" title="{{ a.when|date:'M d, Y H:i' }}">{% if a.detail %}Reason: {{ a.detail }} &middot; {% endif %}{{ a.doctor.workplace }} &middot; {{ a.when|ago }}</span>
+  </div>
+  {% if a.kind == "view" %}<span class="pill green">Approved</span>{% else %}<span class="pill red">Emergency</span>{% endif %}
+</div>

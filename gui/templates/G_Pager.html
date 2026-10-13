@@ -1,0 +1,11 @@
+{# Previous / Next under a long list. Needs: page (a Django page) and query (the other URL parameters, may be empty). #}
+{% if page.paginator.num_pages > 1 %}
+<div class="pager">
+  <span class="muted small">Showing {{ page.start_index }}&ndash;{{ page.end_index }} of {{ page.paginator.count }}</span>
+  <div class="row">
+    {% if page.has_previous %}<a class="btn sm ghost" href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.previous_page_number }}">Previous</a>{% endif %}
+    <span class="muted small">Page {{ page.number }} of {{ page.paginator.num_pages }}</span>
+    {% if page.has_next %}<a class="btn sm ghost" href="?{% if query %}{{ query }}&amp;{% endif %}page={{ page.next_page_number }}">Next</a>{% endif %}
+  </div>
+</div>
+{% endif %}
