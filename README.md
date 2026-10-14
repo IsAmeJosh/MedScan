@@ -44,8 +44,8 @@ the doctor (`2001`) and the patient (`1001`) at the same time.
 
 | Role | Menu | Top bar |
 |---|---|---|
-| Patient | Home, My Health, Privacy | the bell |
-| Doctor | Home, Patients | search box, red Emergency button, the bell |
+| Patient | Home, My Health, Privacy, My QR Code | the bell |
+| Doctor | Home, Patients, Scan QR | search box, red Emergency button, the bell |
 
 **Doctor**
 
@@ -58,7 +58,7 @@ the doctor (`2001`) and the patient (`1001`) at the same time.
 | Search for a patient, click Emergency access on the result | The same pop-up, already knowing the patient |
 | After a patient approves | The Patients menu item gets a number; Home lists them under Ready to open; the bell notification opens the record directly |
 | Patients page | A table (Patient, Allergies, Last visit) under three tabs (My patients, Waiting, Declined or ended) with counts; more than 10 in a tab adds Previous/Next |
-| Click or tab into the search box | The rest of the page dims. Esc, or a click on the dimmed part, closes it |
+| Click or tab into the search box | Everything except the search box dims and blurs, including the rest of the top bar. Esc, or a click anywhere else, brings the page back |
 | Home | Four equal number cards, then Ready to open, Notes this week (bars), Recently opened, Latest activity |
 | Write a note | The phrases above the box (+ Labs requested) add their words to the note |
 
@@ -66,7 +66,7 @@ the doctor (`2001`) and the patient (`1001`) at the same time.
 
 | Try | Should happen |
 |---|---|
-| Have the doctor send a request, with the patient's window just sitting there | Within about 10 seconds the bell shows a red number, Privacy gets a red count, and a message slides in. The page itself does not reload |
+| Have the doctor send a request, with the patient's window just sitting there | Within about 10 seconds the bell and the Privacy item each get a small red dot (no number), and a message slides in. The page itself does not reload |
 | Open the bell | The request has Approve and Deny buttons. Approve answers it right there; Deny asks first |
 | Home, with a request waiting | A "Waiting for your answer" card at the top with Approve and Deny |
 | My Health | Everything about you in one place; Edit my information opens the form (allergies as chips) |
@@ -74,11 +74,18 @@ the doctor (`2001`) and the patient (`1001`) at the same time.
 | Home, with parts of the profile still empty | A "Finish your health profile" card with a progress bar. Add now opens the edit form; the x hides it in this browser |
 | Revoke access or Deny | A pop-up asks first |
 
+**QR codes** (placeholder screens: the picture is drawn from the ID and cannot be scanned yet, and the camera is not connected)
+
+| Try | Should happen |
+|---|---|
+| Patient: My QR Code | A picture, the name and ID, a Copy ID button, and three steps (Show, Scan, Approve). Only patients have a code |
+| Doctor: Scan QR | A camera frame and three steps (Ask, Scan, Request). The doctor has no code of their own |
+
 **Login and sign-up**
 
 | Try | Should happen |
 |---|---|
-| Tick "Remember my ID", log in, log out | The ID is filled in next time and the cursor is in the password box |
+| Tick "Remember me", log in, log out | The ID is filled in next time and the cursor is in the password box |
 | Create account (start) | Two equal tiles, patient and doctor. Each opens a short form for that role; Back returns to the tiles |
 | Create account: medical history | Patients see a closed "Add medical history now (optional)" section with allergies and surgeries |
 | Create account: password | A counter (`7 / 25`); the eye shows and hides it; Caps Lock shows a warning |

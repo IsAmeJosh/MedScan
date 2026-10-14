@@ -1,7 +1,7 @@
 {# Shown once, on the first dashboard after registering. Needs: welcome (true on that visit). #}
 {% if welcome %}
 <div class="card welcome-card mb-16" id="welcome-card">
-  <div class="card-b row top">
+  <div class="card-b row start">
     <span class="ic green">{% icon "check" %}</span>
     <div class="grow">
       <h2>Welcome to MedScan, {{ user.name }}!</h2>

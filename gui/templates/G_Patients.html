@@ -2,7 +2,8 @@
 {% block title %}Patients{% endblock %}
 {% block content %}
 <div class="page-h">
-  <div><h1>Patients</h1></div>
+  <div><h1>Patients</h1><p>Everyone you have asked for access, and what they answered.</p></div>
+  <div class="meta"><span class="live">live</span><span class="pill gray nodot">{{ counts.mine }} patient{{ counts.mine|pluralize }}</span></div>
 </div>
 
 {% if searched %}

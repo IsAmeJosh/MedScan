@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}MedScan{% endblock %} &middot; MedScan</title>
-<link rel="stylesheet" href="{% static 'css/G_Style.css' %}?v=7">
+<link rel="stylesheet" href="{% asset 'css/G_Style.css' %}">
 </head>
 <body class="{% if user %}has-shell{% else %}auth-page{% endif %}"{% if user %} data-idle-minutes="{{ idle_minutes }}" data-keepalive-url="{% url 'keepalive' %}" data-logout-url="{% url 'logout' %}" data-login-url="{% url 'login' %}"{% endif %}>
 {% if user %}
@@ -13,25 +13,33 @@
 <aside class="sidebar">
   <a class="logo" href="{% url 'dashboard' %}">
     <span class="logo-mark">{% logo %}</span>
-    <div><b>MedScan</b><span>{% if user.role == "Doctor" %}Clinician Portal{% else %}Patient Portal{% endif %}</span></div>
+    <div><b>MedScan</b><span>{% if user.role == "Doctor" %}Doctor Portal{% else %}Patient Portal{% endif %}</span></div>
   </a>
 
   <nav class="nav">
-    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
     {% if user.role == "Doctor" %}
+      <div class="nav-label">Workspace</div>
+      <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
       <a href="{% url 'patients' %}" class="{% if page == 'patients' or page == 'record' %}on{% endif %}">{% icon "users" %}Patients<span class="count" id="count-ready" {% if not ready_count %}hidden{% endif %}>{{ ready_count }}</span></a>
+      <div class="nav-label">Tools</div>
+      <a href="{% url 'qr' %}" class="{% if page == 'qr' %}on{% endif %}">{% icon "qr" %}Scan QR</a>
     {% else %}
+      <div class="nav-label">Records</div>
+      <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
       <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}My Health</a>
-      <a href="{% url 'privacy' %}" class="{% if page == 'privacy' %}on{% endif %}">{% icon "shield" %}Privacy<span class="count red" id="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
+      <a href="{% url 'privacy' %}" class="{% if page == 'privacy' %}on{% endif %}">{% icon "shield" %}Privacy<span class="count" id="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
+      <div class="nav-label">Tools</div>
+      <a href="{% url 'qr' %}" class="{% if page == 'qr' %}on{% endif %}">{% icon "qr" %}My QR Code</a>
     {% endif %}
   </nav>
 
   <div class="side-foot">
-    <div class="me">
+    <div class="me-card">
       <div class="avatar">{{ user.name|initials }}</div>
-      <div><b>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</b><span>{{ user.display_id }}</span></div>
-      <a class="out" href="{% url 'logout' %}" title="Log out">{% icon "logout" "sm" %}</a>
+      <b>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</b>
+      <span class="pill gray nodot">{{ user.display_id }}</span>
     </div>
+    <a class="logout-link" href="{% url 'logout' %}">{% icon "logout" "sm" %}Log out</a>
   </div>
 </aside>
 
@@ -71,7 +79,6 @@
   {% endfor %}
 </div>
 
-<div class="scrim" id="search-scrim" aria-hidden="true"></div>
 <div class="drawer-backdrop" id="drawer-backdrop"></div>
 <aside class="drawer" id="notifications-drawer" aria-hidden="true" data-read-url="{% url 'notifications_read' %}"
        data-poll-url="{% url 'notifications_poll' %}" data-poll-seconds="{{ poll_seconds }}">
@@ -107,16 +114,16 @@
 {% else %}
 {% block auth %}{% endblock %}
 {% endif %}
-<script src="{% static 'js/G_Format.js' %}?v=7"></script>
-<script src="{% static 'js/G_Fields.js' %}?v=7"></script>
-<script src="{% static 'js/G_Chips.js' %}?v=7"></script>
-<script src="{% static 'js/G_Dialogs.js' %}?v=7"></script>
+<script src="{% asset 'js/G_Format.js' %}"></script>
+<script src="{% asset 'js/G_Fields.js' %}"></script>
+<script src="{% asset 'js/G_Chips.js' %}"></script>
+<script src="{% asset 'js/G_Dialogs.js' %}"></script>
 {% if user %}
-<script src="{% static 'js/G_Shell.js' %}?v=7"></script>
-<script src="{% static 'js/G_Idle.js' %}?v=7"></script>
+<script src="{% asset 'js/G_Shell.js' %}"></script>
+<script src="{% asset 'js/G_Idle.js' %}"></script>
 {% if user.role == "Doctor" %}
-<script src="{% static 'js/G_Suggest.js' %}?v=7"></script>
-<script src="{% static 'js/G_Emergency.js' %}?v=7"></script>
+<script src="{% asset 'js/G_Suggest.js' %}"></script>
+<script src="{% asset 'js/G_Emergency.js' %}"></script>
 {% endif %}
 {% endif %}
 {% block scripts %}{% endblock %}

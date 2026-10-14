@@ -15,6 +15,7 @@ urlpatterns = [
     path("keepalive/", views.keepalive, name="keepalive"),
     # both roles
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("qr/", views.qr_page, name="qr"),
     # patient: Home, My Health, Privacy
     path("record/", views.my_record, name="my_record"),
     path("record/edit/", views.update_info, name="update_info"),

@@ -278,7 +278,23 @@ class LoginRemembersTheId(unittest.TestCase):
         field = re.search(r'<input[^>]*name="user_id"[^>]*>', page).group(0)
         self.assertIn('data-remember="medscan_login_id"', field)
         self.assertIn('data-remember-box="remember"', field)
-        self.assertRegex(page, r'<input type="checkbox" id="remember"> Remember my ID on this computer')
+        self.assertRegex(page, r'<input type="checkbox" id="remember"> Remember me')
+
+    def test_the_boxes_start_empty_with_no_hints_and_errors_come_only_after_pressing_log_in(self):
+        page = html(Client().get("/"))
+        for name in ("user_id", "password"):
+            tag = re.search(r'<input[^>]*name="%s"[^>]*>' % name, page).group(0)
+            self.assertNotIn("placeholder", tag)
+            self.assertNotIn("data-hint", tag)
+            self.assertIn('data-quiet="1"', tag)
+        self.assertIn('data-validate="login-id"', page)
+        self.assertIn('data-validate="login-password"', page)
+        self.assertIn("data-validate-form", page)
+
+    def test_the_logout_confirmation_is_centred_on_the_page(self):
+        page = html(login(1001, "pat123").get("/logout/"))
+        self.assertIn('class="center-page"', page)
+        self.assertIn("Log out of MedScan?", page)
 
     def test_the_password_is_never_part_of_it(self):
         page = html(Client().get("/"))
@@ -411,7 +427,7 @@ class SignUpAndHomeScreens(unittest.TestCase):
 
     def test_the_doctor_home_has_four_equal_stat_cards_and_four_equal_panels(self):
         page = html(self.doc.get("/dashboard/"))
-        self.assertEqual(page.count('class="card kpi"'), 4)
+        self.assertEqual(page.count('class="card stat2"'), 4)
         for heading in ("Ready to open", "Notes this week", "Recently opened", "Latest activity"):
             self.assertIn(f"<h2>{heading}</h2>", page)
 
@@ -428,12 +444,25 @@ class SignUpAndHomeScreens(unittest.TestCase):
         self.assertIn("Send access request", page)
         self.assertIn("Emergency access", page)
 
-    def test_the_page_has_a_dim_layer_for_the_search_box_and_the_script_uses_it(self):
+    def test_the_search_box_stays_sharp_while_the_rest_of_the_page_is_dimmed_and_blurred(self):
         from pathlib import Path
-        self.assertIn('id="search-scrim"', html(self.doc.get("/dashboard/")))
-        script = (Path(__file__).resolve().parent.parent / "gui" / "static" / "js" / "G_Suggest.js").read_text(encoding="utf-8")
+        root = Path(__file__).resolve().parent.parent / "gui"
+        css = (root / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
+        self.assertRegex(css, r"body\.searching \.sidebar, body\.searching \.content, body\.searching \.top > :not\(\.top-search\) \{ filter:blur\(")
+        self.assertIn("body.searching .top {", css)                      # the bar's own background is dimmed too
+        self.assertNotIn("search-scrim", html(self.doc.get("/dashboard/")))   # no separate layer is needed any more
+        script = (root / "static" / "js" / "G_Suggest.js").read_text(encoding="utf-8")
         self.assertIn("'focus'", script)
         self.assertIn("searching", script)
+
+    def test_a_helper_class_never_reuses_the_name_of_a_page_part(self):
+        # ".row.top" once picked up the top bar's height and clipped the welcome card
+        from pathlib import Path
+        folder = Path(__file__).resolve().parent.parent / "gui"
+        for path in (folder / "templates").glob("*.html"):
+            self.assertNotRegex(path.read_text(encoding="utf-8"), r'class="[^"]*row top', path.name)
+        css = (folder / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
+        self.assertNotIn(".row.top", css)
 
     def test_the_templates_use_no_inline_styles_except_the_bar_heights_and_progress(self):
         from pathlib import Path
@@ -442,6 +471,149 @@ class SignUpAndHomeScreens(unittest.TestCase):
             for line in path.read_text(encoding="utf-8").splitlines():
                 if 'style="' in line:
                     self.assertTrue("height:{{" in line or "width:{{" in line, f"{path.name}: {line.strip()}")
+
+
+class QrCodePage(unittest.TestCase):
+    """Only patients have a code. A doctor scans one. The page is a placeholder: the picture is drawn, no camera yet."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.doc = login(2001, "doc123")
+        self.pat = login(1001, "pat123")
+
+    def test_each_role_has_it_as_its_own_menu_item_with_its_own_name(self):
+        self.assertIn("My QR Code</a>", html(self.pat.get("/dashboard/")))
+        self.assertIn("Scan QR</a>", html(self.doc.get("/dashboard/")))
+
+    def test_you_must_be_logged_in(self):
+        self.assertEqual(Client().get("/qr/").status_code, 302)
+
+    def test_a_patient_sees_their_own_code_and_nothing_to_scan(self):
+        page = html(self.pat.get("/qr/"))
+        self.assertIn('class="qr-box"', page)
+        self.assertIn("PT-2026-01001", page)
+        self.assertNotIn('class="camera"', page)
+        self.assertNotIn("class=\"tabs", page)
+
+    def test_a_doctor_sees_only_the_scanner_and_has_no_code_of_their_own(self):
+        page = html(self.doc.get("/qr/"))
+        self.assertIn('class="camera"', page)
+        self.assertNotIn('class="qr-box"', page)
+        self.assertNotIn("DR-2026-02001", page.split('<div class="content">')[1])   # no code, no ID card here
+        self.assertNotIn("class=\"tabs", page)
+
+    def test_there_is_no_type_the_id_option_beside_the_scanner(self):
+        page = html(self.doc.get("/qr/"))
+        self.assertNotIn("Type the ID", page)
+        self.assertNotIn('name="q"', page.split('<div class="content">')[1])
+
+    def test_the_words_speak_to_the_user_not_to_a_reviewer(self):
+        for client in (self.pat, self.doc):
+            page = html(client.get("/qr/")).split('<div class="content">')[1].split('<div class="toasts"')[0]
+            for jargon in ("will work", "Preview", "Coming soon", "not a real", "laceholder"):
+                self.assertNotIn(jargon, page)
+        self.assertIn("Tap Approve to let them in.", html(self.pat.get("/qr/")))
+        self.assertIn("Point your camera at their code.", html(self.doc.get("/qr/")))
+
+    def test_the_old_tab_address_still_works(self):
+        self.assertEqual(self.pat.get("/qr/?tab=scan").status_code, 200)
+        self.assertEqual(self.doc.get("/qr/?tab=show").status_code, 200)
+
+    def test_the_picture_depends_on_the_id_and_is_always_the_same_for_one_id(self):
+        from gui.G_Filters import qr_placeholder
+        self.assertEqual(qr_placeholder("PT-2026-01001"), qr_placeholder("PT-2026-01001"))
+        self.assertNotEqual(qr_placeholder("PT-2026-01001"), qr_placeholder("PT-2026-01002"))
+
+    def test_the_code_never_carries_health_information(self):
+        page = html(self.pat.get("/qr/"))
+        for secret in ("Penicillin", "Appendectomy", "O+", "09171234567"):
+            self.assertNotIn(secret, page)
+
+
+class FrameAndBubbles(unittest.TestCase):
+    """The page frame: labelled menu sections, the user card, boxed page headers and one kind of red number bubble."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.doc = login(2001, "doc123")
+        self.pat = login(1001, "pat123")
+
+    def css(self):
+        from pathlib import Path
+        return (Path(__file__).resolve().parent.parent / "gui" / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
+
+    def test_the_menu_has_labelled_sections_for_each_role(self):
+        doctor = html(self.doc.get("/dashboard/"))
+        patient = html(self.pat.get("/dashboard/"))
+        self.assertEqual(re.findall(r'class="nav-label">([A-Za-z]+)<', doctor), ["Workspace", "Tools"])
+        self.assertEqual(re.findall(r'class="nav-label">([A-Za-z]+)<', patient), ["Records", "Tools"])
+
+    def test_the_user_card_and_log_out_sit_at_the_bottom_of_the_sidebar(self):
+        page = html(self.pat.get("/dashboard/"))
+        self.assertIn('class="me-card"', page)
+        self.assertIn("PT-2026-01001", page.split('class="me-card"')[1].split("</aside>")[0])
+        self.assertRegex(page, r'<a class="logout-link" href="/logout/">.*Log out</a>')
+
+    def test_the_sidebar_numbers_and_the_bell_are_the_same_red_bubble(self):
+        css = self.css()
+        self.assertIn(".count, .icon-btn .badge {", css)
+        self.assertNotIn(".count.red", css)
+        for client in (self.doc, self.pat):
+            page = html(client.get("/dashboard/"))
+            self.assertNotIn('class="count red"', page)
+            self.assertIn('class="count"', page)
+            self.assertIn('class="badge"', page)
+
+    def test_the_bubbles_are_small_red_dots_without_a_drawn_number(self):
+        import re as _re
+        rule = _re.search(r"\.count, \.icon-btn \.badge \{([^}]*)\}", self.css()).group(1)
+        self.assertRegex(rule, r"width:12px; height:12px")
+        self.assertIn("font-size:0", rule)                  # the number stays in the page for screen readers, but is not drawn
+        self.assertIn("var(--red)", rule)
+
+    def test_the_record_page_shows_allergies_once_not_in_a_second_red_banner(self):
+        approve(self.s)
+        page = html(self.doc.get("/patient/1001/"))
+        self.assertNotIn("Check before prescribing", page)
+        self.assertNotIn('class="banner red', page)
+        self.assertEqual(page.count("Penicillin"), 1)          # only in the Allergies card
+
+    def test_page_headers_are_boxed(self):
+        self.assertRegex(self.css(), r"\.page-h \{[^}]*background:var\(--surface\)[^}]*border:1px solid")
+
+    def test_the_page_sits_in_the_middle_of_the_screen(self):
+        self.assertRegex(self.css(), r"\.content \{ margin:0 auto;")
+
+    def test_patients_and_privacy_show_a_live_count_next_to_the_title(self):
+        approve(self.s)
+        self.assertRegex(html(self.doc.get("/patients/")), r'class="live">live</span><span class="pill gray nodot">1 patient</span>')
+        self.assertRegex(html(self.pat.get("/privacy/")), r'class="live">live</span><span class="pill gray nodot">1 doctor</span>')
+
+
+class AssetAddresses(unittest.TestCase):
+    """The page links its styles and scripts with the file's last-changed time, so browsers never keep an old copy."""
+
+    def test_every_style_and_script_link_carries_the_files_change_time(self):
+        page = html(Client().get("/"))
+        links = re.findall(r'(?:href|src)="(/static/[^"]+)"', page)
+        self.assertGreaterEqual(len(links), 5)
+        for link in links:
+            self.assertRegex(link, r"\?v=\d{9,}$", link)
+
+    def test_the_address_changes_when_the_file_changes(self):
+        import os
+        import tempfile
+        from gui.G_Filters import asset
+        from django.contrib.staticfiles import finders
+        before = asset("css/G_Style.css")
+        path = finders.find("css/G_Style.css")
+        original = os.path.getmtime(path)
+        try:
+            os.utime(path, (original + 100, original + 100))
+            self.assertNotEqual(before, asset("css/G_Style.css"))
+        finally:
+            os.utime(path, (original, original))
+        self.assertEqual(before, asset("css/G_Style.css"))
 
 
 if __name__ == "__main__":

@@ -212,10 +212,12 @@ Each role has only the pages it needs. Every page has one job, and nothing is sh
 |---|---|---|
 | Patient | Home | Requests waiting for an answer (Approve / Deny), the "Finish your health profile" card while blood type, allergies or medications are empty, then four equal cards: health snapshot, who can open my record, last consultation, recent activity |
 | Patient | My Health | Name, ID, mobile number, allergies, medications, surgeries, consultation notes, and the edit form |
+| Patient | My QR Code | The patient's own code (a picture with name and ID), a Copy ID button and three steps. Only patients have a code; it holds the ID and nothing else. Placeholder for now: the picture is drawn from the ID and cannot be scanned |
 | Patient | Privacy | Tab Doctors (waiting, can open, past; revoke) and tab Who opened my record (views and emergency uses) |
 | Doctor | Home | A greeting band with Find a patient and Emergency access, four equal number cards, then four equal panels: ready to open, notes this week (bar chart), recently opened, latest activity |
 | Doctor | Patients | The result of a search (two equal buttons: send request, emergency), and three tabs: my patients, waiting for an answer, declined or ended, as a table whose columns line up |
 | Both | Sign-up | First two equal tiles (patient, doctor), then a short form for the chosen role. Patient: name, mobile, date of birth, sex, password, and an optional closed section for allergies and surgeries. Doctor: name, password, specialty, clinic |
+| Doctor | Scan QR | The scanner (a camera frame) and three steps. Placeholder: the camera is not connected. Scanning will open the same patient result as a search, with the buttons to send a request or use emergency access |
 | Doctor | Top bar | Search box (suggestions, press `/`), the red Emergency button (a pop-up), the bell |
 
 Addresses from earlier versions (`/search/`, `/requests/`, `/doctors/`, `/access-log/`, `/profile/`) still work and lead to the page
@@ -248,12 +250,12 @@ Clicks for common jobs:
 | Logging in | The login box takes the ID (`1001`), the full ID (`PT-2026-01001`) or a patient's mobile number, so a forgotten ID is never a locked door |
 | Live bell | The page asks `/notifications/poll/` every 10 seconds and updates the bell, the sidebar counts and the panel. It never reloads the page. These background requests do not renew the session, so the idle logout still works in a tab that is only asking |
 | Bell panel | Approve and Deny buttons sit on each waiting request, so a patient can answer without leaving the page |
-| Search box | Suggestions from the doctor's own patients only (name or ID); `/` jumps to the box; the page behind is dimmed while the box has the focus |
+| Search box | Suggestions from the doctor's own patients only (name or ID); `/` jumps to the box; while the box has the focus everything else is dimmed and blurred and only the box stays sharp |
 | Profile card | Patient Home shows how much of the profile is filled in (`profile_progress`) until it is complete, or until the patient hides it (remembered in the browser only) |
 | Quick phrases | Buttons above the note box add a ready sentence to the note |
 | Emergency | A pop-up from the top bar or a search result; the page version remains for browsers without scripts |
 | Times | "5 min ago", with the exact time shown when you hover |
-| Login | An optional "Remember my ID on this computer" (the password is never stored) |
+| Login | An optional "Remember me" (only the ID is remembered, never the password). The boxes start empty with no hints; a red message appears only after Log in is pressed with a box empty |
 | Idle logout | 15 minutes without activity (`IDLE_LOGOUT_MINUTES` in `settings.py`). A warning shows a minute before, and the page pings the server while you are active so a long note is never lost |
 
 All scripts are plain old-style JavaScript with no libraries and nothing loaded from the internet.

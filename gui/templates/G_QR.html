@@ -1,0 +1,54 @@
+{% extends "G_Base.html" %}
+{% block title %}{% if user.role == "Doctor" %}Scan QR{% else %}My QR Code{% endif %}{% endblock %}
+{% block content %}
+{% comment %}Placeholder screen: the picture is drawn from the ID and cannot be scanned yet, and the camera is not connected yet.{% endcomment %}
+<div class="page-h">
+  <div>
+    {% if user.role == "Doctor" %}
+    <h1>Scan a Patient&rsquo;s QR Code</h1>
+    <p>Find a patient fast, without typing their ID.</p>
+    {% else %}
+    <h1>My QR Code</h1>
+    <p>Show this to your doctor so they can find you.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="grid g2 eq">
+  <div class="card fill">
+    <div class="card-b qr-stage">
+      {% if user.role == "Doctor" %}
+      <div class="camera" aria-hidden="true">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        {% icon "camera" "lg" %}
+        <b>Point your camera at the code</b>
+      </div>
+      {% else %}
+      <div class="qr-box">{% qr_placeholder user.display_id %}</div>
+      <h2 class="mt-16">{{ user.name }}</h2>
+      <span class="id-big mt-8">{{ user.display_id }}</span>
+      <button type="button" class="ghost mt-16" data-copy="{{ user.display_id }}">Copy ID</button>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card fill">
+    <div class="card-h">{% icon "qr" %}<h2>How to use it</h2></div>
+    <ol class="steps">
+      {% if user.role == "Doctor" %}
+      <li><b>Ask</b><span>Ask the patient to open their QR Code page.</span></li>
+      <li><b>Scan</b><span>Point your camera at their code.</span></li>
+      <li><b>Request</b><span>Send the request. If it cannot wait, use Emergency access.</span></li>
+      {% else %}
+      <li><b>Show</b><span>Show this code to your doctor.</span></li>
+      <li><b>Scan</b><span>Your doctor scans it with their camera.</span></li>
+      <li><b>Approve</b><span>You get a message. Tap Approve to let them in.</span></li>
+      {% endif %}
+    </ol>
+    <p class="note-bar">
+      {% if user.role == "Doctor" %}Scanning only finds the patient. You still need their OK to open the record.
+      {% else %}This code is only your ID. It does not show any of your health information.{% endif %}
+    </p>
+  </div>
+</div>
+{% endblock %}

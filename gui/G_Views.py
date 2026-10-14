@@ -195,6 +195,14 @@ def dashboard(request):
     })
 
 
+def qr_page(request):
+    """QR Code. A patient sees their own code to show; a doctor sees the scanner. Only patients have a code.
+    Placeholder screen for now: the picture is not a real code and the camera is not connected yet."""
+    if not current_user(request):
+        return redirect("login")
+    return render(request, "G_QR.html")
+
+
 # ---------- patient pages ----------
 def my_record(request):
     """My Health: the patient's details and medical record, with a form to edit them."""

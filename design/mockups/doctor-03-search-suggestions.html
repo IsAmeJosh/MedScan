@@ -6,11 +6,12 @@
 <link rel="stylesheet" href="layout.css">
 <script src="icons.js"></script>
 </head>
-<body class="searching has-shell">
+<body class="has-shell searching">
 <aside class="sidebar">
-  <a class="logo" href="#"><span class="logo-mark"><svg class="logo-cross" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/></svg></span><div><b>MedScan</b><span>Clinician Portal</span></div></a>
-  <nav class="nav"><a href="#" class="on"><i data-i="home" data-s=""></i>Home</a><a href="#" class=""><i data-i="users" data-s=""></i>Patients<span class="count">2</span></a></nav>
-  <div class="side-foot"><div class="me"><div class="avatar">MR</div><div><b>Dr. Maria Reyes</b><span>DR-2026-02001</span></div><a class="out" href="#"><i data-i="logout" data-s="sm"></i></a></div></div>
+  <a class="logo" href="#"><span class="logo-mark"><svg class="logo-cross" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/></svg></span><div><b>MedScan</b><span>Doctor Portal</span></div></a>
+  <nav class="nav"><div class="nav-label">Workspace</div><a href="#" class="on"><i data-i="home" data-s=""></i>Home</a><a href="#" class=""><i data-i="users" data-s=""></i>Patients<span class="count">2</span></a><div class="nav-label">Tools</div><a href="#" class=""><i data-i="qr" data-s=""></i>Scan QR</a></nav>
+  <div class="side-foot"><div class="me-card"><div class="avatar">MR</div><b>Dr. Maria Reyes</b><span class="pill gray nodot">DR-2026-02001</span></div>
+  <a class="logout-link" href="#"><i data-i="logout" data-s="sm"></i>Log out</a></div>
 </aside>
 <div class="main">
   <header class="top"><form class="top-search" onsubmit="return false"><i data-i="search" data-s="sm"></i><input placeholder="Find a patient: name, ID or mobile number" value="jua"><kbd>/</kbd><div class="suggest open" id="suggest">
@@ -31,10 +32,10 @@
 </div>
 
 <div class="grid g4 eq mb-16">
-  <div class="card kpi c"><span class="ic-lg ic teal"><i data-i="users" data-s=""></i></span><div><div class="num">24</div><div class="lbl">Patients</div><div class="delta">+3 this month</div></div></div>
-  <div class="card kpi c"><span class="ic-lg ic green"><i data-i="check" data-s=""></i></span><div><div class="num">2</div><div class="lbl">Ready to open</div><div class="delta">new approvals</div></div></div>
-  <div class="card kpi c"><span class="ic-lg ic amber"><i data-i="clock" data-s=""></i></span><div><div class="num">3</div><div class="lbl">Waiting for an answer</div><div class="delta warn">oldest: 2 days</div></div></div>
-  <div class="card kpi c"><span class="ic-lg ic blue"><i data-i="edit" data-s=""></i></span><div><div class="num">11</div><div class="lbl">Notes this week</div><div class="delta">+4 vs last week</div></div></div>
+  <div class="card stat2"><div class="top-row"><span>Patients</span><span class="pill green nodot">+3 this month</span></div><div class="num">24</div><div class="cap">have approved you</div></div>
+  <div class="card stat2"><div class="top-row"><span>Ready to open</span><span class="pill teal nodot">New</span></div><div class="num">2</div><div class="cap">approved, not opened yet</div></div>
+  <div class="card stat2"><div class="top-row"><span>Waiting for an answer</span><span class="pill amber nodot">oldest 2 days</span></div><div class="num">3</div><div class="cap">requests you sent</div></div>
+  <div class="card stat2"><div class="top-row"><span>Notes written</span><span class="pill green nodot">+4 vs last week</span></div><div class="num">11</div><div class="cap">this week</div></div>
 </div>
 
 <div class="grid g2 eq">
@@ -75,6 +76,6 @@
 </div>
 
 
+
 <span class="mock-tag">DESIGN MOCKUP</span>
-<div class="scrim"></div>
 </body></html>

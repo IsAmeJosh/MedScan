@@ -151,7 +151,7 @@ class DoctorPages(PageTestCase):
     def test_the_menu_is_home_and_patients_with_search_and_emergency_in_the_top_bar(self):
         page = html(self.doc.get("/dashboard/"))
         nav = re.search(r'<nav class="nav">(.*?)</nav>', page, re.S).group(1)
-        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "Patients"])
+        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "Patients", "Scan QR"])
         for gone in ["Search Patient", "My Requests", "My Patients", "Emergency Access"]:
             self.assertNotIn(gone, nav)
         self.assertIn('id="top-search-input"', page)
@@ -351,7 +351,7 @@ class PatientPages(PageTestCase):
 
     def test_the_menu_is_home_my_health_and_privacy(self):
         nav = re.search(r'<nav class="nav">(.*?)</nav>', html(self.pat.get("/dashboard/")), re.S).group(1)
-        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "My Health", "Privacy"])
+        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "My Health", "Privacy", "My QR Code"])
         for gone in ["My Doctors", "Access Log", "Profile", "My Record"]:
             self.assertNotIn(gone, nav)
 

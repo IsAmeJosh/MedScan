@@ -117,7 +117,9 @@
     password: function (value) { return F.passwordProblem(value); },
     dob: function (value) { return F.dateProblem(value, new Date()); },
     mobile: function (value) { return F.mobileProblem(value); },
-    'mobile-required': function (value) { return F.mobileRequiredProblem(value); }
+    'mobile-required': function (value) { return F.mobileRequiredProblem(value); },
+    'login-id': function (value) { return F.requiredProblem(value, 'your ID or mobile number'); },
+    'login-password': function (value) { return F.requiredProblem(value, 'your password'); }
   };
 
   function visible(node) {
@@ -169,6 +171,7 @@
     each(form.querySelectorAll('[data-validate]'), function (input) {
       show(input, false);
       input.addEventListener('blur', function () {
+        if (input.getAttribute('data-quiet') === '1') { return; }   // login: say nothing until Log in is pressed
         input.setAttribute('data-touched', '1');
         show(input, false);
         refresh(form);
@@ -184,7 +187,10 @@
     form.addEventListener('submit', function (event) {
       if (formIsValid(form)) { return; }
       event.preventDefault();
-      each(form.querySelectorAll('[data-validate]'), function (input) { show(input, true); });
+      each(form.querySelectorAll('[data-validate]'), function (input) {
+        input.setAttribute('data-touched', '1');
+        show(input, true);
+      });
       refresh(form);
     });
     refresh(form);

@@ -23,9 +23,6 @@
     <div class="vital"><span>Notes</span><b>{{ record.consultations|length }}</b></div>
     <div class="vital"><span>Access</span><b>{% if has_access %}Approved{% else %}Emergency{% endif %}</b></div>
   </div>
-  {% if record.allergies %}
-  <div class="banner red flush">{% icon "alert" "sm" %}<div><b>Allergies:</b> {{ record.allergies|join:", " }}. Check before prescribing.</div></div>
-  {% endif %}
 </div>
 
 <div class="grid g3 eq mb-16">

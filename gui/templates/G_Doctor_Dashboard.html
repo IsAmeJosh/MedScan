@@ -15,10 +15,10 @@
 </div>
 
 <div class="grid g4 eq mb-16">
-  <div class="card kpi"><span class="ic lg teal">{% icon "users" %}</span><div><div class="num">{{ stats.patients }}</div><div class="lbl">Patients</div></div></div>
-  <div class="card kpi"><span class="ic lg green">{% icon "check" %}</span><div><div class="num">{{ ready|length }}</div><div class="lbl">Ready to open</div></div></div>
-  <div class="card kpi"><span class="ic lg amber">{% icon "clock" %}</span><div><div class="num">{{ stats.pending }}</div><div class="lbl">Waiting for an answer</div></div></div>
-  <div class="card kpi"><span class="ic lg blue">{% icon "edit" %}</span><div><div class="num">{{ stats.notes }}</div><div class="lbl">Notes written</div></div></div>
+  <div class="card stat2"><div class="top-row"><span>Patients</span></div><div class="num">{{ stats.patients }}</div><div class="cap">have approved you</div></div>
+  <div class="card stat2"><div class="top-row"><span>Ready to open</span>{% if ready %}<span class="pill teal nodot">New</span>{% endif %}</div><div class="num">{{ ready|length }}</div><div class="cap">approved, not opened yet</div></div>
+  <div class="card stat2"><div class="top-row"><span>Waiting for an answer</span></div><div class="num">{{ stats.pending }}</div><div class="cap">requests you sent</div></div>
+  <div class="card stat2"><div class="top-row"><span>Notes written</span>{% if week_total %}<span class="pill green nodot">{{ week_total }} this week</span>{% endif %}</div><div class="num">{{ stats.notes }}</div><div class="cap">in total</div></div>
 </div>
 
 <div class="grid g2 eq">

@@ -148,6 +148,11 @@
     return '';
   }
 
+  // A box that must not be left empty (the login page). `what` finishes the sentence: 'your password'.
+  function requiredProblem(text, what) {
+    return String(text).length === 0 || trim(text) === '' ? 'Please enter ' + what + '.' : '';
+  }
+
   function passwordProblem(text) {
     var length = String(text).length;
     if (length === 0) { return 'Enter a password.'; }
@@ -187,6 +192,7 @@
     typedToIso: typedToIso,
     nameProblem: nameProblem,
     passwordProblem: passwordProblem,
+    requiredProblem: requiredProblem,
     caretAfter: caretAfter
   };
 });

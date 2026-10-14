@@ -82,8 +82,9 @@
     }
   });
 
-  // While the box is in use the rest of the page is dimmed (the layer is in G_Base.html), like behind the notification
-  // panel. Clicking the dimmed part or pressing Esc takes the focus away, which closes the suggestions and the dim.
+  // While the box is in use the rest of the page is dimmed and blurred (the styles are in G_Style.css, keyed on the
+  // class "searching" on the page). Clicking elsewhere or pressing Esc takes the focus away, which closes the
+  // suggestions and brings the page back.
   function dim(on) {
     var body = document.body;
     if (!body) { return; }

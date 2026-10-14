@@ -8,9 +8,10 @@
 </head>
 <body class="has-shell">
 <aside class="sidebar">
-  <a class="logo" href="#"><span class="logo-mark"><svg class="logo-cross" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/></svg></span><div><b>MedScan</b><span>Clinician Portal</span></div></a>
-  <nav class="nav"><a href="#" class=""><i data-i="home" data-s=""></i>Home</a><a href="#" class="on"><i data-i="users" data-s=""></i>Patients<span class="count">2</span></a></nav>
-  <div class="side-foot"><div class="me"><div class="avatar">MR</div><div><b>Dr. Maria Reyes</b><span>DR-2026-02001</span></div><a class="out" href="#"><i data-i="logout" data-s="sm"></i></a></div></div>
+  <a class="logo" href="#"><span class="logo-mark"><svg class="logo-cross" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.5 3h5v6.5H21v5h-6.5V21h-5v-6.5H3v-5h6.5z"/></svg></span><div><b>MedScan</b><span>Doctor Portal</span></div></a>
+  <nav class="nav"><div class="nav-label">Workspace</div><a href="#" class=""><i data-i="home" data-s=""></i>Home</a><a href="#" class="on"><i data-i="users" data-s=""></i>Patients<span class="count">2</span></a><div class="nav-label">Tools</div><a href="#" class=""><i data-i="qr" data-s=""></i>Scan QR</a></nav>
+  <div class="side-foot"><div class="me-card"><div class="avatar">MR</div><b>Dr. Maria Reyes</b><span class="pill gray nodot">DR-2026-02001</span></div>
+  <a class="logout-link" href="#"><i data-i="logout" data-s="sm"></i>Log out</a></div>
 </aside>
 <div class="main">
   <header class="top"><form class="top-search" onsubmit="return false"><i data-i="search" data-s="sm"></i><input placeholder="Find a patient: name, ID or mobile number" value=""><kbd>/</kbd></form>
@@ -20,7 +21,7 @@
   </header>
   <div class="content">
 
-<div class="page-h"><div><h1>Patients</h1></div></div>
+<div class="page-h"><div><h1>Patients</h1><p>Everyone you have asked for access, and what they answered.</p></div><div class="meta"><span class="live">live</span><span class="pill gray nodot">24 patients</span></div></div>
 
 <div class="card mb-16 status-card"><div class="card-b">
   <div class="row between"><div class="row" style="gap:16px"><div class="avatar lg c1">JD</div><div><h2 style="font-size:18px">Juan Dela Cruz</h2><span class="muted">PT-2026-01001 &middot; Male &middot; 34 years</span></div></div>
@@ -50,5 +51,6 @@
     <div class="field-foot"><span class="field-msg">The patient will see this reason.</span><span class="counter">0 / 500</span></div></div>
   <div class="split"><button type="button" class="ghost">Cancel</button><button type="button" class="danger"><i data-i="shield" data-s="sm"></i>Open record</button></div>
 </div></div>
+
 <span class="mock-tag">DESIGN MOCKUP</span>
 </body></html>
