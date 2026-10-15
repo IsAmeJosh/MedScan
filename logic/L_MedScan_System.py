@@ -10,6 +10,7 @@ from data.D_Doctor_Repository import DoctorRepository
 from data.D_Notification_Repository import NotificationRepository
 from data.D_Patient_Repository import PatientRepository
 from models.M_Medical_Record import BLOOD_TYPES, MedicalRecord
+from models.M_QR_Code import QRCode
 
 
 class MedScanSystem:
@@ -178,6 +179,11 @@ class MedScanSystem:
         if mobile:
             return self._patients.id_for_mobile(mobile)
         return self.parse_id(text)
+
+    def patient_id_from_qr(self, scanned_text):
+        """The patient ID inside a scanned QR code, or None if it is not a MedScan patient code.
+        It only finds who the patient is; opening the record still goes through has_access()."""
+        return QRCode.patient_id_from(scanned_text)
 
     def get_patient(self, patient_id):
         """Find a patient (with their full record) by ID, or None."""

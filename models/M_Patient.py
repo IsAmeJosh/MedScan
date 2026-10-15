@@ -2,6 +2,7 @@ from datetime import date
 
 from models.M_User import User
 from models.M_Medical_Record import MedicalRecord
+from models.M_QR_Code import QRCode
 
 
 class Patient(User):
@@ -26,3 +27,8 @@ class Patient(User):
     def update_history(self, allergies="", surgeries="", medications="", blood_type=""):
         """Replace the medical history with the given comma-separated text."""
         self.record.replace_history(allergies, surgeries, medications, blood_type)
+
+    def qr_code(self):
+        """This patient's QR code. It holds only the display ID (PT-2026-01001), so a doctor who scans it gets
+        exactly what typing the ID gives: the patient's name and a locked record until the patient approves."""
+        return QRCode(self.display_id)

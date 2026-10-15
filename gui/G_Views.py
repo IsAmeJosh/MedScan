@@ -196,11 +196,24 @@ def dashboard(request):
 
 
 def qr_page(request):
-    """QR Code. A patient sees their own code to show; a doctor sees the scanner. Only patients have a code.
-    Placeholder screen for now: the picture is not a real code and the camera is not connected yet."""
-    if not current_user(request):
+    """QR Code. A patient sees their own code to show; a doctor sees the scanner. Only patients have a code."""
+    user = current_user(request)
+    if not user:
         return redirect("login")
-    return render(request, "G_QR.html")
+    qr_svg = user.qr_code().svg() if user.role == "Patient" else ""
+    return render(request, "G_QR.html", {"qr_svg": qr_svg})
+
+
+def qr_scan(request):
+    """The scanner found a code. If it is a MedScan patient code, show the same result as typing that ID in the
+    search box, so scanning never opens a record by itself: access still needs the patient's approval."""
+    if not _doctor(request):
+        return redirect("dashboard")
+    patient_id = system.patient_id_from_qr(request.GET.get("code", ""))
+    if patient_id is None:
+        messages.error(request, "That is not a MedScan patient code. Ask the patient to open My QR Code.")
+        return redirect("qr")
+    return redirect(f"/patients/?q={patient_id}")
 
 
 # ---------- patient pages ----------

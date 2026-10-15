@@ -474,7 +474,7 @@ class SignUpAndHomeScreens(unittest.TestCase):
 
 
 class QrCodePage(unittest.TestCase):
-    """Only patients have a code. A doctor scans one. The page is a placeholder: the picture is drawn, no camera yet."""
+    """Only patients have a code. A doctor scans one with the camera or a photo (tests/test_qr_code.py has the rest)."""
 
     def setUp(self):
         self.s = fresh_system(self)
@@ -520,9 +520,9 @@ class QrCodePage(unittest.TestCase):
         self.assertEqual(self.doc.get("/qr/?tab=show").status_code, 200)
 
     def test_the_picture_depends_on_the_id_and_is_always_the_same_for_one_id(self):
-        from gui.G_Filters import qr_placeholder
-        self.assertEqual(qr_placeholder("PT-2026-01001"), qr_placeholder("PT-2026-01001"))
-        self.assertNotEqual(qr_placeholder("PT-2026-01001"), qr_placeholder("PT-2026-01002"))
+        from models.M_QR_Code import QRCode
+        self.assertEqual(QRCode("PT-2026-01001").svg(), QRCode("PT-2026-01001").svg())
+        self.assertNotEqual(QRCode("PT-2026-01001").svg(), QRCode("PT-2026-01002").svg())
 
     def test_the_code_never_carries_health_information(self):
         page = html(self.pat.get("/qr/"))

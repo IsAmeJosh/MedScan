@@ -426,7 +426,7 @@ class PatientPages(PageTestCase):
         self.pat.post(f"/respond/{rows('SELECT request_id FROM access_requests')[0]['request_id']}/approve/")
         self.assertTrue(any("Juan Dela Cruz approved" in n.message for n in self.s.inbox(2001)))
 
-    def test_there_is_no_scanner_and_no_qr_yet(self):
+    def test_the_scanner_lives_on_its_own_page_not_on_patients(self):
         self.assertNotIn("scan-button", html(self.doc.get("/patients/")))
 
 

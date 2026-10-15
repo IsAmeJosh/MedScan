@@ -74,12 +74,14 @@ the doctor (`2001`) and the patient (`1001`) at the same time.
 | Home, with parts of the profile still empty | A "Finish your health profile" card with a progress bar. Add now opens the edit form; the x hides it in this browser |
 | Revoke access or Deny | A pop-up asks first |
 
-**QR codes** (placeholder screens: the picture is drawn from the ID and cannot be scanned yet, and the camera is not connected)
+**QR codes** (the code holds the patient's MedScan ID and nothing else; scanning does exactly what typing the ID does)
 
 | Try | Should happen |
 |---|---|
-| Patient: My QR Code | A picture, the name and ID, a Copy ID button, and three steps (Show, Scan, Approve). Only patients have a code |
-| Doctor: Scan QR | A camera frame and three steps (Ask, Scan, Request). The doctor has no code of their own |
+| Patient: My QR Code | A real, scannable code, the name and ID, a Copy ID button, and three steps (Show, Scan, Approve). Only patients have a code |
+| Doctor: Scan QR, then Start camera | The browser asks to use the camera (click Allow). Hold the patient's code (on their phone or another screen) inside the frame: the Patients page opens with that patient, locked, with Send access request |
+| Doctor: Upload a photo of the code | Pick a photo or screenshot of the code: same result as the camera. A photo with no code says "No QR code was found in that photo" |
+| Doctor: scan any other QR code | Back on Scan QR with "That is not a MedScan patient code." |
 
 **Login and sign-up**
 

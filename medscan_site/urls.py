@@ -16,6 +16,7 @@ urlpatterns = [
     # both roles
     path("dashboard/", views.dashboard, name="dashboard"),
     path("qr/", views.qr_page, name="qr"),
+    path("qr/scan/", views.qr_scan, name="qr_scan"),
     # patient: Home, My Health, Privacy
     path("record/", views.my_record, name="my_record"),
     path("record/edit/", views.update_info, name="update_info"),

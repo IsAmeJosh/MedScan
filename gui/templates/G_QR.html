@@ -1,7 +1,8 @@
 {% extends "G_Base.html" %}
 {% block title %}{% if user.role == "Doctor" %}Scan QR{% else %}My QR Code{% endif %}{% endblock %}
 {% block content %}
-{% comment %}Placeholder screen: the picture is drawn from the ID and cannot be scanned yet, and the camera is not connected yet.{% endcomment %}
+{% comment %}The patient's code is made on the server from their MedScan ID (Patient.qr_code()). The doctor's scanner reads it
+in the browser (js/G_Scan.js) and sends what it read to /qr/scan/, which shows the same result as typing the ID.{% endcomment %}
 <div class="page-h">
   <div>
     {% if user.role == "Doctor" %}
@@ -18,13 +19,24 @@
   <div class="card fill">
     <div class="card-b qr-stage">
       {% if user.role == "Doctor" %}
-      <div class="camera" aria-hidden="true">
+      <div class="camera" id="qr-camera">
+        <video id="qr-video" muted playsinline hidden></video>
         <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-        {% icon "camera" "lg" %}
-        <b>Point your camera at the code</b>
+        <div class="camera-idle" id="qr-idle">
+          {% icon "camera" "lg" %}
+          <b>Point your camera at the code</b>
+        </div>
       </div>
+      <div class="scan-actions mt-16">
+        <button type="button" id="qr-start">{% icon "camera" %}Start camera</button>
+        <button type="button" class="ghost" id="qr-stop" hidden>Stop camera</button>
+        <label class="btn ghost" for="qr-file">Upload a photo of the code</label>
+        <input type="file" id="qr-file" accept="image/*" hidden>
+      </div>
+      <p class="scan-status mt-8" id="qr-status" role="status" aria-live="polite"></p>
+      <canvas id="qr-canvas" hidden></canvas>
       {% else %}
-      <div class="qr-box">{% qr_placeholder user.display_id %}</div>
+      <div class="qr-box">{{ qr_svg|safe }}</div>
       <h2 class="mt-16">{{ user.name }}</h2>
       <span class="id-big mt-8">{{ user.display_id }}</span>
       <button type="button" class="ghost mt-16" data-copy="{{ user.display_id }}">Copy ID</button>
@@ -51,4 +63,11 @@
     </p>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if user.role == "Doctor" %}
+<script src="{% asset 'js/vendor/jsQR.js' %}"></script>
+<script src="{% asset 'js/G_Scan.js' %}"></script>
+{% endif %}
 {% endblock %}

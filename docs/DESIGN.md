@@ -212,12 +212,12 @@ Each role has only the pages it needs. Every page has one job, and nothing is sh
 |---|---|---|
 | Patient | Home | Requests waiting for an answer (Approve / Deny), the "Finish your health profile" card while blood type, allergies or medications are empty, then four equal cards: health snapshot, who can open my record, last consultation, recent activity |
 | Patient | My Health | Name, ID, mobile number, allergies, medications, surgeries, consultation notes, and the edit form |
-| Patient | My QR Code | The patient's own code (a picture with name and ID), a Copy ID button and three steps. Only patients have a code; it holds the ID and nothing else. Placeholder for now: the picture is drawn from the ID and cannot be scanned |
+| Patient | My QR Code | The patient's own code (a picture with name and ID), a Copy ID button and three steps. Only patients have a code; it holds the ID and nothing else. The code is made on the server from the ID (`Patient.qr_code()`, class `QRCode` in `models/M_QR_Code.py`, using the segno library) |
 | Patient | Privacy | Tab Doctors (waiting, can open, past; revoke) and tab Who opened my record (views and emergency uses) |
 | Doctor | Home | A greeting band with Find a patient and Emergency access, four equal number cards, then four equal panels: ready to open, notes this week (bar chart), recently opened, latest activity |
 | Doctor | Patients | The result of a search (two equal buttons: send request, emergency), and three tabs: my patients, waiting for an answer, declined or ended, as a table whose columns line up |
 | Both | Sign-up | First two equal tiles (patient, doctor), then a short form for the chosen role. Patient: name, mobile, date of birth, sex, password, and an optional closed section for allergies and surgeries. Doctor: name, password, specialty, clinic |
-| Doctor | Scan QR | The scanner (a camera frame) and three steps. Placeholder: the camera is not connected. Scanning will open the same patient result as a search, with the buttons to send a request or use emergency access |
+| Doctor | Scan QR | The scanner: Start camera (laptop webcam) or Upload a photo of the code, and three steps. The browser reads the code (`js/G_Scan.js` with the jsQR library in `js/vendor/`) and sends it to `/qr/scan/`; `system.patient_id_from_qr()` checks it is a patient code and the doctor lands on the same patient result as a search, with the buttons to send a request or use emergency access. Scanning never grants access |
 | Doctor | Top bar | Search box (suggestions, press `/`), the red Emergency button (a pop-up), the bell |
 
 Addresses from earlier versions (`/search/`, `/requests/`, `/doctors/`, `/access-log/`, `/profile/`) still work and lead to the page
