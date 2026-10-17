@@ -17,6 +17,7 @@
         <div><span>Blood type</span><b>{{ record.blood_type|default:"&ndash;" }}</b></div>
         <div><span>Allergies</span><b>{{ record.allergies|length }}</b></div>
         <div><span>Medications</span><b>{{ record.medications|length }}</b></div>
+        <div><span>Surgeries</span><b>{{ record.surgeries|length }}</b></div>
         <div><span>Visits</span><b>{{ record.consultations|length }}</b></div>
       </div>
       {% for allergy in record.allergies %}<span class="chip">{% icon "alert" "sm" %}{{ allergy }}</span>{% endfor %}

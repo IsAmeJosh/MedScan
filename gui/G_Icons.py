@@ -47,7 +47,7 @@ ICONS = {
     "heart": '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
 }
 
-LOGO = ICONS["plus"]   # the design's logo mark: a plain plus, drawn like the other icons
+LOGO = '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M7 12h2.5l1.5-3 2 6 1.5-3H17"/>'   # the MedScan logo mark: a heartbeat inside scanner corners
 
 
 @register.simple_tag
@@ -60,7 +60,7 @@ def icon(name, size=""):
 
 @register.simple_tag
 def logo(size=""):
-    """The plus used in the MedScan logo tile. size can be "sm" for the small tile in the phone's top bar."""
+    """The MedScan logo mark: a heartbeat inside scanner corners. size can be "sm" for the phone's top bar."""
     return mark_safe(f'<svg class="i {size}" viewBox="0 0 24 24" aria-hidden="true">{LOGO}</svg>')
 
 

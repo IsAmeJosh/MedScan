@@ -551,3 +551,10 @@ details.more .inside { padding:6px 16px 8px; }
 
 /* the teal panel stays in view while a long sign-up form scrolls */
 @media (min-width:761px) { .auth-art { position:sticky; top:0; height:100vh; align-self:start; } }
+
+/* ================= narrow desktop windows ================= */
+/* A small laptop screen, a half-width window or a zoomed-in browser leaves too little room for the fixed 400px right
+   column, which crushed the left column (the ID card and the notes) to a sliver. Below 1280px the two columns stack. */
+@media (max-width:1280px) { .grid { grid-template-columns:minmax(0,1fr); } }
+/* The five numbers on the ID card wrap onto a second line instead of running past the card's edge. */
+.stats { flex-wrap:wrap; row-gap:14px; }

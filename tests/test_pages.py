@@ -390,6 +390,12 @@ class PatientPages(PageTestCase):
     def test_the_dashboard_shows_the_age_worked_out_from_the_date_of_birth(self):
         self.assertIn(f"{self.s.get_patient(1001).age} years", html(self.pat.get("/dashboard/")))
 
+    def test_the_dashboard_card_counts_past_surgeries_next_to_allergies_and_medications(self):
+        stats = re.search(r'<div class="stats">(.*?)</div>\s*</div>', html(self.pat.get("/dashboard/")), re.S).group(1)
+        self.assertEqual(re.findall(r"<span>([A-Za-z ]+)</span>", stats),
+                         ["Blood type", "Allergies", "Medications", "Surgeries", "Visits"])
+        self.assertIn("<span>Surgeries</span><b>1</b>", stats)   # Juan's appendectomy, from seed.sql
+
     def test_my_record_shows_what_a_doctor_sees_and_opens_the_edit_sheet(self):
         page = html(self.pat.get("/record/"))
         for text in ["0917 123 4567", "O+", "Penicillin", "Appendectomy", "Consultation notes", "Basic info", "Edit my information"]:

@@ -3,7 +3,7 @@ import re
 import unittest
 from pathlib import Path
 
-from gui.G_Icons import ICONS, logo
+from gui.G_Icons import ICONS, LOGO, logo
 
 ROOT = Path(__file__).resolve().parent.parent
 DESIGN = ROOT / "design" / "html"
@@ -16,9 +16,10 @@ class TheIcons(unittest.TestCase):
             for inner in re.findall(r'<svg class="i[^"]*" viewBox="0 0 24 24">(.*?)</svg>', page.read_text(encoding="utf-8")):
                 self.assertIn(inner, drawn, f"{page.name}: {inner[:60]}")
 
-    def test_the_logo_is_the_designs_plain_plus_like_the_other_icons(self):
+    def test_the_logo_is_the_pulse_scan_mark_drawn_like_the_other_icons(self):
         mark = str(logo())
-        self.assertIn(ICONS["plus"], mark)
+        self.assertIn(LOGO, mark)
+        self.assertIn("M7 12h2.5l1.5-3 2 6 1.5-3H17", mark)   # the heartbeat line
         self.assertIn('class="i ', mark)
         self.assertNotIn("logo-cross", mark)
 
