@@ -2,85 +2,45 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 {% include "G_Welcome_Card.html" %}
-<div class="page-h">
-  <div><h1>Hello, {{ user.name }}</h1><p>Here is what is happening with your record.</p></div>
-</div>
+<div class="head"><div>
+  <h1>{% greeting %}, {{ user.name|first_name }}</h1>
+  <p>{% if waiting %}{% if waiting|length == 1 %}One request needs{% else %}{{ waiting|length }} requests need{% endif %} your answer.{% else %}Nothing needs your answer right now.{% endif %}</p>
+</div></div>
 
-{% if waiting %}
-<div class="card attention mb-16">
-  <div class="card-h">{% icon "inbox" %}<h2>Waiting for your answer</h2><span class="pill amber ml-auto">{{ waiting|length }}</span></div>
-  {% for r, doctor, last in waiting %}
-    <div class="lr">
-      <div class="avatar {{ doctor.user_id|tint }}">{{ doctor.name|initials }}</div>
-      <div class="grow"><b>Dr. {{ doctor.name }} wants to open your record</b><span class="sub">{{ doctor.workplace }}</span></div>
-      <form method="post" action="{% url 'respond' r.request_id 'deny' %}" class="inline-form" data-confirm="Dr. {{ doctor.name }} will be told you said no. They can ask again later." data-confirm-title="Deny this request?" data-confirm-button="Deny request" data-confirm-tone="danger">{% csrf_token %}
-        <button type="submit" class="sm danger-ghost">{% icon "x" "sm" %}Deny</button></form>
-      <form method="post" action="{% url 'respond' r.request_id 'approve' %}" class="inline-form">{% csrf_token %}
-        <button type="submit" class="sm success">{% icon "check" "sm" %}Approve</button></form>
-    </div>
-  {% endfor %}
-</div>
-{% endif %}
-
-{% if profile.todo %}
-<div class="card nudge mb-16" id="profile-nudge">
-  <div class="card-b row">
-    <span class="ic teal">{% icon "heart" %}</span>
-    <div class="grow">
-      <b>Finish your health profile</b>
-      <div class="progress"><i style="width:{{ profile.percent }}%"></i></div>
-      <div class="todo">
-        {% for name in profile.done %}<span class="done">{% icon "check" "sm" %}{{ name }}</span>{% endfor %}
-        {% for name in profile.todo %}<span>{% icon "plus" "sm" %}{{ name }}</span>{% endfor %}
+<div class="grid">
+  <div class="col">
+    <div class="idcard">
+      <span class="idtag num">{% icon "user" "sm" %}{{ user.display_id }}</span>
+      <div class="name">{{ user.name }}</div>
+      <div class="sub">{{ user.sex }} &middot; {{ user.age }} years{% if user.contact_number %} &middot; {{ user.contact_number }}{% endif %}</div>
+      <div class="stats">
+        <div><span>Blood type</span><b>{{ record.blood_type|default:"&ndash;" }}</b></div>
+        <div><span>Allergies</span><b>{{ record.allergies|length }}</b></div>
+        <div><span>Medications</span><b>{{ record.medications|length }}</b></div>
+        <div><span>Visits</span><b>{{ record.consultations|length }}</b></div>
       </div>
+      {% for allergy in record.allergies %}<span class="chip">{% icon "alert" "sm" %}{{ allergy }}</span>{% endfor %}
     </div>
-    <a class="btn" href="{% url 'my_record' %}#edit" data-open="edit">Add now</a>
-    <button type="button" class="icon-btn" data-dismiss="#profile-nudge" data-hide-key="medscan_hide_profile_nudge" aria-label="Hide for now">{% icon "x" "sm" %}</button>
-  </div>
-</div>
-{% endif %}
 
-<div class="grid g2 eq">
-  <div class="hero fill">
-    <span class="ring"></span><span class="ring two"></span>
-    <span class="id-chip">{% icon "user" "sm" %}{{ user.display_id }}</span>
-    <h2>{{ user.name }}</h2>
-    <p>{{ user.sex }} &middot; {{ user.age }} years</p>
-    <div class="facts">
-      <div><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
-      <div><span>Allergies</span><b>{{ record.allergies|length|default:"None recorded" }}</b></div>
-      <div><span>Medications</span><b>{{ record.medications|length }}</b></div>
+    {% if waiting %}
+    <div class="card">
+      <div class="card-h"><h2>{% icon "inbox" %}Needs your answer</h2><span class="pill amber">{{ waiting|length }} waiting</span></div>
+      {% for r, doctor, last in waiting %}
+        <div class="row">
+          <div class="avatar">{{ doctor.name|initials }}</div>
+          <div class="g"><b>Dr. {{ doctor.name }} wants to see your record</b><div class="s">{{ doctor.specialty }}{% if doctor.clinic %} &middot; {{ doctor.clinic }}{% endif %} &middot; {{ r.created_at|when:"inline" }}</div></div>
+          <div class="acts">{% include "G_Request_Actions.html" %}</div>
+        </div>
+        <div class="m-only flex btn-row">{% include "G_Request_Actions.html" %}</div>
+        {% include "G_Review_Sheet.html" with next="dashboard" %}
+      {% endfor %}
     </div>
+    {% endif %}
   </div>
 
-  <div class="card fill">
-    <div class="card-h">{% icon "shieldok" %}<h2>Who can open my record</h2><a class="link" href="{% url 'privacy' %}">Privacy</a></div>
-    <div class="list">
-      {% for r, doctor, last in doctors %}
-        <a class="lr" href="{% url 'privacy' %}">
-          <div class="avatar {{ doctor.user_id|tint }}">{{ doctor.name|initials }}</div>
-          <div class="grow"><b>Dr. {{ doctor.name }}</b><span class="sub">{{ doctor.workplace }}</span></div>
-          {% if r.status == "Approved" %}<span class="pill green">Active</span>{% else %}<span class="pill amber">Waiting</span>{% endif %}
-        </a>
-      {% empty %}<p class="empty">No doctor can open your record yet. Give a doctor your ID, <b>{{ user.display_id }}</b>.</p>{% endfor %}
-    </div>
-  </div>
-
-  <div class="card fill">
-    <div class="card-h">{% icon "pulse" %}<h2>Last consultation</h2><a class="link" href="{% url 'my_record' %}">My Health</a></div>
-    {% with latest=record.latest_consultation %}
-    {% if latest %}
-      <div class="card-b">
-        <b>{{ latest.date|date:"M d, Y" }} &middot; Dr. {{ latest.doctor_name }}</b>
-        <p class="muted note-text mt-8">{{ latest.notes }}</p>
-      </div>
-    {% else %}<p class="empty card-b">No consultations yet.</p>{% endif %}
-    {% endwith %}
-  </div>
-
-  <div class="card fill">
-    <div class="card-h">{% icon "history" %}<h2>Recent activity</h2><a class="link" href="{% url 'privacy' %}?tab=activity">See all</a></div>
-    <div class="list">
+  <div class="col">
+    <div class="card">
+      <div class="card-h"><h2>{% icon "history" %}Recent activity</h2><a class="link" href="{% url 'access' %}?tab=history">See all</a></div>
       {% for a in activity %}{% include "G_Activity_Item.html" %}
       {% empty %}<p class="empty">Nobody has opened your record yet.</p>{% endfor %}
     </div>

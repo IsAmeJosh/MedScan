@@ -1,52 +1,70 @@
 {% extends "G_Base.html" %}
-{% block title %}My Health{% endblock %}
+{% block title %}My Record{% endblock %}
 {% block content %}
-<div class="page-h">
-  <div><h1>My Health</h1></div>
-  <div class="actions"><a class="btn" href="#edit" data-open="edit">{% icon "edit" "sm" %}Edit my information</a></div>
+<div class="head">
+  <div><h1>My Record</h1><p>This is exactly what a doctor sees once you give them access.</p></div>
+  <div class="acts"><button type="button" class="btn" data-sheet="edit-sheet">{% icon "edit" "sm" %}Edit my information</button></div>
 </div>
 
-<div class="card mb-16">
-  <div class="card-h">
-    <div class="avatar lg">{{ user.name|initials }}</div>
-    <div><h2 class="name-lg">{{ user.name }}</h2><span class="muted">{{ user.display_id }}</span></div>
-  </div>
-  <div class="kv">
-    <div><span>Sex and age</span><b>{{ user.sex }}, {{ user.age }}</b></div>
-    <div><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
-    <div><span>Mobile number</span><b>{{ user.contact_number|mobile }}</b></div>
-    <div><span>Member since</span><b>{{ user.created_year }}</b></div>
-  </div>
+{# on a phone the three groups become tabs (G_Sheets.js); on a desktop everything is visible #}
+<div class="ptabs m-only flex" role="tablist">
+  <button type="button" class="on" data-pane-tab="notes">Notes</button>
+  <button type="button" data-pane-tab="medical">Medical</button>
+  <button type="button" data-pane-tab="info">Info</button>
 </div>
 
-<div class="grid g3 eq mb-16">
-  <div class="card fill"><div class="card-h">{% icon "alert" %}<h3>Allergies</h3></div><div class="card-b wrap">
-    {% for a in record.allergies %}<span class="tag allergy">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
-  <div class="card fill"><div class="card-h">{% icon "pill" %}<h3>Current medications</h3></div><div class="card-b wrap">
-    {% for m in record.medications %}<span class="tag">{% icon "pill" "sm" %}{{ m }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
-  <div class="card fill"><div class="card-h">{% icon "pulse" %}<h3>Past surgeries</h3></div><div class="card-b wrap">
-    {% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<p class="empty">None recorded.</p>{% endfor %}</div></div>
-</div>
-
-<details class="card mb-16" id="edit">
-  <summary>{% icon "edit" %}Edit my information</summary>
-  <form method="post" action="{% url 'update_info' %}" class="card-b" data-validate-form>{% csrf_token %}
-    <div class="grid g3 tight">
-      <div class="field"><label>Allergies</label><input name="allergies" data-chips placeholder="Type one, press Enter" value="{{ record.allergies|join:', ' }}"></div>
-      <div class="field"><label>Current medications</label><input name="medications" data-chips placeholder="Type one, press Enter" value="{{ record.medications|join:', ' }}"></div>
-      <div class="field"><label>Past surgeries</label><input name="surgeries" data-chips placeholder="Type one, press Enter" value="{{ record.surgeries|join:', ' }}"></div>
-      <div class="field"><label>Blood type</label>
-        <select name="blood_type">
-          {% for b in blood_types %}<option value="{{ b }}" {% if b == record.blood_type %}selected{% endif %}>{{ b|default:"Not set" }}</option>{% endfor %}
-        </select></div>
-      <div class="field"><label>Mobile number</label><input name="contact_number" type="tel" inputmode="tel" maxlength="20" placeholder="0917 123 4567" value="{{ user.contact_number|mobile }}" required data-format="mobile" data-validate="mobile-required" data-hint="One number per account. You can log in with it."></div>
+<div class="grid">
+  <div class="col">
+    <div class="card pane on" data-pane="notes">
+      <div class="card-h"><h2>{% icon "file" %}Consultation notes</h2><span class="pill grey nodot">{{ record.consultations|length }}</span></div>
+      <div class="card-b">
+        {% include "G_Notes_Timeline.html" %}
+      </div>
     </div>
-    <button type="submit" data-submit>{% icon "check" "sm" %}Save changes</button>
-  </form>
-</details>
+  </div>
 
-<div class="card">
-  <div class="card-h">{% icon "file" %}<h2>Consultation notes</h2><span class="pill gray nodot">{{ record.consultations|length }}</span></div>
-  {% include "G_Timeline.html" %}
+  <div class="col">
+    <div class="col pane" data-pane="medical">
+      <div class="card">
+        <div class="card-h"><h2>{% icon "alert" %}Allergies</h2></div>
+        <div class="card-b tight">{% for a in record.allergies %}<span class="tag red">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>{% icon "pill" %}Medications</h2></div>
+        <div class="card-b tight">{% for m in record.medications %}<span class="tag">{{ m }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2>{% icon "pulse" %}Past surgeries</h2></div>
+        <div class="card-b tight">{% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div>
+      </div>
+    </div>
+    <div class="col pane" data-pane="info">
+      <div class="card">
+        <div class="card-h"><h2>{% icon "user" %}Basic info</h2></div>
+        <div class="kv"><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
+        <div class="kv"><span>Sex &middot; Age</span><b>{{ user.sex }} &middot; {{ user.age }}</b></div>
+        <div class="kv"><span>Mobile number</span><b>{{ user.contact_number|mobile|default:"Not set" }}</b></div>
+      </div>
+    </div>
+  </div>
 </div>
+
+<dialog id="edit-sheet" class="sheet wide">
+  <form method="post" action="{% url 'update_info' %}" class="sheet-in" data-validate-form>{% csrf_token %}
+    <div class="grab"></div>
+    <div class="sheet-h"><h2>Edit my information</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
+    <div class="field"><label for="f-allergies">Allergies</label><input id="f-allergies" name="allergies" data-chips placeholder="Type one, press Enter" value="{{ record.allergies|join:', ' }}"></div>
+    <div class="field"><label for="f-medications">Current medications</label><input id="f-medications" name="medications" data-chips placeholder="Type one, press Enter" value="{{ record.medications|join:', ' }}"></div>
+    <div class="field"><label for="f-surgeries">Past surgeries</label><input id="f-surgeries" name="surgeries" data-chips placeholder="Type one, press Enter" value="{{ record.surgeries|join:', ' }}"></div>
+    <div class="field"><label for="f-blood">Blood type</label>
+      <select id="f-blood" name="blood_type">
+        {% for b in blood_types %}<option value="{{ b }}" {% if b == record.blood_type %}selected{% endif %}>{{ b|default:"Not set" }}</option>{% endfor %}
+      </select></div>
+    <div class="field"><label for="f-mobile">Mobile number</label><input id="f-mobile" name="contact_number" type="tel" inputmode="tel" maxlength="20" placeholder="0917 123 4567" value="{{ user.contact_number|mobile }}" required data-format="mobile" data-validate="mobile-required" data-hint="One number per account. You can log in with it."></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn lg" data-close>Cancel</button>
+      <button type="submit" class="btn primary lg" data-submit>{% icon "check" "sm" %}Save changes</button>
+    </div>
+  </form>
+</dialog>
 {% endblock %}

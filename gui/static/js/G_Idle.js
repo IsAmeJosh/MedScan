@@ -61,6 +61,6 @@
   var events = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
   for (var i = 0; i < events.length; i++) { document.addEventListener(events[i], activity, true); }
   document.getElementById('idle-stay').addEventListener('click', stay);
-  dialog.addEventListener('close', function () { if (warning) { stay(); } });   // Escape counts as staying
+  dialog.addEventListener('close', function () { if (warning) { stay(); } });   // Pressing Escape closes the dialog, and that counts as choosing to stay logged in.
   window.setInterval(tick, 1000);
 })();

@@ -4,43 +4,26 @@
 <div class="auth">
   {% include "G_Auth_Art.html" %}
   <div class="auth-form">
-    {% if not role %}
-    <div class="box wide">
-      <h1 class="text-center">Create your account</h1>
-      <p class="text-center">Who is signing up?</p>
-      <div class="role-grid">
-        <a class="role-tile" href="?role=patient">
-          <span class="ic xl teal">{% icon "heart" "lg" %}</span><h2>I&rsquo;m a patient</h2>
-          <p>Keep your health record in one place and choose which doctors can see it.</p>
-          <span class="btn">Continue {% icon "arrow" "sm" %}</span>
-        </a>
-        <a class="role-tile" href="?role=doctor">
-          <span class="ic xl blue">{% icon "steth" "lg" %}</span><h2>I&rsquo;m a doctor</h2>
-          <p>Look patients up by ID, ask for access, and write consultation notes.</p>
-          <span class="btn">Continue {% icon "arrow" "sm" %}</span>
-        </a>
+    <div class="box">
+      <h2>Create your account</h2>
+      <p class="sub">You will get a MedScan ID when you finish.</p>
+      {% include "G_Auth_Messages.html" %}
+      <div class="field">
+        <label>I am a</label>
+        <div class="seg">
+          <a href="?role=patient" class="{% if role != 'Doctor' %}on{% endif %}">Patient</a>
+          <a href="?role=doctor" class="{% if role == 'Doctor' %}on{% endif %}">Doctor</a>
+        </div>
       </div>
-      <p class="muted text-center mt-24">Already have an account? <a href="{% url 'login' %}"><b>Log in</b></a></p>
-    </div>
-
-    {% else %}
-    <div class="box wide">
-      <a class="back-link" href="{% url 'register' %}">{% icon "back" "sm" %}Back</a>
-      <h1>Create your {% if role == "Doctor" %}doctor{% else %}patient{% endif %} account</h1>
-      <p>{% if role == "Doctor" %}Patients will see your name, specialty and clinic when you ask for access.{% else %}It takes about a minute. You can add your medical history afterwards.{% endif %}</p>
-      {% for m in messages %}<div class="msg {{ m.tags }}">{{ m }}</div>{% endfor %}
       <form method="post" action="{% url 'register' %}" data-validate-form>{% csrf_token %}
         <input type="hidden" name="role" value="{{ role }}">
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" name="name" maxlength="100" placeholder="{% if role == 'Doctor' %}Maria Reyes{% else %}Juan Dela Cruz{% endif %}" autocomplete="name"
+                 value="{{ form.name|default:'' }}" required data-counter data-validate="name">
+        </div>
 
         {% if role == "Doctor" %}
-        <div class="two-col">
-          <div class="field">
-            <label for="name">Full name</label>
-            <input id="name" name="name" maxlength="100" placeholder="Maria Reyes" autocomplete="name"
-                   value="{{ form.name|default:'' }}" required data-counter data-validate="name">
-          </div>
-          {% include "G_Password_Field.html" %}
-        </div>
         <div class="two-col">
           <div class="field">
             <label for="specialty">Specialty</label>
@@ -51,20 +34,15 @@
             <input id="clinic" name="clinic" maxlength="150" placeholder="e.g. Bayanihan Family Clinic" value="{{ form.clinic|default:'' }}" data-counter>
           </div>
         </div>
+        <div class="field">
+          <label for="contact_number">Contact number <span class="faint">(optional)</span></label>
+          <input id="contact_number" name="contact_number" type="tel" inputmode="tel" maxlength="20" autocomplete="tel-national"
+                 placeholder="0917 123 4567" value="{{ form.contact_number|default:'' }}" data-format="mobile" data-validate="mobile">
+        </div>
+        {% include "G_Password_Field.html" %}
 
         {% else %}
-        <div class="field">
-          <label for="name">Full name</label>
-          <input id="name" name="name" maxlength="100" placeholder="Juan Dela Cruz" autocomplete="name"
-                 value="{{ form.name|default:'' }}" required data-counter data-validate="name">
-        </div>
         <div class="two-col">
-          <div class="field">
-            <label for="contact_number">Mobile number</label>
-            <input id="contact_number" name="contact_number" type="tel" inputmode="tel" maxlength="20" autocomplete="tel-national"
-                   placeholder="0917 123 4567" value="{{ form.contact_number|default:'' }}"
-                   required data-format="mobile" data-validate="mobile-required" data-hint="One per account. Works for logging in.">
-          </div>
           <div class="field">
             <label for="dob">Date of birth</label>
             <div class="date-wrap">
@@ -77,8 +55,6 @@
             </div>
             <p class="age-note" id="dob-age"></p>
           </div>
-        </div>
-        <div class="two-col">
           <div class="field">
             <label for="sex">Sex</label>
             <select name="sex" id="sex">
@@ -86,8 +62,14 @@
               <option {% if form.sex == "Female" %}selected{% endif %}>Female</option>
             </select>
           </div>
-          {% include "G_Password_Field.html" %}
         </div>
+        <div class="field">
+          <label for="contact_number">Contact number</label>
+          <input id="contact_number" name="contact_number" type="tel" inputmode="tel" maxlength="20" autocomplete="tel-national"
+                 placeholder="0917 123 4567" value="{{ form.contact_number|default:'' }}"
+                 required data-format="mobile" data-validate="mobile-required" data-hint="One per account. Works for logging in.">
+        </div>
+        {% include "G_Password_Field.html" %}
         <details class="more" {% if form.allergies or form.surgeries %}open{% endif %}>
           <summary>{% icon "plus" "sm" %}Add medical history now (optional)</summary>
           <div class="inside two-col">
@@ -103,15 +85,11 @@
         </details>
         {% endif %}
 
-        <button type="submit" class="lg w-full" data-submit>Create account</button>
+        <button type="submit" class="btn primary lg block" data-submit>Create account</button>
         <p class="small faint text-center mt-16" data-submit-hint hidden>Fill in the fields above to continue.</p>
       </form>
-      <p class="muted text-center mt-24">
-        {% if role == "Doctor" %}Not a doctor? <a href="?role=patient"><b>I&rsquo;m a patient</b></a>{% else %}Not a patient? <a href="?role=doctor"><b>I&rsquo;m a doctor</b></a>{% endif %}
-        &nbsp;&middot;&nbsp; <a href="{% url 'login' %}"><b>Log in</b></a>
-      </p>
+      <p class="muted auth-switch">Already have an ID? <a href="{% url 'login' %}"><b>Log in</b></a></p>
     </div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}

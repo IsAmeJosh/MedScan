@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+"""Django's command line tool: python manage.py runserver (start the site), python manage.py test (run the tests)."""
 import os
 import sys
 

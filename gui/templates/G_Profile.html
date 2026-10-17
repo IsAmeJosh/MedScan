@@ -1,0 +1,48 @@
+{% extends "G_Base.html" %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<div class="head"><div><h1>Profile</h1><p>Your account details.</p></div></div>
+<div class="grid half">
+  <div class="card">
+    <div class="who">
+      <div class="avatar xl">{{ user.name|initials }}</div>
+      <div>
+        <div class="nm">{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</div>
+        <div class="muted num">{{ user.display_id }}</div>
+      </div>
+    </div>
+    {% if user.role == "Doctor" %}
+      <div class="kv"><span>Specialty</span><b>{{ user.specialty }}</b></div>
+      <div class="kv"><span>Clinic</span><b>{{ user.clinic|default:"Not set" }}</b></div>
+    {% else %}
+      <div class="kv"><span>Sex &middot; Age</span><b>{{ user.sex }} &middot; {{ user.age }}</b></div>
+      <div class="kv"><span>Blood type</span><b>{{ user.record.blood_type|default:"Not set" }}</b></div>
+    {% endif %}
+    <div class="kv"><span>Contact</span><b>{{ user.contact_number|mobile|default:"Not set" }}</b></div>
+    <div class="card-b edge">
+      <button type="button" class="btn" data-sheet="contact-sheet">{% icon "edit" "sm" %}Edit contact info</button>
+    </div>
+  </div>
+  <div class="col">
+    <div class="card">
+      <div class="card-h"><h2>{% icon "key" %}Security</h2></div>
+      <div class="kv"><span>Password</span><b>Set {{ user.password_changed_at|date:"M j" }}</b></div>
+    </div>
+    <a class="btn danger lg block" href="{% url 'logout' %}">{% icon "logout" "sm" %}Log out</a>
+  </div>
+</div>
+
+<dialog id="contact-sheet" class="sheet">
+  <form method="post" action="{% url 'profile_contact' %}" class="sheet-in" data-validate-form>{% csrf_token %}
+    <div class="grab"></div>
+    <div class="sheet-h"><h2>Edit contact info</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
+    <div class="field"><label for="f-contact">Mobile number</label>
+      <input id="f-contact" name="contact_number" type="tel" inputmode="tel" maxlength="20" placeholder="0917 123 4567" value="{{ user.contact_number|mobile }}" {% if user.role == "Patient" %}required data-validate="mobile-required" data-hint="One number per account. You can log in with it."{% else %}data-validate="mobile" data-hint="Optional."{% endif %} data-format="mobile"></div>
+    <div class="sheet-actions">
+      <button type="button" class="btn lg" data-close>Cancel</button>
+      <button type="submit" class="btn primary lg" data-submit>{% icon "check" "sm" %}Save</button>
+    </div>
+  </form>
+</dialog>
+{% block overlay %}{% endblock %}
+{% endblock %}

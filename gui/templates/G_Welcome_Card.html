@@ -1,16 +1,14 @@
 {# Shown once, on the first dashboard after registering. Needs: welcome (true on that visit). #}
 {% if welcome %}
-<div class="card welcome-card mb-16" id="welcome-card">
-  <div class="card-b row start">
-    <span class="ic green">{% icon "check" %}</span>
-    <div class="grow">
-      <h2>Welcome to MedScan, {{ user.name }}!</h2>
-      <p class="muted mt-8">Your MedScan ID is <b class="id-big">{{ user.display_id }}</b>.
-        {% if user.role == "Patient" %}Doctors use it to find you. To log in, use that ID, just the number <b>{{ user.user_id }}</b>, or your mobile number. Any one of them works.
-        {% else %}To log in, use that ID or just the number <b>{{ user.user_id }}</b>.{% endif %}</p>
-    </div>
-    <button type="button" class="ghost" data-copy="{{ user.display_id }}">Copy ID</button>
-    <button type="button" class="icon-btn" data-dismiss="#welcome-card" aria-label="Dismiss">{% icon "x" "sm" %}</button>
+<div class="alert teal welcome" id="welcome-card">
+  <span class="ic green">{% icon "check" %}</span>
+  <div class="g">
+    <b>Welcome to MedScan, {{ user.name }}!</b>
+    <div>Your MedScan ID is <b class="num">{{ user.display_id }}</b>.
+      {% if user.role == "Patient" %}Doctors use it to find you. To log in, use that ID, just the number <b>{{ user.user_id }}</b>, or your mobile number. Any one of them works.
+      {% else %}To log in, use that ID or just the number <b>{{ user.user_id }}</b>.{% endif %}</div>
   </div>
+  <button type="button" class="btn sm" data-copy="{{ user.display_id }}">Copy ID</button>
+  <button type="button" class="ibtn flat" data-dismiss="#welcome-card" aria-label="Dismiss">{% icon "x" "sm" %}</button>
 </div>
 {% endif %}

@@ -1,5 +1,5 @@
-"""The one place that talks to MySQL: connections, transactions, and building the tables from the SQL files.
-Needs PyMySQL:  python -m pip install -r requirements.txt"""
+"""The one place that talks to MySQL: it opens connections, runs transactions, and builds the tables from the SQL
+files in database/. It needs PyMySQL (python -m pip install -r requirements.txt)."""
 import os
 import re
 import threading
@@ -10,11 +10,16 @@ from pymysql.cursors import DictCursor
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQL_DIR = os.path.join(ROOT_DIR, "database")
-SCHEMA_VERSION = 4  # must match the number inserted at the bottom of database/schema.sql
+SCHEMA_VERSION = 1  # Must match the number inserted at the bottom of database/schema.sql.
 # Children come before their parents, so foreign keys never block a delete.
-TABLES = ["notifications", "record_views", "emergency_logs", "access_requests", "consultations",
-          "record_items", "patients", "doctors", "schema_version"]
-FIRST_ID = {"doctors": 2001, "patients": 1001}  # every other table counts from 1
+TABLES = ["tb_qr_scans", "tb_qr_tokens", "tb_notifications", "tb_record_views", "tb_emergency_logs", "tb_access_requests",
+          "tb_consultations", "tb_medical_items", "tb_patients", "tb_doctors", "tb_schema_version"]
+# The table names from before the tb_ naming. Old layouts are not upgraded; reset() just removes these too, so a reset
+# leaves no old tables behind in phpMyAdmin.
+OLD_TABLES = ["qr_scans", "qr_tokens", "notifications", "record_views", "emergency_logs", "access_requests", "consultations",
+              "record_items", "patients", "doctors", "schema_version"]
+FIRST_ID = {"tb_doctors": 2001, "tb_patients": 1001}  # Every other table counts its IDs from 1.
+DEMO_MARKER_MOBILE = "09171110001"  # The first sample patient in database/demo_data.sql: its presence means the sample data is in.
 # Strict mode: the database refuses bad data (missing values, unknown choices, text that is too long)
 # instead of quietly storing something else.
 STRICT_MODE = "STRICT_ALL_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION"
@@ -22,34 +27,38 @@ UNKNOWN_DATABASE = 1049  # MySQL's error number for "that database does not exis
 
 
 class DatabaseError(RuntimeError):
-    """The database cannot be reached or is not in the shape this version of MedScan expects."""
+    """Raised when the database cannot be reached, or when its tables come from a version of MedScan this one does not
+    understand. The message says what happened and what to do next."""
 
 
 class Transaction:
-    """One database transaction: every query made while it is open shares one connection and is saved together
-    (commit) or not at all (rollback). The connection is only opened when the first query is made."""
+    """One database transaction: every query made while it is open shares one connection, and the changes are saved
+    together (commit) or not at all (rollback). The Database makes one per web request. The connection is only
+    opened when the first query is made."""
 
     def __init__(self, db):
+        """Start with no connection. One is opened the first time a query is made."""
         self._db = db
         self._conn = None
 
     @property
     def connection(self):
-        """The connection, opened on first use."""
+        """The connection, opened the first time it is needed. A page that never asks the database anything never
+        opens one."""
         if self._conn is None:
             self._conn = self._db.connect()
         return self._conn
 
     def commit(self):
-        """Save everything done in this transaction."""
+        """Save everything that was done during this transaction."""
         self._finish(commit=True)
 
     def rollback(self):
-        """Undo everything done in this transaction."""
+        """Undo everything that was done during this transaction."""
         self._finish(commit=False)
 
     def _finish(self, commit):
-        """End the transaction and give the connection back."""
+        """End the transaction and hand the connection back, whether the changes were saved or undone."""
         conn, self._conn = self._conn, None
         if self._db._local.tx is self:
             self._db._local.tx = None
@@ -61,22 +70,26 @@ class Transaction:
 
 
 class Database:
-    """Opens connections and runs queries. Repositories use cursor(); anything that must succeed or fail
-    as one piece goes inside unit_of_work(). The website opens one transaction per web request (see
-    gui/G_Middleware.py), so all the queries of one page share a single connection."""
+    """Opens connections and runs queries. Repositories call cursor() to run SQL, and anything that has to succeed or
+    fail as one piece goes inside unit_of_work(). The website opens one transaction per web request (see
+    gui/G_Middleware.py), so every query of one page shares a single connection."""
 
     def __init__(self, host="127.0.0.1", port=3306, user="root", password="", name="db_medscan"):
+        """Remember where the database is. The name is checked because it ends up inside SQL text, so only letters,
+        digits and underscores are allowed."""
         self.host, self.port, self.user = host, int(port), user
         self.password, self.name = password, name
-        if not re.fullmatch(r"[A-Za-z0-9_]+", name):  # the name ends up inside SQL text, so keep it plain
+        # The name ends up inside SQL text, so only plain characters are allowed.
+        if not re.fullmatch(r"[A-Za-z0-9_]+", name):
             raise ValueError(f"Invalid database name: {name!r}")
-        self._local = threading.local()  # each web request thread has its own transaction
+        self._local = threading.local()  # Every web request runs on its own thread and gets its own transaction.
         self._local.tx = None
 
     @classmethod
     def from_environment(cls, name=None):
-        """Read the connection settings from MEDSCAN_DB_* variables (defaults suit a local XAMPP).
-        name overrides the database name."""
+        """Build a Database from the MEDSCAN_DB_* environment variables. The defaults suit a local XAMPP, so nothing
+        needs to be set on a normal laptop. name replaces the database name (the tests and the console demo each
+        use a database of their own)."""
         env = os.environ.get
         return cls(env("MEDSCAN_DB_HOST", "127.0.0.1"), env("MEDSCAN_DB_PORT", "3306"),
                    env("MEDSCAN_DB_USER", "root"), env("MEDSCAN_DB_PASSWORD", ""),
@@ -84,7 +97,8 @@ class Database:
 
     # ---- connections ----
     def _open(self, database):
-        """One raw connection. database=None connects to the server only."""
+        """Open one raw connection. With database=None it connects to the MySQL server only, which is how a missing
+        database gets created."""
         try:
             return pymysql.connect(host=self.host, port=self.port, user=self.user, password=self.password,
                                    database=database, charset="utf8mb4", connect_timeout=3,
@@ -96,11 +110,12 @@ class Database:
                                 f"{self.host}:{self.port} as '{self.user}' ({error}).") from error
 
     def connect(self):
-        """Open a connection to the MedScan database, creating the (empty) database first if it is missing."""
+        """Open a connection to the MedScan database. If the database does not exist yet it is created (empty) first,
+        so a fresh laptop works at the first start."""
         try:
             return self._open(self.name)
         except pymysql.err.OperationalError:
-            pass  # only reached for "unknown database"
+            pass  # We only get here for the "unknown database" error.
         conn = self._open(None)
         try:
             with conn.cursor() as cur:
@@ -118,7 +133,7 @@ class Database:
         return getattr(self._local, "tx", None) is not None
 
     def begin(self):
-        """Start a transaction on this thread. The caller must end it with commit() or rollback()."""
+        """Start a transaction on this thread. Whoever starts it must end it with commit() or rollback()."""
         if self.in_transaction:
             raise RuntimeError("A transaction is already open on this thread.")
         self._local.tx = Transaction(self)
@@ -126,8 +141,8 @@ class Database:
 
     @contextmanager
     def unit_of_work(self):
-        """Everything inside the block is saved together, or not at all. Inside a transaction that is
-        already open (such as the web request's) it simply joins it."""
+        """A block of work that is saved together or not at all. Wrap several writes in it when they only make sense
+        as a set. If a transaction is already open (a web request opens one) the block simply joins it."""
         if self.in_transaction:
             yield
             return
@@ -141,8 +156,8 @@ class Database:
 
     @contextmanager
     def cursor(self):
-        """A cursor that returns rows as dictionaries. Inside a transaction it joins that transaction;
-        on its own it saves right after the block."""
+        """A cursor that returns every row as a dictionary, so code reads row["name"] instead of counting columns.
+        Inside a transaction it joins that transaction; on its own it saves right after the block."""
         tx = getattr(self._local, "tx", None)
         if tx is not None:
             with tx.connection.cursor() as cur:
@@ -162,14 +177,15 @@ class Database:
     # ---- building and resetting ----
     @staticmethod
     def _statements(filename):
-        """The SQL statements in one of the .sql files (comments removed)."""
+        """Read one of the .sql files and return its SQL statements, with the comments taken out."""
         with open(os.path.join(SQL_DIR, filename), encoding="utf-8") as f:
             text = re.sub(r"--[^\n]*", "", f.read())
         return [statement.strip() for statement in text.split(";") if statement.strip()]
 
     def prepare(self):
-        """Make the database ready: create any missing tables (database/schema.sql) and, if there are no
-        users at all, add the test accounts (database/seed.sql)."""
+        """Make the database ready to use: create any missing tables (database/schema.sql) and, if there are no users yet,
+        add the demo accounts (database/seed.sql). It is safe to run on every start. A database with the tables of an older
+        MedScan is refused with a message, because old layouts are not upgraded: reset_database.py rebuilds them."""
         with self.unit_of_work():
             with self.cursor() as cur:
                 if self._is_outdated(cur):
@@ -178,39 +194,39 @@ class Database:
                         "Run:  python reset_database.py   (this empties the MedScan tables and rebuilds them).")
                 for statement in self._statements("schema.sql"):
                     cur.execute(statement)
-                cur.execute("SELECT (SELECT COUNT(*) FROM patients) + (SELECT COUNT(*) FROM doctors) AS users")
+                cur.execute("SELECT (SELECT COUNT(*) FROM tb_patients) + (SELECT COUNT(*) FROM tb_doctors) AS users")
                 if cur.fetchone()["users"] == 0:
                     for statement in self._statements("seed.sql"):
                         cur.execute(statement)
 
     def _is_outdated(self, cur):
-        """True if MedScan tables exist from a different version of the schema."""
-        cur.execute("SELECT COUNT(*) AS n FROM information_schema.TABLES "
-                    "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'patients'", (self.name,))
+        """True if the database already has tables but they are not the current layout (they come from an older MedScan)."""
+        cur.execute("SELECT COUNT(*) AS n FROM information_schema.TABLES WHERE TABLE_SCHEMA = %s", (self.name,))
         if cur.fetchone()["n"] == 0:
             return False  # a fresh database
         cur.execute("SELECT COUNT(*) AS n FROM information_schema.TABLES "
-                    "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'schema_version'", (self.name,))
+                    "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'tb_schema_version'", (self.name,))
         if cur.fetchone()["n"] == 0:
             return True
-        cur.execute("SELECT version FROM schema_version")
+        cur.execute("SELECT version FROM tb_schema_version")
         row = cur.fetchone()
         return row is None or row["version"] != SCHEMA_VERSION
 
     def reset(self):
-        """Delete every MedScan table and build them again with the test accounts. Used by reset_database.py."""
+        """Delete every MedScan table (including the tables of older versions) and build them again with the demo accounts.
+        This is what reset_database.py runs."""
         with self.unit_of_work():
             with self.cursor() as cur:
                 cur.execute("SET FOREIGN_KEY_CHECKS = 0")
-                for table in TABLES:
+                for table in TABLES + OLD_TABLES:
                     cur.execute(f"DROP TABLE IF EXISTS `{table}`")
                 cur.execute("SET FOREIGN_KEY_CHECKS = 1")
         self.prepare()
 
     def reset_data(self):
-        """Empty every table and add the test accounts again, without rebuilding the tables (for tests;
-        call prepare() once first so the tables exist)."""
-        data_tables = [t for t in TABLES if t != "schema_version"]
+        """Empty every table and add the demo accounts again, without rebuilding the tables. It is much faster than
+        reset(), which is why the tests use it (call prepare() once first so the tables exist)."""
+        data_tables = [t for t in TABLES if t != "tb_schema_version"]
         with self.unit_of_work():
             with self.cursor() as cur:
                 cur.execute("SET FOREIGN_KEY_CHECKS = 0")
@@ -218,9 +234,23 @@ class Database:
                     cur.execute(f"DELETE FROM `{table}`")
                 cur.execute("SET FOREIGN_KEY_CHECKS = 1")
         with self.cursor() as cur:
-            for table in data_tables:  # DELETE leaves the ID counters running, so put them back
+            # DELETE leaves the ID counters running, so they are put back to where a fresh database starts.
+            for table in data_tables:
                 cur.execute(f"ALTER TABLE `{table}` AUTO_INCREMENT = {FIRST_ID.get(table, 1)}")
         with self.unit_of_work():
             with self.cursor() as cur:
                 for statement in self._statements("seed.sql"):
                     cur.execute(statement)
+
+    def add_demo_data(self):
+        """Add the sample doctors, patients and history from database/demo_data.sql on top of the demo accounts, so the
+        screens look lived-in for a demo. Returns True when it was added, or False (adding nothing) when it is already
+        there. It needs the demo accounts from seed.sql."""
+        with self.unit_of_work():
+            with self.cursor() as cur:
+                cur.execute("SELECT COUNT(*) AS n FROM tb_patients WHERE mobile_number = %s", (DEMO_MARKER_MOBILE,))
+                if cur.fetchone()["n"]:
+                    return False
+                for statement in self._statements("demo_data.sql"):
+                    cur.execute(statement)
+        return True

@@ -10,62 +10,86 @@
 <body class="{% if user %}has-shell{% else %}auth-page{% endif %}"{% if user %} data-idle-minutes="{{ idle_minutes }}" data-keepalive-url="{% url 'keepalive' %}" data-logout-url="{% url 'logout' %}" data-login-url="{% url 'login' %}"{% endif %}>
 {% if user %}
 {% with page=request.resolver_match.url_name %}
-<aside class="sidebar">
+<div class="app">
+<aside class="side">
   <a class="logo" href="{% url 'dashboard' %}">
     <span class="logo-mark">{% logo %}</span>
     <div><b>MedScan</b><span>{% if user.role == "Doctor" %}Doctor Portal{% else %}Patient Portal{% endif %}</span></div>
   </a>
 
+  {# the one main action of the role: patients show a code, doctors scan one #}
+  <div class="cta">
+    {% if user.role == "Doctor" %}
+      <a class="btn primary" href="{% url 'qr' %}">{% icon "qr" "sm" %}Scan QR code</a>
+    {% else %}
+      <a class="btn primary" href="{% url 'qr' %}" data-sheet="qr-sheet">{% icon "qr" "sm" %}Show my QR code</a>
+    {% endif %}
+  </div>
+
   <nav class="nav">
     {% if user.role == "Doctor" %}
-      <div class="nav-label">Workspace</div>
       <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
       <a href="{% url 'patients' %}" class="{% if page == 'patients' or page == 'record' %}on{% endif %}">{% icon "users" %}Patients<span class="count" id="count-ready" {% if not ready_count %}hidden{% endif %}>{{ ready_count }}</span></a>
-      <div class="nav-label">Tools</div>
-      <a href="{% url 'qr' %}" class="{% if page == 'qr' %}on{% endif %}">{% icon "qr" %}Scan QR</a>
     {% else %}
-      <div class="nav-label">Records</div>
       <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
-      <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}My Health</a>
-      <a href="{% url 'privacy' %}" class="{% if page == 'privacy' %}on{% endif %}">{% icon "shield" %}Privacy<span class="count" id="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
-      <div class="nav-label">Tools</div>
-      <a href="{% url 'qr' %}" class="{% if page == 'qr' %}on{% endif %}">{% icon "qr" %}My QR Code</a>
+      <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}My Record</a>
+      <a href="{% url 'access' %}" class="{% if page == 'access' %}on{% endif %}">{% icon "shieldok" %}Access<span class="count" id="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
     {% endif %}
   </nav>
+  <div class="nav-label">Account</div>
+  <nav class="nav">
+    <a href="{% url 'profile' %}" class="{% if page == 'profile' or page == 'logout' %}on{% endif %}">{% icon "user" %}Profile</a>
+  </nav>
 
-  <div class="side-foot">
-    <div class="me-card">
-      <div class="avatar">{{ user.name|initials }}</div>
-      <b>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</b>
-      <span class="pill gray nodot">{{ user.display_id }}</span>
-    </div>
-    <a class="logout-link" href="{% url 'logout' %}">{% icon "logout" "sm" %}Log out</a>
-  </div>
+  {# the name and ID are a link to Profile: log out lives only there #}
+  <a class="side-foot" href="{% url 'profile' %}" title="Open my profile">
+    <div class="avatar">{{ user.name|initials }}</div>
+    <div><b>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</b><span>{{ user.display_id }}</span></div>
+    <span class="out">{% icon "chev" "sm" %}</span>
+  </a>
 </aside>
 
 <div class="main">
   <header class="top">
+    <div class="crumbs d-only">{{ user.role }}<i>/</i><b>{% if page == 'dashboard' %}Home{% elif page == 'my_record' %}My Record{% elif page == 'access' %}Access</b><i>/</i><b>{{ tab|capfirst }}{% elif page == 'qr' %}{% if user.role == "Doctor" %}Scan QR code{% else %}My QR code{% endif %}{% elif page == 'patients' %}Patients{% elif page == 'search' %}Search{% elif page == 'record' %}Patient{% elif page == 'profile' or page == 'logout' %}Profile{% else %}MedScan{% endif %}</b></div>
+    <a class="logo-m" href="{% url 'dashboard' %}"><span class="logo-mark">{% logo "sm" %}</span>MedScan</a>
+    <span class="push"></span>
     {% if user.role == "Doctor" %}
-      <form class="top-search" method="get" action="{% url 'patients' %}" autocomplete="off" role="search">
+      <form class="tsearch d-only" method="get" action="{% url 'search' %}" autocomplete="off" role="search">
         {% icon "search" "sm" %}
-        <input id="top-search-input" name="q" placeholder="Find a patient: name, ID or mobile number" aria-label="Find a patient" data-suggest-url="{% url 'patient_suggest' %}">
+        <input id="top-search-input" name="q" placeholder="Find a patient by name or ID" aria-label="Find a patient" data-suggest-url="{% url 'patient_suggest' %}">
         <kbd title="Press / to search">/</kbd>
         <div class="suggest" id="suggest" hidden></div>
       </form>
-      <span class="top-spacer"></span>
-      <a class="btn danger-ghost sm" href="{% url 'emergency_form' %}" data-emergency>{% icon "shield" "sm" %}Emergency</a>
-    {% else %}
-      <span class="top-spacer"></span>
     {% endif %}
-    <button type="button" class="icon-btn" id="open-notifications" title="Notifications">
+    <button type="button" class="ibtn" id="open-notifications" title="Notifications" aria-label="Notifications">
       {% icon "bell" "sm" %}
       <span class="badge" id="unread-badge" data-count="{{ unread }}" {% if not unread %}hidden{% endif %}>{{ unread }}</span>
     </button>
+    <div class="date d-only">{% icon "cal" "sm" %}{% now "D, M j, Y" %}</div>
   </header>
 
-  <div class="content">
+  <main class="content">
     {% block content %}{% endblock %}
-  </div>
+  </main>
+</div>
+
+{# phone only: the sidebar becomes tabs, with the main action raised in the middle #}
+<nav class="mtabs" aria-label="Main">
+  {% if user.role == "Doctor" %}
+    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
+    <a href="{% url 'patients' %}" class="{% if page == 'patients' or page == 'record' %}on{% endif %}">{% icon "users" %}Patients<span class="n" data-mirror="count-ready" {% if not ready_count %}hidden{% endif %}>{{ ready_count }}</span></a>
+    <a href="{% url 'qr' %}" class="mid {% if page == 'qr' %}on{% endif %}"><span class="bub">{% icon "qr" %}</span>Scan</a>
+    <a href="{% url 'search' %}" class="{% if page == 'search' %}on{% endif %}">{% icon "search" %}Search</a>
+    <a href="{% url 'profile' %}" class="{% if page == 'profile' or page == 'logout' %}on{% endif %}">{% icon "user" %}Profile</a>
+  {% else %}
+    <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
+    <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}Record</a>
+    <a href="{% url 'qr' %}" class="mid" data-sheet="qr-sheet"><span class="bub">{% icon "qr" %}</span>My QR</a>
+    <a href="{% url 'access' %}" class="{% if page == 'access' %}on{% endif %}">{% icon "shieldok" %}Access<span class="n" data-mirror="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
+    <a href="{% url 'profile' %}" class="{% if page == 'profile' or page == 'logout' %}on{% endif %}">{% icon "user" %}Profile</a>
+  {% endif %}
+</nav>
 </div>
 {% endwith %}
 
@@ -82,14 +106,30 @@
 <div class="drawer-backdrop" id="drawer-backdrop"></div>
 <aside class="drawer" id="notifications-drawer" aria-hidden="true" data-read-url="{% url 'notifications_read' %}"
        data-poll-url="{% url 'notifications_poll' %}" data-poll-seconds="{{ poll_seconds }}">
-  <div class="card-h">
+  <div class="dh">
     <h2>Notifications</h2>
-    <span class="pill teal nodot" id="new-count" {% if not unread %}hidden{% endif %}>{{ unread }} new</span>
-    <button type="button" class="sm ghost" id="mark-all-read" {% if not unread %}hidden{% endif %}>Mark all read</button>
-    <button type="button" class="icon-btn" id="close-notifications" aria-label="Close">{% icon "x" "sm" %}</button>
+    <span class="pill teal" id="new-count" {% if not unread %}hidden{% endif %}>{{ unread }} new</span>
+    <button type="button" class="ibtn flat" id="close-notifications" aria-label="Close">{% icon "x" "sm" %}</button>
   </div>
   <div id="notification-list">{% include "G_Notification_List.html" %}</div>
+  <div class="dfoot"><button type="button" class="btn block" id="mark-all-read" {% if not unread %}hidden{% endif %}>{% icon "check" "sm" %}Mark all as read</button></div>
 </aside>
+
+{% if user.role == "Patient" %}
+{# "Show my QR code": a sheet on every patient page. The picture is only the ID, never health information. #}
+<dialog id="qr-sheet" class="sheet center" data-code-url="{% url 'qr_code' %}" data-new-url="{% url 'qr_new' %}">
+  <div class="sheet-in">
+    <div class="grab"></div>
+    <div class="sheet-h"><h2>My QR code</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
+    <div class="qrbox" id="qr-picture" aria-live="polite"><p class="muted small qr-wait">Making your code&hellip;</p></div>
+    <div class="qr-name">{{ user.name }}</div>
+    <div class="muted num">{{ user.display_id }}</div>
+    <div class="timer-row"><span class="timer">{% icon "clock" "sm" %}<span id="qr-timer-text">Works once</span></span></div>
+    <p class="muted small qr-note">Show this to your doctor in person. When they scan it, they can open your record right away and it is logged.</p>
+    <button type="button" class="btn block" id="qr-new">{% icon "refresh" "sm" %}Make a new code</button>
+  </div>
+</dialog>
+{% endif %}
 
 <dialog id="confirm-dialog" class="modal">
   <form method="dialog">
@@ -105,11 +145,10 @@
   <h2>Still there?</h2>
   <p class="muted">For your security you will be logged out in <b id="idle-seconds">60</b> seconds.</p>
   <div class="modal-actions">
-    <a class="btn ghost" href="{% url 'logout' %}">Log out now</a>
+    <a class="btn" href="{% url 'logout' %}">Log out now</a>
     <button type="button" id="idle-stay">Stay logged in</button>
   </div>
 </dialog>
-{% if user.role == "Doctor" %}{% include "G_Emergency_Dialog.html" %}{% endif %}
 <form id="csrf-holder" hidden>{% csrf_token %}</form>
 {% else %}
 {% block auth %}{% endblock %}
@@ -118,12 +157,13 @@
 <script src="{% asset 'js/G_Fields.js' %}"></script>
 <script src="{% asset 'js/G_Chips.js' %}"></script>
 <script src="{% asset 'js/G_Dialogs.js' %}"></script>
+<script src="{% asset 'js/G_Qr.js' %}"></script>
+<script src="{% asset 'js/G_Sheets.js' %}"></script>
 {% if user %}
 <script src="{% asset 'js/G_Shell.js' %}"></script>
 <script src="{% asset 'js/G_Idle.js' %}"></script>
 {% if user.role == "Doctor" %}
 <script src="{% asset 'js/G_Suggest.js' %}"></script>
-<script src="{% asset 'js/G_Emergency.js' %}"></script>
 {% endif %}
 {% endif %}
 {% block scripts %}{% endblock %}

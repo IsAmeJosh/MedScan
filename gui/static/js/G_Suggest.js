@@ -55,7 +55,7 @@
     window.fetch(url + '?q=' + encodeURIComponent(text), { credentials: 'same-origin' })
       .then(function (response) { return response.json(); })
       .then(function (data) {
-        if (input.value.replace(/^\s+|\s+$/g, '') !== text || !data.ok) { return; }   // typed more since: ignore
+        if (input.value.replace(/^\s+|\s+$/g, '') !== text || !data.ok) { return; }   // The person kept typing since this question was asked, so this answer is out of date: ignore it.
         show(data.items, text);
       })
       .then(null, close);

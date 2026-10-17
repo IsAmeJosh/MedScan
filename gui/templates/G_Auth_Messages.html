@@ -1,0 +1,2 @@
+{# Messages above a login or sign-up form (an error, or "you were logged out"). #}
+{% for m in messages %}<div class="alert {% if m.tags == 'error' %}red{% else %}teal{% endif %} auth-alert" role="alert"><span>{{ m }}</span></div>{% endfor %}

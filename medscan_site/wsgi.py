@@ -1,3 +1,4 @@
+"""The entry point a web server uses to run MedScan."""
 import os
 from django.core.wsgi import get_wsgi_application
 

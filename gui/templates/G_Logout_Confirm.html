@@ -1,17 +1,19 @@
-{% extends "G_Base.html" %}
+{% extends "G_Profile.html" %}
 {% block title %}Log out{% endblock %}
-{% block content %}
-<div class="center-page"><div class="card center-card">
-  <div class="card-b">
-    <span class="ic gray sq">{% icon "logout" %}</span>
-    <h2 class="mt-16 name-lg">Log out of MedScan?</h2>
-    <p class="muted mt-8">You will need your ID and password to come back.</p>
+{# The Profile page stays behind, dimmed; the question is a modal on top (a bottom sheet on a phone). No script needed. #}
+{% block overlay %}
+<div class="scrim" role="dialog" aria-modal="true" aria-labelledby="logout-title">
+  <div class="modal">
+    <div class="grab"></div>
+    <div class="ic logout-ic">{% icon "logout" %}</div>
+    <h2 id="logout-title">Log out of MedScan?</h2>
+    <p class="muted logout-text">You will need your ID and password to log in again.</p>
+    <div class="sheet-actions">
+      <a class="btn lg" href="{% url 'profile' %}">Stay</a>
+      <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+        <button type="submit" class="btn primary lg">Log out</button>
+      </form>
+    </div>
   </div>
-  <div class="card-foot">
-    <a class="btn ghost" href="{% url 'dashboard' %}">Cancel</a>
-    <form method="post" class="inline-form">{% csrf_token %}
-      <button type="submit" class="danger">{% icon "logout" "sm" %}Log out</button>
-    </form>
-  </div>
-</div></div>
+</div>
 {% endblock %}

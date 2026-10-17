@@ -1,17 +1,18 @@
-"""Console demo. Run: python Main_Driver.py
-Needs no website. It uses its own database, db_medscan_demo, which is rebuilt on every run,
-so it never touches the data the website uses."""
+"""A console demo of the whole flow, with no website needed. Run: python Main_Driver.py
+It uses its own database, db_medscan_demo, which is rebuilt on every run, so it never touches the data the website uses."""
 from data.D_Database import Database
 from logic.L_MedScan_System import MedScanSystem
 
 
 def run_console_demo():
-    """Walk through the core flow: request, approve, note, view, revoke, emergency."""
+    """Walk through the core flow step by step and print what happens: a doctor asks, the patient approves, a note is
+    written, the record is opened, access is taken back, and an emergency override is used. The asserts stop the
+    demo with a message if a step does not behave as expected."""
     db = Database.from_environment(name="db_medscan_demo")
-    db.reset()  # fresh tables with the test accounts from database/seed.sql
+    db.reset()  # Fresh tables with the demo accounts from database/seed.sql.
     s = MedScanSystem(db)
     doc, pat = s.get_doctor(2001), s.get_patient(1001)
-    assert doc is not None and pat is not None, "the test accounts from database/seed.sql are missing"
+    assert doc is not None and pat is not None, "the demo accounts from database/seed.sql are missing"
     print(doc, "|", pat)
     req = s.request_access(doc, pat.user_id)
     assert req is not None, "the first request should be accepted"
@@ -26,7 +27,7 @@ def run_console_demo():
     second = s.add_consultation(doc, pat.user_id, "Follow-up in one week.")
     assert second is not None
     print("Consultation IDs:", note.consultation_id, second.consultation_id)
-    pat = s.get_patient(pat.user_id)  # read again from the database
+    pat = s.get_patient(pat.user_id)  # Read the patient again from the database, so the demo shows what was really saved.
     assert pat is not None
     print("Allergies:", pat.record.allergies, "| Surgeries:", pat.record.surgeries, "| Age:", pat.age)
     s.open_record(doc, pat.user_id)

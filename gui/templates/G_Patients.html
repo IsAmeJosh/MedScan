@@ -1,73 +1,25 @@
 {% extends "G_Base.html" %}
 {% block title %}Patients{% endblock %}
 {% block content %}
-<div class="page-h">
-  <div><h1>Patients</h1><p>Everyone you have asked for access, and what they answered.</p></div>
-  <div class="meta"><span class="live">live</span><span class="pill gray nodot">{{ counts.mine }} patient{{ counts.mine|pluralize }}</span></div>
-</div>
+<div class="head"><div><h1>Patients</h1><p>Everyone you have access to, or have asked for.</p></div></div>
 
-{% if searched %}
-  {% if found %}
-    {% include "G_Patient_Result.html" %}
-  {% else %}
-    <div class="card mb-16">
-      {% if matches %}
-        <div class="card-h">{% icon "search" %}<h2>Your patients matching &ldquo;{{ searched }}&rdquo;</h2></div>
-        <div class="list">
-          {% for p in matches %}
-            <a class="lr" href="{% url 'record' p.user_id %}">
-              <div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
-              <div class="grow"><b>{{ p.name }}</b><span class="sub">{{ p.display_id }}</span></div>
-              <span class="chev">{% icon "chev" "sm" %}</span>
-            </a>
-          {% endfor %}
-        </div>
-      {% else %}
-        <div class="card-b row"><span class="ic gray">{% icon "search" "sm" %}</span><p class="muted">No patient found for &ldquo;{{ searched }}&rdquo;. Check the ID or mobile number and try again.</p></div>
-      {% endif %}
-    </div>
-  {% endif %}
-{% endif %}
-
-<div class="tabs mb-16">
-  <a class="tab {% if tab == 'mine' %}on{% endif %}" href="{% url 'patients' %}">My patients <span>{{ counts.mine }}</span></a>
-  <a class="tab {% if tab == 'waiting' %}on{% endif %}" href="?tab=waiting">Waiting for an answer <span>{{ counts.waiting }}</span></a>
-  <a class="tab {% if tab == 'ended' %}on{% endif %}" href="?tab=ended">Declined or ended <span>{{ counts.ended }}</span></a>
+<div class="chips">
+  <a href="{% url 'patients' %}" class="{% if show == 'all' %}on{% endif %}">All <em>{{ counts.all }}</em></a>
+  <a href="?show=access" class="{% if show == 'access' %}on{% endif %}">With access <em>{{ counts.access }}</em></a>
+  <a href="?show=waiting" class="{% if show == 'waiting' %}on{% endif %}">Waiting <em>{{ counts.waiting }}</em></a>
+  <a href="?show=emergency" class="{% if show == 'emergency' %}on{% endif %}">Emergency <em>{{ counts.emergency }}</em></a>
+  <a href="?show=denied" class="{% if show == 'denied' %}on{% endif %}">Denied <em>{{ counts.denied }}</em></a>
 </div>
 
 <div class="card">
-  <div class="rowgrid head"><span>Patient</span><span>{% if tab == "mine" %}Allergies{% else %}Status{% endif %}</span><span>{% if tab == "mine" %}Last visit{% endif %}</span><span></span></div>
-  {% for r, p in rows %}
-    {% if tab == "mine" %}
-      <a class="rowgrid" href="{% url 'record' p.user_id %}">
-        <div class="person"><div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
-          <div><b>{{ p.name }}</b><span>{{ p.display_id }} &middot; {{ p.sex }}, {{ p.age }}{% if p.record.blood_type %} &middot; {{ p.record.blood_type }}{% endif %}</span></div></div>
-        <div class="cell">
-          {% for a in p.record.allergies|slice:":1" %}<span class="tag allergy">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<span class="muted small">None recorded</span>{% endfor %}
-          {% if p.record.allergies|length > 1 %}<span class="pill gray nodot">+{{ p.record.allergies|length|add:"-1" }}</span>{% endif %}
-        </div>
-        <div class="cell muted">{% with last=p.record.latest_consultation %}{% if last %}{{ last.date|date:"M d" }} &middot; {{ p.record.consultations|length }} note{{ p.record.consultations|length|pluralize }}{% else %}No visit yet{% endif %}{% endwith %}</div>
-        <span class="chev">{% icon "chev" "sm" %}</span>
-      </a>
-    {% else %}
-      <div class="rowgrid">
-        <div class="person"><div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
-          <div><b>{{ p.name }}</b><span>{{ p.display_id }} &middot; {{ p.sex }}, {{ p.age }}</span></div></div>
-        <div class="cell">{% include "G_Status_Pill.html" %}</div>
-        <div class="cell">
-          {% if tab == "ended" %}
-            <form method="post" action="{% url 'send_request' p.user_id %}" class="inline-form">{% csrf_token %}
-              <button type="submit" class="sm ghost">{% icon "send" "sm" %}Ask again</button></form>
-          {% endif %}
-        </div>
-        <span></span>
-      </div>
-    {% endif %}
+  {% for link in rows %}{% include "G_Patient_Row.html" with detail=True %}
   {% empty %}
-    <p class="empty card-b">
-      {% if tab == "mine" %}No patient has approved you yet. Type a patient's ID or mobile number in the search box above to send a request.
-      {% elif tab == "waiting" %}Nothing waiting. A request you send stays here until the patient answers.
-      {% else %}Nothing here. Requests that were denied or taken back show up here.{% endif %}
+    <p class="empty">
+      {% if show == "all" %}No patients yet. Scan a patient's QR code, or search for them to send a request.
+      {% elif show == "access" %}No patient has approved you yet.
+      {% elif show == "waiting" %}Nothing waiting. A request you send stays here until the patient answers.
+      {% elif show == "emergency" %}You have not used emergency access.
+      {% else %}Nobody has denied you. Requests that were denied or taken back show up here.{% endif %}
     </p>
   {% endfor %}
 </div>

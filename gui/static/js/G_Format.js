@@ -35,7 +35,7 @@
 
   function mobileProblem(text) {
     var digits = digitsOf(formatMobile(text));
-    if (digits.length === 0) { return ''; }   // the number is optional
+    if (digits.length === 0) { return ''; }   // An empty number is fine: the field is optional.
     if (digits.length < 11 || digits.substr(0, 2) !== '09') {
       return 'Enter a mobile number like 0917 123 4567.';
     }
@@ -52,7 +52,7 @@
   function formatDate(text) {
     var typed = trim(text);
     var iso = /^(\d{4})-(\d{2})-(\d{2})$/.exec(typed);
-    if (iso) { return iso[2] + '/' + iso[3] + '/' + iso[1]; }   // a pasted 2004-04-04
+    if (iso) { return iso[2] + '/' + iso[3] + '/' + iso[1]; }   // Handles a date pasted as 2004-04-04 and turns it into 04/04/2004.
     if (/[\/\-. ]/.test(typed)) {
       // typed with separators (4/4/2004, 04-04-2004): keep the groups, and a separator after one digit pads it
       var groups = [];

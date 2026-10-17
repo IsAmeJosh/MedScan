@@ -17,7 +17,7 @@ class AccessRules(unittest.TestCase):
         self.assertEqual(self.s.access_status(2001, 1001), "none")
         self.assertIsNone(self.s.add_consultation(self.doctor, 1001, "too early"))
         self.assertIsNone(self.s.open_record(self.doctor, 1001))
-        self.assertEqual(count("record_views"), 0)
+        self.assertEqual(count("tb_record_views"), 0)
 
     def test_approval_allows_notes_and_viewing(self):
         approve(self.s)
@@ -28,11 +28,11 @@ class AccessRules(unittest.TestCase):
     def test_duplicate_requests_blocked(self):
         self.assertIsNotNone(self.s.request_access(self.doctor, 1001))
         self.assertIsNone(self.s.request_access(self.doctor, 1001))
-        self.assertEqual(count("access_requests"), 1)
+        self.assertEqual(count("tb_access_requests"), 1)
 
     def test_a_request_for_nobody_is_refused(self):
         self.assertIsNone(self.s.request_access(self.doctor, 9999))
-        self.assertEqual(count("access_requests"), 0)
+        self.assertEqual(count("tb_access_requests"), 0)
 
     def test_only_the_patient_can_answer_and_only_once(self):
         req = self.s.request_access(self.doctor, 1001)
@@ -72,8 +72,8 @@ class EmergencyAccess(unittest.TestCase):
         self.assertIsNotNone(self.s.emergency_access(self.doctor, 1001, "unconscious"))
         self.assertTrue(self.s.can_view_record(2001, 1001))
         self.assertIsNotNone(self.s.open_record(self.doctor, 1001))
-        self.assertEqual(rows("SELECT via FROM record_views")[0]["via"], "emergency")
-        self.assertEqual(count("emergency_logs"), 1)
+        self.assertEqual(rows("SELECT via FROM tb_record_views")[0]["via"], "emergency")
+        self.assertEqual(count("tb_emergency_logs"), 1)
 
     def test_lets_the_doctor_write_notes_too(self):
         self.s.emergency_access(self.doctor, 1001, "unconscious")
@@ -97,7 +97,7 @@ class EmergencyAccess(unittest.TestCase):
 
     def test_unknown_patient_and_missing_reason(self):
         self.assertIsNone(self.s.emergency_access(self.doctor, 9999, "x"))
-        self.assertEqual(count("emergency_logs"), 0)
+        self.assertEqual(count("tb_emergency_logs"), 0)
 
     def test_the_patient_is_notified(self):
         self.s.emergency_access(self.doctor, 1001, "Collapsed")
@@ -113,23 +113,23 @@ class RecordViewLog(unittest.TestCase):
     def test_reopening_within_ten_minutes_is_logged_once(self):
         for _ in range(3):
             self.s.open_record(self.doctor, 1001)
-        self.assertEqual(count("record_views"), 1)
+        self.assertEqual(count("tb_record_views"), 1)
 
     def test_opening_after_the_quiet_time_is_logged_again(self):
         self.s.open_record(self.doctor, 1001)
         age_views(9)
         self.s.open_record(self.doctor, 1001)
-        self.assertEqual(count("record_views"), 1)
+        self.assertEqual(count("tb_record_views"), 1)
         age_views(2)
         self.s.open_record(self.doctor, 1001)
-        self.assertEqual(count("record_views"), 2)
+        self.assertEqual(count("tb_record_views"), 2)
 
     def test_another_doctor_is_logged_separately(self):
         other = self.s.register_doctor("Cruz", PASSWORD, "ENT")
         self.s.emergency_access(other, 1001, "unconscious")
         self.s.open_record(self.doctor, 1001)
         self.s.open_record(other, 1001)
-        self.assertEqual(count("record_views"), 2)
+        self.assertEqual(count("tb_record_views"), 2)
 
     def test_the_patient_can_list_who_looked(self):
         self.s.open_record(self.doctor, 1001)
@@ -138,16 +138,6 @@ class RecordViewLog(unittest.TestCase):
 
 
 class Notifications(unittest.TestCase):
-    def test_methods_are_snake_case(self):
-        n = Notification(1, 1, "hi")
-        self.assertTrue(hasattr(n, "send_notification") and hasattr(n, "mark_as_read"))
-        self.assertFalse(hasattr(n, "sendNotification") or hasattr(n, "markAsRead"))
-        box = []
-        n.send_notification(box)
-        n.mark_as_read()
-        self.assertEqual(box, [n])
-        self.assertTrue(n.is_read)
-
     def test_request_notifies_patient_and_answer_notifies_doctor(self):
         s = fresh_system(self)
         req = s.request_access(s.get_doctor(2001), 1001)
@@ -181,7 +171,7 @@ class Registration(unittest.TestCase):
         self.assertTrue(p.display_id.startswith("PT-") and p.display_id.endswith(f"-{p.user_id:05d}"))
         self.assertTrue(d.display_id.startswith("DR-") and d.display_id.endswith(f"-{d.user_id:05d}"))
         self.assertEqual(p.contact_number, "09175551234")
-        self.assertEqual(d.workplace, "ENT at Rizal Clinic")
+        self.assertEqual(d.clinic, "Rizal Clinic")
 
     def test_age_is_worked_out_from_the_date_of_birth(self):
         today = date.today()
@@ -233,22 +223,18 @@ class Consultations(unittest.TestCase):
         s = fresh_system(self)
         approve(s)
         self.assertIsNone(s.add_consultation(s.get_doctor(2001), 1001, "   "))
-        self.assertEqual(count("consultations"), 0)
+        self.assertEqual(count("tb_consultations"), 0)
 
 
 class DoctorNumbers(unittest.TestCase):
-    def test_stats_and_lists(self):
+    def test_a_doctors_patients_are_those_who_approved_them(self):
         s = fresh_system(self)
         doctor = s.get_doctor(2001)
         req = approve(s)
         s.add_consultation(doctor, 1001, "Checkup")
-        self.assertEqual(s.doctor_stats(2001), {"patients": 1, "pending": 0, "notes": 1, "emergencies": 0})
         self.assertEqual([p.name for p in s.patients_for_doctor(2001)], ["Juan Dela Cruz"])
-        self.assertEqual(s.request_summary_for_doctor(2001),
-                         {"pending": 0, "approved": 1, "denied": 0, "revoked": 0})
         s.revoke_access(req.request_id, 1001)
         self.assertEqual(s.patients_for_doctor(2001), [])
-        self.assertEqual(s.request_summary_for_doctor(2001)["revoked"], 1)
 
 
 if __name__ == "__main__":

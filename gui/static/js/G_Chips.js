@@ -18,7 +18,7 @@
   function setup(original) {
     var items = [];
     var wrap = document.createElement('div');
-    wrap.className = 'chips';
+    wrap.className = 'chip-box';
     var typed = document.createElement('input');
     typed.type = 'text';
     typed.className = 'chip-input';
@@ -36,10 +36,10 @@
 
     function sync() {
       original.value = items.join(', ');
-      each(wrap.querySelectorAll('.chip'), function (chip) { wrap.removeChild(chip); });
+      each(wrap.querySelectorAll('.chip-item'), function (chip) { wrap.removeChild(chip); });
       each(items, function (item, index) {
         var chip = document.createElement('span');
-        chip.className = 'chip';
+        chip.className = 'chip-item';
         chip.appendChild(document.createTextNode(item));
         var remove = document.createElement('button');
         remove.type = 'button';

@@ -1,7 +1,8 @@
 # MedScan
 
-An ID-based patient medical record access system. A doctor looks up a patient by ID, requests access, and sees the record once
-the patient approves. Emergency access is allowed and logged. Built with Python OOP, Django (the GUI) and MySQL.
+A patient medical record system where a doctor opens a record only with the patient's consent: the patient approves a request, or
+shows a one-time QR code in person for the doctor to scan. Emergency access is allowed and always logged. Built with Python OOP,
+Django (the GUI) and MySQL. The screens follow the design in `design/`.
 
 ## Run it
 
@@ -28,73 +29,67 @@ To try both roles at once, use a normal window for one and an Incognito window f
 
 | Do this | Command |
 |---|---|
-| Run the tests (uses its own database `db_medscan_test`; the JavaScript checks need Windows) | `python -m unittest` |
+| Run the tests (uses its own database `db_medscan_test`; the JavaScript checks need Windows) | `python manage.py test` |
 | Console demo (uses its own database `db_medscan_demo`) | `python Main_Driver.py` |
-| Wipe the MedScan tables and restore the test accounts | `python reset_database.py` |
+| Wipe the MedScan tables and restore the demo accounts | `python reset_database.py` |
+| The same, and also add sample doctors, patients and history (good for a demo or a screen recording; password `demo123`) | `python reset_database.py --demo` |
 
-If MedScan says the tables "come from an older version", run `python reset_database.py` once.
+Old databases are not upgraded. If MedScan says the tables "come from an older version", run `python reset_database.py` once: it
+removes the old tables and builds the current ones (this empties the data in `db_medscan`).
 
 ## Testing the screens by hand
 
-`python -m unittest` checks the server, the database and the JavaScript logic (phone and date formatting, form rules), but it
-cannot click. After changing a screen, try these in a browser. Use two windows (a normal one and an Incognito one) to be
-the doctor (`2001`) and the patient (`1001`) at the same time.
+`python manage.py test` checks the server, the database and the JavaScript logic (phone and date formatting, form rules), but it
+cannot click or use a camera. After changing a screen, try these in a browser. Use two windows (a normal one and an Incognito
+one) to be the doctor (`2001`) and the patient (`1001`) at the same time. Narrow the window below 760 px to see the phone layout.
 
 **The pages**
 
-| Role | Menu | Top bar |
-|---|---|---|
-| Patient | Home, My Health, Privacy, My QR Code | the bell |
-| Doctor | Home, Patients, Scan QR | search box, red Emergency button, the bell |
+| Role | Menu (sidebar, or the bottom tabs on a phone) | Main action | Top bar |
+|---|---|---|---|
+| Patient | Home, My Record, Access, Profile | Show my QR code (a sheet) | the bell |
+| Doctor | Home, Patients, Profile (phone: Search tab too) | Scan QR code | search box, the bell |
+
+Log out is only on Profile. Emergency is only on a locked patient's page.
+
+**Patient**
+
+| Try | Should happen |
+|---|---|
+| Have the doctor send a request, with the patient's window just sitting there | Within about 10 seconds the bell and the Access item get a red mark, and a message slides in. The page does not reload |
+| Open the bell | Rows are only pointers ("Opens Access, Requests"). Clicking one opens that page and marks it read; Mark all as read clears the rest |
+| Home, with a request waiting | "Needs your answer" with Deny and Review. Review opens a sheet saying what the doctor would see, with Deny and Approve. Deny asks first |
+| Show my QR code | A sheet with the code and "Works once, 4:59 left" counting down. Make a new code replaces it at once. After 5 minutes it gets a new code by itself |
+| Access, tabs Requests / Doctors / History | Requests: who is waiting. Doctors: who can open the record (Remove access asks first; "approved by QR scan" when it was). History: every view, scan and emergency, with chips All / QR scan / Approved / Emergency |
+| My Record | Notes, then allergies, medications, surgeries and basic info (phone: Notes / Medical / Info tabs). Edit my information opens a sheet |
+| Profile | Details, the password date, Edit contact info (a sheet), and Log out, which asks in a modal |
 
 **Doctor**
 
 | Try | Should happen |
 |---|---|
 | Press `/` anywhere (not while typing in a box) | The cursor jumps to the search box |
-| Type `jua` in the search box, once Juan has approved you | A list drops down with his name; arrow keys move, Enter opens his record |
-| Type `0917 123 4567` and press Enter | The Patients page shows the result with Send access request |
-| Click Emergency (top bar) | A pop-up asks for the patient and a reason. Cancel closes it; nothing is saved |
-| Search for a patient, click Emergency access on the result | The same pop-up, already knowing the patient |
-| After a patient approves | The Patients menu item gets a number; Home lists them under Ready to open; the bell notification opens the record directly |
-| Patients page | A table (Patient, Allergies, Last visit) under three tabs (My patients, Waiting, Declined or ended) with counts; more than 10 in a tab adds Previous/Next |
-| Click or tab into the search box | Everything except the search box dims and blurs, including the rest of the top bar. Esc, or a click anywhere else, brings the page back |
-| Home | Four equal number cards, then Ready to open, Notes this week (bars), Recently opened, Latest activity |
-| Write a note | The phrases above the box (+ Labs requested) add their words to the note |
-
-**Patient**
-
-| Try | Should happen |
-|---|---|
-| Have the doctor send a request, with the patient's window just sitting there | Within about 10 seconds the bell and the Privacy item each get a small red dot (no number), and a message slides in. The page itself does not reload |
-| Open the bell | The request has Approve and Deny buttons. Approve answers it right there; Deny asks first |
-| Home, with a request waiting | A "Waiting for your answer" card at the top with Approve and Deny |
-| My Health | Everything about you in one place; Edit my information opens the form (allergies as chips) |
-| Privacy | Tabs: Doctors (waiting, can open, past) and Who opened my record (views and emergency uses, newest first) |
-| Home, with parts of the profile still empty | A "Finish your health profile" card with a progress bar. Add now opens the edit form; the x hides it in this browser |
-| Revoke access or Deny | A pop-up asks first |
-
-**QR codes** (the code holds the patient's MedScan ID and nothing else; scanning does exactly what typing the ID does)
-
-| Try | Should happen |
-|---|---|
-| Patient: My QR Code | A real, scannable code, the name and ID, a Copy ID button, and three steps (Show, Scan, Approve). Only patients have a code |
-| Doctor: Scan QR, then Start camera | The browser asks to use the camera (click Allow). Hold the patient's code (on their phone or another screen) inside the frame: the Patients page opens with that patient, locked, with Send access request |
-| Doctor: Upload a photo of the code | Pick a photo or screenshot of the code: same result as the camera. A photo with no code says "No QR code was found in that photo" |
-| Doctor: scan any other QR code | Back on Scan QR with "That is not a MedScan patient code." |
+| Type `jua` in the search box, once Juan is yours | A list drops down; arrow keys move, Enter opens his page |
+| Type `0917 123 4567` and press Enter | The Search page shows him with a Locked pill; clicking opens his locked page |
+| A locked patient's page | Scan his QR code, Send access request (or Request again / "Request sent"), and Emergency access at the bottom |
+| Emergency access | A sheet asks for a reason and a tick that it is a medical emergency. Cancel saves nothing. The patient is told at once |
+| Scan QR code, with the patient's sheet open on a phone | The camera starts by itself. A live code lands on the open record with "Approved by QR scan" and a "Scan successful" message. The same code a second time says it was already used |
+| Scan a plain ID code (an old printout) | The locked patient page: a plain ID never approves anyone |
+| Patients | One list with chips All, With access, Waiting, Emergency, Denied (counts on each); more than 10 adds Previous/Next |
+| An open record | Allergy alert under the name; tabs Notes, Medical, Info; the phrases above the note box add their words |
+| After a patient approves | The Patients menu item gets a number; Home lists them first under Recent patients |
 
 **Login and sign-up**
 
 | Try | Should happen |
 |---|---|
 | Tick "Remember me", log in, log out | The ID is filled in next time and the cursor is in the password box |
-| Create account (start) | Two equal tiles, patient and doctor. Each opens a short form for that role; Back returns to the tiles |
+| Create account | One form with a Patient / Doctor switch. A doctor's contact number is optional |
 | Create account: medical history | Patients see a closed "Add medical history now (optional)" section with allergies and surgeries |
 | Create account: password | A counter (`7 / 25`); the eye shows and hides it; Caps Lock shows a warning |
-| Create account: date of birth | `04042004` becomes `04/04/2004`, `4/4/2004` too, and the age appears; the calendar button works |
-| Create account: mobile number | `+63 917 123 4567` or `9171234567` becomes `0917 123 4567`. It is required for patients, one per account |
-| Create account: allergies | Type one and press Enter or comma: it becomes a chip with an x |
-| Create account: the button | Grey until the form is valid. After creating you land on your dashboard with an ID card and a Copy ID button |
+| Create account: date of birth | `04042004` becomes `04/04/2004`, and the age appears; the calendar button works |
+| Create account: mobile number | `+63 917 123 4567` or `9171234567` becomes `0917 123 4567`. Required for patients, one per account |
+| Create account: the button | Grey until the form is valid. After creating you land on Home with a welcome card and a Copy ID button |
 | Log in with just the mobile number | Works, same as the ID |
 
 **Everywhere**
@@ -103,8 +98,8 @@ the doctor (`2001`) and the patient (`1001`) at the same time.
 |---|---|
 | Double-click a Save button | It goes grey after the first click and sends once |
 | Do something that gives a message | A message slides in at the top right and fades by itself; the x closes it |
-| Click a notification | It opens the page it is about and goes from unread to read; Mark all read clears the rest |
 | Leave a page alone for 14 minutes | A "Still there?" pop-up counts down; Stay logged in keeps you in, otherwise you are sent to the login page |
+| Resize below 760 px | The sidebar becomes bottom tabs with the main action raised in the middle; sheets rise from the bottom |
 
 ## Database settings
 
@@ -125,6 +120,16 @@ Available: `MEDSCAN_DB_HOST`, `MEDSCAN_DB_PORT`, `MEDSCAN_DB_USER`, `MEDSCAN_DB_
 | `logic/` | `MedScanSystem`: the rules (`L_`) |
 | `data/` | The `Database` class and the repositories that run the SQL (`D_`) |
 | `gui/` | Django views, templates, CSS and JS (`G_`) |
-| `database/` | `schema.sql` and `seed.sql` |
+| `database/` | `schema.sql` (the tables, all named `tb_...`), `seed.sql` (the two demo accounts) and `demo_data.sql` (optional sample data, added with `--demo`) |
 | `tests/` | The automated tests |
-| `docs/` | `DESIGN.md`: architecture, ERD, flows, bug list |
+| `design/` | The target screens (HTML mockups and screenshots) |
+| (root) | `manage.py` starts the site and runs the tests, `reset_database.py` rebuilds the tables, `Main_Driver.py` is the console demo |
+
+## Where the OOP ideas are
+
+| Idea | Where |
+|---|---|
+| Encapsulation | `User` keeps the password private (`__password`) and exposes only `login()`; `QRToken` and `QRCode` keep their secret and text private and read-only; `Notification`, `PatientLink` and `ScanResult` keep their fields private and give read-only properties |
+| Inheritance | `Patient` and `Doctor` extend `User` and reuse its login and ID handling |
+| Polymorphism | Each subclass replaces `ID_PREFIX` (`PT`, `DR`), so `display_id` works the same way for either kind of account, and the pages treat both as a `User` |
+| Abstraction | `MedScanSystem` hides the SQL and the repositories behind questions like `access_status()` and `scan_qr()`; `ScanResult` and `PatientLink` give the page one simple answer instead of the rules behind it |

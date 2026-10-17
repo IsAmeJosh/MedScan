@@ -1,25 +1,19 @@
 {% comment %}The notifications in the panel. Used by the base template and by the live update.
-Needs: inbox_items, and pending_ids (the requests a patient has not answered yet: they get buttons).{% endcomment %}
+Each one is only a pointer: it opens the page where the thing lives (the answer buttons are on Access, not here).
+Needs: inbox_items, and user (for the role).{% endcomment %}
 {% for n in inbox_items %}
-  <div class="notice {% if not n.is_read %}unread{% endif %}">
-    <a class="notice-main" href="{% url 'notification_open' n.notification_id %}">
-      {% if "emergency" in n.message %}<span class="ic red">{% icon "shield" "sm" %}</span>
-      {% elif "requests access" in n.message %}<span class="ic amber">{% icon "inbox" "sm" %}</span>
-      {% elif "approved" in n.message %}<span class="ic green">{% icon "check" "sm" %}</span>
-      {% elif "denied" in n.message or "revoked" in n.message %}<span class="ic gray">{% icon "lock" "sm" %}</span>
-      {% else %}<span class="ic teal">{% icon "bell" "sm" %}</span>{% endif %}
-      <div>
-        <p>{{ n.message }}</p>
-        <span class="faint small" title="{{ n.timestamp|date:'M d, Y H:i' }}">{{ n.timestamp|ago }}</span>
-      </div>
-    </a>
-    {% if n.related_request_id in pending_ids %}
-    <div class="notice-actions">
-      <button type="button" class="sm danger-ghost" data-request-action="deny" data-url="{% url 'respond' n.related_request_id 'deny' %}"
-              data-confirm="The doctor will be told you said no. They can ask again later." data-confirm-title="Deny this request?"
-              data-confirm-button="Deny request">{% icon "x" "sm" %}Deny</button>
-      <button type="button" class="sm success" data-request-action="approve" data-url="{% url 'respond' n.related_request_id 'approve' %}">{% icon "check" "sm" %}Approve</button>
+  <a class="row note {% if not n.is_read %}unread{% endif %}" href="{% url 'notification_open' n.notification_id %}">
+    {% if n.kind == "emergency" %}<span class="ic red">{% icon "shield" "sm" %}</span>
+    {% elif n.kind == "request" %}<span class="ic amber">{% icon "inbox" "sm" %}</span>
+    {% elif n.kind == "scan" %}<span class="ic green">{% icon "qr" "sm" %}</span>
+    {% elif n.kind == "approved" %}<span class="ic green">{% icon "check" "sm" %}</span>
+    {% elif n.kind == "denied" or n.kind == "revoked" %}<span class="ic gray">{% icon "lock" "sm" %}</span>
+    {% elif n.kind == "note" %}<span class="ic teal">{% icon "file" "sm" %}</span>
+    {% else %}<span class="ic teal">{% icon "bell" "sm" %}</span>{% endif %}
+    <div class="g">
+      <b>{{ n.message }}</b>
+      <div class="s" title="{{ n.timestamp|date:'M d, Y H:i' }}">{{ n.timestamp|when }} &middot; Opens {% if user.role == "Doctor" %}Patients{% elif n.kind == "request" %}Access &middot; Requests{% elif n.kind == "note" %}My Record{% else %}Access &middot; History{% endif %}</div>
     </div>
-    {% endif %}
-  </div>
+    {% if not n.is_read %}<span class="udot"></span>{% endif %}
+  </a>
 {% empty %}<p class="empty">You're all caught up. New messages show up here.</p>{% endfor %}

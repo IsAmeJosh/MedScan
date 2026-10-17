@@ -74,12 +74,12 @@ def execute(sql, *params):
 
 def age_emergencies(minutes):
     """Pretend every emergency override happened `minutes` minutes earlier."""
-    execute("UPDATE emergency_logs SET created_at = created_at - INTERVAL %s MINUTE", minutes)
+    execute("UPDATE tb_emergency_logs SET created_at = created_at - INTERVAL %s MINUTE", minutes)
 
 
 def age_views(minutes):
     """Pretend every record view happened `minutes` minutes earlier."""
-    execute("UPDATE record_views SET created_at = created_at - INTERVAL %s MINUTE", minutes)
+    execute("UPDATE tb_record_views SET created_at = created_at - INTERVAL %s MINUTE", minutes)
 
 
 def login(user_id, password):

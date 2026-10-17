@@ -31,7 +31,7 @@ class PollAnswers(PageTestCase):
         data = self.pat.get("/notifications/poll/").json()
         self.assertEqual((data["unread"], data["waiting"]), (1, 1))
         self.assertEqual(data["latest"], "Dr. Reyes requests access to your record.")
-        self.assertRegex(data["html"], r'<div class="notice unread">\s*<a class="notice-main" href="/notifications/\d+/open/">')
+        self.assertRegex(data["html"], r'<a class="row note unread" href="/notifications/\d+/open/">')
         self.assertIn("requests access to your record", data["html"])
 
     def test_an_approval_shows_up_for_the_doctor_and_counts_as_ready_to_open(self):
@@ -62,7 +62,7 @@ class PollAnswers(PageTestCase):
             self.s.emergency_access(self.doctor, 1001, f"Reason {n}")
         data = self.pat.get("/notifications/poll/").json()
         self.assertEqual(data["unread"], 25)   # the badge counts them all
-        self.assertEqual(len(re.findall(r'<div class="notice( unread)?">', data["html"])), 20)
+        self.assertEqual(len(re.findall(r'<a class="row note( unread)?"', data["html"])), 20)
 
     def test_anything_typed_into_a_message_is_escaped_before_it_reaches_the_page(self):
         self.s.emergency_access(self.doctor, 1001, "<script>alert(1)</script>")
@@ -78,7 +78,7 @@ class PollAnswers(PageTestCase):
         self.doc.post("/request/1001/")
         live = self.pat.get("/notifications/poll/").json()["html"].strip()
         page = html(self.pat.get("/dashboard/"))
-        panel = re.search(r'<div id="notification-list">(.*?)</div>\s*</aside>', page, re.S).group(1).strip()
+        panel = re.search(r'<div id="notification-list">(.*?)</div>\s*<div class="dfoot">', page, re.S).group(1).strip()
         self.assertEqual(re.sub(r"\s+", " ", live), re.sub(r"\s+", " ", panel))
 
 
@@ -147,11 +147,11 @@ class AskingIsNotActivity(PageTestCase):
 class NothingIsWritten(PageTestCase):
     def test_asking_changes_nothing_in_the_database(self):
         approve(self.s)
-        before = (count("notifications"), count("record_views"), count("access_requests"))
+        before = (count("tb_notifications"), count("tb_record_views"), count("tb_access_requests"))
         for _ in range(5):
             self.pat.get("/notifications/poll/")
             self.doc.get("/notifications/poll/")
-        self.assertEqual((count("notifications"), count("record_views"), count("access_requests")), before)
+        self.assertEqual((count("tb_notifications"), count("tb_record_views"), count("tb_access_requests")), before)
 
 
 if __name__ == "__main__":

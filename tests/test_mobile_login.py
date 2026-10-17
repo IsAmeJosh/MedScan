@@ -23,12 +23,12 @@ class RulesInTheLogic(unittest.TestCase):
 
     def test_one_number_one_account_however_it_is_written(self):
         new_patient(self.s, "Ana", PASSWORD, "F", BORN, contact_number="0917 000 1111")
-        before = count("patients")
+        before = count("tb_patients")
         for typed in ["09170001111", "+63 917 000 1111", "63 917 000 1111", "(0917) 000-1111"]:
             with self.assertRaises(ValueError) as caught:
                 self.s.register_patient("Bea", PASSWORD, "F", BORN, contact_number=typed)
             self.assertEqual(str(caught.exception), "That mobile number is already used by another account.")
-        self.assertEqual(count("patients"), before)
+        self.assertEqual(count("tb_patients"), before)
 
     def test_changing_your_number_checks_the_others_but_not_yourself(self):
         ana = new_patient(self.s, "Ana", PASSWORD, "F", BORN, contact_number="09170001111")
@@ -142,7 +142,7 @@ class TwoPeopleTakingTheSameNumber(unittest.TestCase):
             t.join()
         self.assertEqual(results.count("ok"), 1)
         self.assertEqual(set(results) - {"ok"}, {"That mobile number is already used by another account."})
-        self.assertEqual(count("patients", "contact_number = '09175550000'"), 1)
+        self.assertEqual(count("tb_patients", "mobile_number = '09175550000'"), 1)
 
 
 if __name__ == "__main__":

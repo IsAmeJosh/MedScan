@@ -1,0 +1,32 @@
+{# The "Review request" sheet for one waiting request. Needs: r, doctor, next. Opened by the Review button (G_Sheets.js). #}
+<dialog id="review-{{ r.request_id }}" class="sheet">
+  <div class="sheet-in">
+    <div class="grab"></div>
+    <div class="who">
+      <div class="avatar xl">{{ doctor.name|initials }}</div>
+      <div>
+        <h2>Dr. {{ doctor.name }}</h2>
+        <div class="muted small">{{ doctor.specialty }}{% if doctor.clinic %} &middot; {{ doctor.clinic }}{% endif %}</div>
+      </div>
+    </div>
+    <p class="lead">Dr. {{ doctor.name }} is asking to see your record. If you approve, they can see:</p>
+    <div class="card cando">
+      <div class="card-b">
+        <div>{% icon "check" "sm" %}Basic info and blood type</div>
+        <div>{% icon "check" "sm" %}Allergies, medications and past surgeries</div>
+        <div>{% icon "check" "sm" %}Consultation notes, and add new ones</div>
+      </div>
+    </div>
+    <p class="faint small fine">You can remove their access any time from Access &middot; Doctors.</p>
+    <div class="sheet-actions">
+      <form method="post" action="{% url 'respond' r.request_id 'deny' %}" data-confirm="Dr. {{ doctor.name }} will be told you said no. They can ask again later." data-confirm-title="Deny this request?" data-confirm-button="Deny request" data-confirm-tone="danger">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ next|default:'dashboard' }}">
+        <button type="submit" class="btn danger lg">{% icon "x" "sm" %}Deny</button>
+      </form>
+      <form method="post" action="{% url 'respond' r.request_id 'approve' %}">{% csrf_token %}
+        <input type="hidden" name="next" value="{{ next|default:'dashboard' }}">
+        <button type="submit" class="btn primary lg">{% icon "check" "sm" %}Approve</button>
+      </form>
+    </div>
+  </div>
+</dialog>

@@ -23,12 +23,12 @@ class TheCode(unittest.TestCase):
         self.assertIn("viewBox", picture)
 
     def test_a_scanned_patient_code_gives_the_patient_id(self):
-        self.assertEqual(QRCode.patient_id_from("PT-2026-01001"), 1001)
-        self.assertEqual(QRCode.patient_id_from("  PT-2025-01042\n"), 1042)
+        self.assertEqual(QRCode.parse("PT-2026-01001"), (1001, None))
+        self.assertEqual(QRCode.parse("  PT-2025-01042\n"), (1042, None))
 
     def test_anything_else_is_not_a_patient_code(self):
         for text in ("DR-2026-02001", "https://example.com/PT-2026-01001", "1001", "PT-2026-1001", "", None):
-            self.assertIsNone(QRCode.patient_id_from(text), text)
+            self.assertEqual(QRCode.parse(text), (None, None), text)
 
 
 class ScanningAPatient(unittest.TestCase):
@@ -39,36 +39,45 @@ class ScanningAPatient(unittest.TestCase):
         self.doc = login(2001, "doc123")
         self.pat = login(1001, "pat123")
 
-    def test_the_patient_page_shows_their_real_code(self):
-        page = html(self.pat.get("/qr/"))
-        self.assertIn(QRCode("PT-2026-01001").svg(), page)
-        self.assertIn("QR code for PT-2026-01001", page)
+    def test_the_patient_sheet_asks_for_their_real_code_and_it_is_never_in_the_page(self):
+        page = html(self.pat.get("/dashboard/"))
+        self.assertIn('id="qr-picture"', page)
+        self.assertNotIn("<svg viewBox", page.split('id="qr-sheet"')[1].split("</dialog>")[0])   # drawn after it opens
+        data = self.pat.get("/qr/code/").json()
+        self.assertIn("QR code for PT-2026-01001", data["svg"])
+        self.assertNotIn(self.s.current_qr(1001).value, data["svg"])         # the secret is in the picture, not in the text
 
     def test_a_patients_code_comes_from_their_own_id(self):
-        self.assertEqual(self.s.get_patient(1001).qr_code().text, "PT-2026-01001")
+        patient = self.s.get_patient(1001)
+        self.assertEqual(patient.qr_code().text, "PT-2026-01001")
+        token = self.s.current_qr(1001)
+        self.assertEqual(patient.qr_code(token).text, f"PT-2026-01001:{token.value}")
 
-    def test_the_doctor_page_has_the_camera_and_the_photo_upload(self):
+    def test_the_doctor_page_is_camera_only(self):
         page = html(self.doc.get("/qr/"))
-        for part in ('id="qr-video"', 'id="qr-start"', 'id="qr-file"', "Upload a photo of the code"):
+        for part in ('id="qr-video"', 'id="qr-status"', 'id="qr-retry"', 'id="qr-canvas"'):
             self.assertIn(part, page)
+        for gone in ('id="qr-file"', 'id="qr-start"', "Upload a photo of the code"):
+            self.assertNotIn(gone, page)
         self.assertIn("/static/js/vendor/jsQR.js", page)
         self.assertIn("/static/js/G_Scan.js", page)
 
     def test_only_the_doctor_page_loads_the_scanner(self):
-        self.assertNotIn("G_Scan.js", html(self.pat.get("/qr/")))
+        self.assertNotIn("G_Scan.js", html(self.pat.get("/qr/", follow=True)))
 
-    def test_a_scan_shows_the_same_result_as_typing_the_id(self):
+    def test_a_plain_id_code_lands_on_the_locked_patient_page(self):
         response = self.doc.get("/qr/scan/?code=PT-2026-01001")
-        self.assertEqual(response["Location"], "/patients/?q=1001")
+        self.assertEqual(response["Location"], "/patient/1001/")
         page = html(self.doc.get(response["Location"]))
         self.assertIn("Juan Dela Cruz", page)
-        self.assertIn("This record is private", page)
+        self.assertIn("Record locked", page)
 
-    def test_a_scan_never_asks_for_or_opens_access_by_itself(self):
-        self.doc.get("/qr/scan/?code=PT-2026-01001", follow=True)
-        self.assertEqual(count("access_requests"), 0)
+    def test_a_plain_id_scan_never_asks_for_or_opens_access_by_itself(self):
+        page = html(self.doc.get("/qr/scan/?code=PT-2026-01001", follow=True))
+        self.assertEqual(count("tb_access_requests"), 0)
         self.assertFalse(self.s.has_access(2001, 1001))
-        self.assertNotEqual(self.doc.get("/patient/1001/").status_code, 200)
+        self.assertNotIn("Penicillin", page)
+        self.assertNotIn("Consultation notes", page)
 
     def test_a_code_that_is_not_a_patient_code_goes_back_with_a_message(self):
         response = self.doc.get("/qr/scan/?code=https://example.com", follow=True)

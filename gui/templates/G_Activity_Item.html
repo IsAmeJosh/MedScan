@@ -1,11 +1,9 @@
 {# One thing that happened to a patient's record. Needs: a (kind, doctor, when, detail). #}
-<div class="lr">
-  {% if a.kind == "override" %}<span class="ic red">{% icon "shield" "sm" %}</span>
-  {% elif a.kind == "emergency_view" %}<span class="ic amber">{% icon "eye" "sm" %}</span>
-  {% else %}<span class="ic teal">{% icon "eye" "sm" %}</span>{% endif %}
-  <div class="grow">
-    <b>Dr. {{ a.doctor.name }} {% if a.kind == "override" %}used emergency access{% elif a.kind == "emergency_view" %}opened your record (emergency){% else %}opened your record{% endif %}</b>
-    <span class="sub" title="{{ a.when|date:'M d, Y H:i' }}">{% if a.detail %}Reason: {{ a.detail }} &middot; {% endif %}{{ a.doctor.workplace }} &middot; {{ a.when|ago }}</span>
+<div class="row">
+  <div class="ic {% if a.kind == 'scan' %}green{% elif a.kind == 'view' %}teal{% else %}red{% endif %}">{% if a.kind == "scan" %}{% icon "qr" "sm" %}{% elif a.kind == "override" %}{% icon "shield" "sm" %}{% else %}{% icon "eye" "sm" %}{% endif %}</div>
+  <div class="g">
+    <b>Dr. {{ a.doctor.name }} {% if a.kind == "scan" %}scanned your QR code{% elif a.kind == "override" %}used emergency access{% elif a.kind == "emergency_view" %}opened your record in an emergency{% else %}opened your record{% endif %}</b>
+    <div class="s" title="{{ a.when|date:'M d, Y H:i' }}">{{ a.when|when }} &middot; {% if a.detail %}Reason: {{ a.detail }}{% else %}{{ a.doctor.specialty }}{% if a.doctor.clinic %}, {{ a.doctor.clinic }}{% endif %}{% endif %}</div>
   </div>
-  {% if a.kind == "view" %}<span class="pill green">Approved</span>{% else %}<span class="pill red">Emergency</span>{% endif %}
+  {% if a.kind == "scan" %}<span class="pill green">QR scan</span>{% elif a.kind == "view" %}<span class="pill green">Approved</span>{% else %}<span class="pill red">Emergency</span>{% endif %}
 </div>

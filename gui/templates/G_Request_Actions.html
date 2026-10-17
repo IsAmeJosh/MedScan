@@ -1,0 +1,6 @@
+{# Deny and Review for one waiting request. Needs: r (the request), doctor, and next (the page to come back to). Review opens the sheet. #}
+<form method="post" action="{% url 'respond' r.request_id 'deny' %}" class="inline-form" data-confirm="Dr. {{ doctor.name }} will be told you said no. They can ask again later." data-confirm-title="Deny this request?" data-confirm-button="Deny request" data-confirm-tone="danger">{% csrf_token %}
+  <input type="hidden" name="next" value="{{ next|default:'dashboard' }}">
+  <button type="submit" class="btn danger">{% icon "x" "sm" %}Deny</button>
+</form>
+<button type="button" class="btn primary" data-sheet="review-{{ r.request_id }}">{% icon "check" "sm" %}Review</button>

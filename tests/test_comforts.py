@@ -23,7 +23,7 @@ class PageTestCase(unittest.TestCase):
 
 def listed_patients(page):
     """The patient names in the page's list (not the ones that also appear in the notification panel)."""
-    return re.findall(r'<div><b>(Patient \d\d)</b><span>', page)
+    return re.findall(r'<div class="g">\s*<b>(Patient \d\d)</b>', page)
 
 
 def input_tag(page, name):
@@ -54,7 +54,7 @@ class MobileNumbersOnScreen(PageTestCase):
 
     def test_a_number_typed_in_the_spaced_style_is_saved_without_spaces(self):
         self.pat.post("/record/edit/", {"contact_number": "0928 111 2222"})
-        self.assertEqual(rows("SELECT contact_number FROM patients WHERE user_id = 1001")[0]["contact_number"],
+        self.assertEqual(rows("SELECT mobile_number FROM tb_patients WHERE patient_id = 1001")[0]["mobile_number"],
                          "09281112222")
 
 
@@ -67,14 +67,14 @@ class DateOfBirthTyping(PageTestCase):
         for typed in ["04/04/2004", "4/4/2004", "2004-04-04"]:
             r = self.register(typed)
             self.assertIn("Welcome to MedScan, Zed", html(r), typed)
-        saved = rows("SELECT date_of_birth FROM patients ORDER BY user_id DESC LIMIT 3")
+        saved = rows("SELECT date_of_birth FROM tb_patients ORDER BY patient_id DESC LIMIT 3")
         self.assertEqual({row["date_of_birth"] for row in saved}, {date(2004, 4, 4)})
 
     def test_two_digit_years_and_impossible_dates_are_refused_with_the_format_shown(self):
-        before = count("patients")
+        before = count("tb_patients")
         for typed in ["04/04/04", "13/01/2004", "02/30/2004", "2004/04/04", "04042004"]:
             self.assertIn("like 04/04/2004", html(self.register(typed)), typed)
-        self.assertEqual(count("patients"), before)
+        self.assertEqual(count("tb_patients"), before)
 
     def test_the_visible_date_box_is_plain_text_not_the_browsers_date_control(self):
         page = html(Client().get("/register/?role=patient"))
@@ -169,10 +169,10 @@ class Messages(PageTestCase):
 
     def test_on_the_login_and_register_pages_errors_stay_next_to_the_form(self):
         page = html(Client().post("/", {"user_id": "2001", "password": "wrong"}))
-        self.assertIn('class="msg error"', page)
+        self.assertIn('class="alert red auth-alert"', page)
         self.assertNotIn('class="toast', page)
         page = html(Client().post("/register/", {"role": "Patient", "name": "Z", "password": "abc", "date_of_birth": BORN}))
-        self.assertIn('class="msg error"', page)
+        self.assertIn('class="alert red auth-alert"', page)
 
     def test_a_message_shows_once(self):
         self.pat.post("/record/edit/", {"allergies": "Peanuts", "contact_number": "09171234567"})
@@ -187,37 +187,37 @@ class ConfirmDialogs(PageTestCase):
 
     def test_revoking_asks_first(self):
         approve(self.s)
-        form = re.search(r"<form[^>]*action=\"/revoke/\d+/\"[^>]*>", html(self.pat.get("/privacy/"))).group(0)
+        form = re.search(r"<form[^>]*action=\"/revoke/\d+/\"[^>]*>", html(self.pat.get("/access/?tab=doctors"))).group(0)
         self.assertIn("data-confirm=", form)
-        self.assertIn('data-confirm-button="Revoke access"', form)
+        self.assertIn('data-confirm-button="Remove access"', form)
         self.assertIn("Dr. Reyes will lose access", form)
 
-    def test_denying_asks_first_on_home_and_on_privacy(self):
+    def test_denying_asks_first_on_home_and_on_access(self):
         self.s.request_access(self.s.get_doctor(2001), 1001)
-        for url in ["/dashboard/", "/privacy/"]:
+        for url in ["/dashboard/", "/access/?tab=requests"]:
             form = re.search(r"<form[^>]*action=\"/respond/\d+/deny/\"[^>]*>", html(self.pat.get(url))).group(0)
             self.assertIn("data-confirm=", form, url)
             self.assertIn("will be told you said no", form, url)
 
-    def test_the_deny_button_in_the_bell_panel_asks_too_and_approve_does_not(self):
+    def test_the_deny_button_in_the_review_sheet_asks_too_and_approve_does_not(self):
         self.s.request_access(self.s.get_doctor(2001), 1001)
-        page = html(self.pat.get("/dashboard/"))
-        deny = re.search(r"<button[^>]*data-request-action=\"deny\"[^>]*>", page, re.S).group(0)
-        approve_button = re.search(r"<button[^>]*data-request-action=\"approve\"[^>]*>", page, re.S).group(0)
+        sheet = re.search(r'<dialog id="review-\d+".*?</dialog>', html(self.pat.get("/dashboard/")), re.S).group(0)
+        deny = re.search(r"<form[^>]*action=\"/respond/\d+/deny/\"[^>]*>", sheet).group(0)
+        approve_form = re.search(r"<form[^>]*action=\"/respond/\d+/approve/\"[^>]*>", sheet).group(0)
         self.assertIn("data-confirm=", deny)
-        self.assertNotIn("data-confirm", approve_button)
+        self.assertNotIn("data-confirm", approve_form)
 
     def test_approving_does_not_ask(self):
         self.s.request_access(self.s.get_doctor(2001), 1001)
         form = re.search(r"<form[^>]*action=\"/respond/\d+/approve/\"[^>]*>", html(self.pat.get("/dashboard/"))).group(0)
         self.assertNotIn("data-confirm", form)
 
-    def test_the_emergency_page_asks_first_and_the_pop_up_is_itself_the_question(self):
+    def test_the_emergency_page_asks_first_and_the_sheet_is_itself_the_question(self):
         form = re.search(r"<form[^>]*data-confirm=[^>]*>", html(self.doc.get("/emergency/"))).group(0)
         self.assertIn('data-confirm-tone="danger"', form)
         self.assertIn("without the patient", form)
-        popup_form = re.search(r'<form[^>]*id="emergency-form"[^>]*>', html(self.doc.get("/dashboard/"))).group(0)
-        self.assertNotIn("data-confirm", popup_form)   # asking "are you sure" inside a pop-up that says it already would be silly
+        sheet = re.search(r'<dialog id="emergency-sheet".*?<form[^>]*>', html(self.doc.get("/patient/1001/")), re.S).group(0)
+        self.assertNotIn("data-confirm", sheet)   # asking "are you sure" inside a sheet that says it already would be silly
 
     def test_the_actions_still_work_when_the_question_is_answered_yes(self):
         approve_request = approve(self.s)
@@ -229,7 +229,8 @@ class ClickableNotifications(PageTestCase):
     def test_each_notification_is_a_link_and_the_panel_has_mark_all_read(self):
         self.s.request_access(self.s.get_doctor(2001), 1001)
         page = html(self.pat.get("/dashboard/"))
-        self.assertRegex(page, r'<div class="notice unread">\s*<a class="notice-main" href="/notifications/\d+/open/">')
+        self.assertRegex(page, r'<a class="row note unread" href="/notifications/\d+/open/">')
+        self.assertIn("Opens Access &middot; Requests", page)
         self.assertIn('id="mark-all-read" >', page)
         self.assertIn('id="new-count" >', page)
 
@@ -245,20 +246,20 @@ class ClickableNotifications(PageTestCase):
         self.pat.get("/dashboard/")
         self.assertEqual(self.s.unread_count(1001), 1)
 
-    def test_a_patients_request_notification_opens_privacy_and_only_that_one_is_marked(self):
+    def test_a_patients_request_notification_opens_access_requests_and_only_that_one_is_marked(self):
         doctor = self.s.get_doctor(2001)
         self.s.request_access(doctor, 1001)
         self.s.emergency_access(doctor, 1001, "Collapsed")
         first, second = sorted(n.notification_id for n in self.s.inbox(1001))
         r = self.pat.get(f"/notifications/{first}/open/")
-        self.assertEqual((r.status_code, r["Location"]), (302, "/privacy/"))
+        self.assertEqual((r.status_code, r["Location"]), (302, "/access/?tab=requests"))
         self.assertEqual(self.s.unread_count(1001), 1)
 
-    def test_an_emergency_alert_opens_the_activity_tab(self):
+    def test_an_emergency_alert_opens_the_history_tab(self):
         self.s.emergency_access(self.s.get_doctor(2001), 1001, "Collapsed")
         (note,) = self.s.inbox(1001)
         r = self.pat.get(f"/notifications/{note.notification_id}/open/")
-        self.assertEqual(r["Location"], "/privacy/?tab=activity")
+        self.assertEqual(r["Location"], "/access/?tab=history")
 
     def test_a_doctors_approval_notification_opens_the_record_itself(self):
         request = self.s.request_access(self.s.get_doctor(2001), 1001)
@@ -273,13 +274,13 @@ class ClickableNotifications(PageTestCase):
         request = self.s.request_access(self.s.get_doctor(2001), 1001)
         self.s.respond_to_request(request.request_id, 1001, False)
         (note,) = self.s.inbox(2001)
-        self.assertEqual(self.doc.get(f"/notifications/{note.notification_id}/open/")["Location"], "/patients/?tab=ended")
+        self.assertEqual(self.doc.get(f"/notifications/{note.notification_id}/open/")["Location"], "/patients/?show=denied")
 
     def test_an_approval_that_was_taken_back_does_not_open_a_locked_record(self):
         request = approve(self.s)
         self.s.revoke_access(request.request_id, 1001)
         approval = [n for n in self.s.inbox(2001) if "approved" in n.message][0]
-        self.assertEqual(self.doc.get(f"/notifications/{approval.notification_id}/open/")["Location"], "/patients/?tab=ended")
+        self.assertEqual(self.doc.get(f"/notifications/{approval.notification_id}/open/")["Location"], "/patients/?show=denied")
 
     def test_nobody_can_open_or_mark_someone_elses_notification(self):
         self.s.request_access(self.s.get_doctor(2001), 1001)
@@ -298,7 +299,8 @@ class ClickableNotifications(PageTestCase):
         self.assertEqual(self.s.unread_count(1001), 0)
 
 
-class ApproveAndDenyInTheBellPanel(PageTestCase):
+class AnsweringRequests(PageTestCase):
+    """The bell panel only points to Access. Approve and Deny are forms on Home, Access and the Review sheet."""
     def setUp(self):
         super().setUp()
         self.request = self.s.request_access(self.s.get_doctor(2001), 1001)
@@ -306,10 +308,15 @@ class ApproveAndDenyInTheBellPanel(PageTestCase):
     def panel(self, client):
         return html(client.get("/dashboard/"))
 
-    def test_a_waiting_request_has_both_buttons_pointing_at_that_request(self):
-        page = self.panel(self.pat)
-        self.assertIn(f'data-request-action="approve" data-url="/respond/{self.request.request_id}/approve/"', page)
-        self.assertIn(f'data-request-action="deny" data-url="/respond/{self.request.request_id}/deny/"', page)
+    def test_a_waiting_request_has_deny_and_review_on_home_and_access_but_no_buttons_in_the_panel(self):
+        for url in ["/dashboard/", "/access/?tab=requests"]:
+            page = html(self.pat.get(url))
+            self.assertIn(f'action="/respond/{self.request.request_id}/deny/"', page, url)
+            self.assertIn(f'data-sheet="review-{self.request.request_id}"', page, url)
+            self.assertIn(f'<dialog id="review-{self.request.request_id}"', page, url)
+        panel = re.search(r'<div id="notification-list">(.*?)<div class="dfoot">', self.panel(self.pat), re.S).group(1)
+        self.assertNotIn("<button", panel)
+        self.assertNotIn("data-request-action", panel)
 
     def test_doctors_never_get_the_buttons(self):
         self.s.respond_to_request(self.request.request_id, 1001, True)
@@ -322,21 +329,22 @@ class ApproveAndDenyInTheBellPanel(PageTestCase):
     def test_other_notifications_never_have_buttons(self):
         self.s.emergency_access(self.s.get_doctor(2001), 1001, "Collapsed")
         page = self.panel(self.pat)
-        self.assertEqual(page.count("data-request-action=\"approve\""), 1)   # only the one waiting request
+        self.assertEqual(page.count("data-request-action"), 0)   # the panel never has answer buttons
 
-    def test_the_script_asks_for_json_and_gets_json_without_a_redirect_or_a_flash_message(self):
-        r = self.pat.post(f"/respond/{self.request.request_id}/approve/", HTTP_X_REQUESTED_WITH="fetch")
-        self.assertEqual((r.status_code, r.json()), (200, {"ok": True, "status": "Approved"}))
+    def test_approving_goes_back_with_a_message_and_lets_the_doctor_in(self):
+        r = self.pat.post(f"/respond/{self.request.request_id}/approve/")
+        self.assertEqual((r.status_code, r["Location"]), (302, "/dashboard/"))
         self.assertEqual(self.s.access_status(2001, 1001), "approved")
-        self.assertNotIn("Access approved.", html(self.pat.get("/dashboard/")))   # no message waiting for the next page
+        self.assertIn("Access approved.", html(self.pat.get("/dashboard/")))
 
-    def test_denying_the_same_way(self):
-        r = self.pat.post(f"/respond/{self.request.request_id}/deny/", HTTP_X_REQUESTED_WITH="fetch")
-        self.assertEqual((r.status_code, r.json()), (200, {"ok": False if False else True, "status": "Denied"}))
+    def test_denying_goes_back_with_a_message_and_keeps_the_doctor_out(self):
+        r = self.pat.post(f"/respond/{self.request.request_id}/deny/")
+        self.assertEqual(r.status_code, 302)
         self.assertEqual(self.s.access_status(2001, 1001), "denied")
+        self.assertIn("Access denied.", html(self.pat.get("/dashboard/")))
 
     def test_answering_marks_that_notification_read_and_tells_the_doctor(self):
-        self.pat.post(f"/respond/{self.request.request_id}/approve/", HTTP_X_REQUESTED_WITH="fetch")
+        self.pat.post(f"/respond/{self.request.request_id}/approve/")
         self.assertEqual(self.s.unread_count(1001), 0)
         self.assertTrue(any("Juan Dela Cruz approved" in n.message for n in self.s.inbox(2001)))
 
@@ -346,33 +354,32 @@ class ApproveAndDenyInTheBellPanel(PageTestCase):
 
     def test_other_notifications_stay_unread_when_one_request_is_answered(self):
         self.s.emergency_access(self.s.get_doctor(2001), 1001, "Collapsed")
-        self.pat.post(f"/respond/{self.request.request_id}/approve/", HTTP_X_REQUESTED_WITH="fetch")
+        self.pat.post(f"/respond/{self.request.request_id}/approve/")
         self.assertEqual(self.s.unread_count(1001), 1)   # the emergency alert
 
-    def test_answering_twice_or_someone_elses_request_is_refused_as_json(self):
-        self.pat.post(f"/respond/{self.request.request_id}/approve/", HTTP_X_REQUESTED_WITH="fetch")
-        again = self.pat.post(f"/respond/{self.request.request_id}/deny/", HTTP_X_REQUESTED_WITH="fetch")
-        self.assertEqual((again.status_code, again.json()["ok"]), (409, False))
+    def test_answering_twice_or_someone_elses_request_changes_nothing(self):
+        self.pat.post(f"/respond/{self.request.request_id}/approve/")
+        self.pat.post(f"/respond/{self.request.request_id}/deny/")                 # too late: it was already answered
         self.assertEqual(self.s.access_status(2001, 1001), "approved")
         other = new_patient(self.s, "Other", PASSWORD, "M", BORN)
         stranger = login(other.user_id, PASSWORD)
-        r = stranger.post(f"/respond/{self.request.request_id}/deny/", HTTP_X_REQUESTED_WITH="fetch")
-        self.assertEqual((r.status_code, r.json()["ok"]), (409, False))
+        stranger.post(f"/respond/{self.request.request_id}/deny/")                 # not their request
+        self.assertEqual(self.s.access_status(2001, 1001), "approved")
+        self.assertEqual(count("tb_access_requests", "status = 'Approved'"), 1)
 
-    def test_doctors_and_strangers_get_a_403_as_json(self):
+    def test_doctors_and_strangers_can_not_answer_for_a_patient(self):
         for client in [self.doc, Client()]:
-            r = client.post(f"/respond/{self.request.request_id}/approve/", HTTP_X_REQUESTED_WITH="fetch")
-            self.assertEqual((r.status_code, r.json()), (403, {"ok": False}))
+            client.post(f"/respond/{self.request.request_id}/approve/")
         self.assertEqual(self.s.access_status(2001, 1001), "pending")
 
     def test_a_get_does_not_answer_anything(self):
-        self.pat.get(f"/respond/{self.request.request_id}/approve/", HTTP_X_REQUESTED_WITH="fetch")
+        self.pat.get(f"/respond/{self.request.request_id}/approve/")
         self.assertEqual(self.s.access_status(2001, 1001), "pending")
 
 
 def listed_patients(page):
     """The patient names in the page's list (not the ones that also appear in the notification panel)."""
-    return re.findall(r'<div><b>(Patient \d\d)</b><span>', page)
+    return re.findall(r'<div class="g">\s*<b>(Patient \d\d)</b>', page)
 
 
 class PatientListPages(PageTestCase):
@@ -382,14 +389,14 @@ class PatientListPages(PageTestCase):
             patient = new_patient(self.s, f"Patient {n:02d}", PASSWORD, "F", BORN)
             self.s.request_access(doctor, patient.user_id)
 
-    def test_long_lists_are_split_into_pages_of_ten_and_keep_the_tab(self):
+    def test_long_lists_are_split_into_pages_of_ten_and_keep_the_chip(self):
         self.make_requests(12)
-        first = html(self.doc.get("/patients/?tab=waiting"))
+        first = html(self.doc.get("/patients/?show=waiting"))
         self.assertEqual(len(listed_patients(first)), 10)
         self.assertIn("Showing 1&ndash;10 of 12", first)
         self.assertIn("Page 1 of 2", first)
-        self.assertIn("?tab=waiting&amp;page=2", first)
-        second = html(self.doc.get("/patients/?tab=waiting&page=2"))
+        self.assertIn("?show=waiting&amp;page=2", first)
+        second = html(self.doc.get("/patients/?show=waiting&page=2"))
         self.assertEqual(listed_patients(second), ["Patient 01", "Patient 00"])
         self.assertIn("Previous", second)
         self.assertNotIn("Next", second)
@@ -397,33 +404,35 @@ class PatientListPages(PageTestCase):
     def test_odd_page_numbers_do_not_crash(self):
         self.make_requests(3)
         for page in ["0", "-1", "abc", "999", ""]:
-            self.assertEqual(self.doc.get(f"/patients/?tab=waiting&page={page}").status_code, 200, page)
+            self.assertEqual(self.doc.get(f"/patients/?show=waiting&page={page}").status_code, 200, page)
 
     def test_a_short_list_has_no_page_links(self):
         self.make_requests(3)
-        self.assertNotIn('class="pager"', html(self.doc.get("/patients/?tab=waiting")))
+        self.assertNotIn('class="pager"', html(self.doc.get("/patients/?show=waiting")))
 
-    def test_each_tab_has_its_own_empty_message(self):
-        self.assertIn("No patient has approved you yet", html(self.doc.get("/patients/")))
-        self.assertIn("A request you send stays here", html(self.doc.get("/patients/?tab=waiting")))
-        self.assertIn("denied or taken back", html(self.doc.get("/patients/?tab=ended")))
+    def test_each_chip_has_its_own_empty_message(self):
+        self.assertIn("No patients yet", html(self.doc.get("/patients/")))
+        self.assertIn("No patient has approved you yet", html(self.doc.get("/patients/?show=access")))
+        self.assertIn("A request you send stays here", html(self.doc.get("/patients/?show=waiting")))
+        self.assertIn("You have not used emergency access", html(self.doc.get("/patients/?show=emergency")))
+        self.assertIn("denied or taken back", html(self.doc.get("/patients/?show=denied")))
 
 
 class ActivityPages(PageTestCase):
     def test_the_activity_tab_is_paged_and_shows_the_real_total(self):
         for _ in range(12):
-            execute("INSERT INTO record_views (doctor_id, patient_id, via) VALUES (2001, 1001, 'approved')")
-        first = html(self.pat.get("/privacy/?tab=activity"))
+            execute("INSERT INTO tb_record_views (doctor_id, patient_id, via) VALUES (2001, 1001, 'approved')")
+        first = html(self.pat.get("/access/?tab=history"))
         self.assertEqual(first.count("Dr. Reyes opened your record"), 10)
         self.assertIn("Showing 1&ndash;10 of 12", first)
-        self.assertRegex(first, r"Who opened my record <span>12</span>")
-        self.assertEqual(html(self.pat.get("/privacy/?tab=activity&page=2")).count("Dr. Reyes opened your record"), 2)
+        self.assertRegex(first, r"All <em>12</em>")
+        self.assertEqual(html(self.pat.get("/access/?tab=history&page=2")).count("Dr. Reyes opened your record"), 2)
 
     def test_emergency_uses_are_in_the_same_feed_with_their_reasons(self):
         doctor = self.s.get_doctor(2001)
         for n in range(3):
             self.s.emergency_access(doctor, 1001, f"Reason number {n}")
-        page = html(self.pat.get("/privacy/?tab=activity"))
+        page = html(self.pat.get("/access/?tab=history"))
         self.assertEqual(len(re.findall(r"Reason: Reason number \d", page)), 3)
         self.assertEqual(page.count("used emergency access"), 3)
 
@@ -431,11 +440,11 @@ class ActivityPages(PageTestCase):
 class EmptyStates(PageTestCase):
     def test_the_messages_tell_people_what_to_do(self):
         self.assertIn("Nobody has opened your record yet", html(self.pat.get("/dashboard/")))
-        privacy = html(self.pat.get("/privacy/"))
-        self.assertIn("Give a doctor your ID", privacy)
-        self.assertIn(self.s.get_patient(1001).display_id, privacy)
+        access = html(self.pat.get("/access/"))
+        self.assertIn("give a doctor your ID", access)
+        self.assertIn(self.s.get_patient(1001).display_id, access)
         self.assertIn("all caught up", html(self.pat.get("/dashboard/")))   # the bell panel
-        self.assertIn("press / to jump to it", html(self.doc.get("/dashboard/")))
+        self.assertIn("Nobody yet. Scan a patient's code", html(self.doc.get("/dashboard/")).replace("&#x27;", "'"))
 
 
 class IdleLogout(PageTestCase):

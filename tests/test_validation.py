@@ -58,10 +58,10 @@ class Passwords(unittest.TestCase):
         self.assertEqual(str(caught.exception), "Password must be 6 to 25 characters.")
 
     def test_nothing_is_saved_when_it_is_refused(self):
-        before = count("patients")
+        before = count("tb_patients")
         with self.assertRaises(ValueError):
             new_patient(self.s, "Ana", "abc", "F", BORN)
-        self.assertEqual(count("patients"), before)
+        self.assertEqual(count("tb_patients"), before)
 
 
 class DatesOfBirth(unittest.TestCase):
@@ -92,7 +92,7 @@ class FieldLengths(unittest.TestCase):
         self.doctor = self.s.get_doctor(2001)
 
     def test_registration_fields_stop_at_the_database_size(self):
-        before = (count("patients"), count("doctors"))
+        before = (count("tb_patients"), count("tb_doctors"))
         for call in [lambda: new_patient(self.s, "A" * 101, PASSWORD, "M", BORN),
                      lambda: new_patient(self.s, "Ana", PASSWORD, "M" * 21, BORN),
                      lambda: new_patient(self.s, "Ana", PASSWORD, "M", BORN, allergies="Peanuts, " + "x" * 201),
@@ -100,7 +100,7 @@ class FieldLengths(unittest.TestCase):
                      lambda: self.s.register_doctor("Cruz", PASSWORD, "ENT", "C" * 151)]:
             with self.assertRaises(ValueError):
                 call()
-        self.assertEqual((count("patients"), count("doctors")), before)  # nothing half-registered
+        self.assertEqual((count("tb_patients"), count("tb_doctors")), before)  # nothing half-registered
 
     def test_the_limits_themselves_are_allowed(self):
         new_patient(self.s, "A" * 100, "p" * 25, "M" * 20, BORN, allergies="x" * 200)
@@ -123,7 +123,7 @@ class FieldLengths(unittest.TestCase):
             self.s.add_consultation(self.doctor, 1001, "n" * 5001)
         with self.assertRaises(ValueError):
             self.s.emergency_access(self.doctor, 1001, "r" * 501)
-        self.assertEqual(count("emergency_logs"), 0)
+        self.assertEqual(count("tb_emergency_logs"), 0)
 
 
 class WebsiteMessages(unittest.TestCase):
@@ -156,7 +156,7 @@ class WebsiteMessages(unittest.TestCase):
         r = doctor.post("/emergency/", {"patient_id": "1001", "reason": "r" * 501})
         self.assertEqual(r.status_code, 200)
         self.assertIn("Emergency reason is too long", html(r))
-        self.assertEqual(count("emergency_logs"), 0)
+        self.assertEqual(count("tb_emergency_logs"), 0)
 
     def test_note_too_long(self):
         s = self.s
@@ -165,7 +165,7 @@ class WebsiteMessages(unittest.TestCase):
         doctor = login(2001, "doc123")
         r = doctor.post("/patient/1001/consult/", {"notes": "n" * 5001}, follow=True)
         self.assertIn("Consultation notes is too long", html(r))
-        self.assertEqual(count("consultations"), 0)
+        self.assertEqual(count("tb_consultations"), 0)
 
 
 if __name__ == "__main__":

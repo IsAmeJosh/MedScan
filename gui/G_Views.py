@@ -1,67 +1,74 @@
-"""Django views. Thin: each one reads the request and calls MedScanSystem."""
+"""The Django views. They are kept thin on purpose: each one reads the request, calls a MedScanSystem method and picks
+the page to show. The rules themselves live in logic/, so a view never decides who may see what."""
 from django.conf import settings
 from django.contrib import messages
 from django.core.paginator import Paginator
+from urllib.parse import urlencode
+
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 
 from data.D_Database import Database
 from logic.L_MedScan_System import MedScanSystem
+from models.M_Scan_Result import ScanResult
 
 db = Database.from_environment()
-db.prepare()  # creates the tables and the test accounts from database/*.sql if they are missing
+db.prepare()  # Create the tables and the demo accounts from database/*.sql if they are missing.
 system = MedScanSystem(db)
 
-PATIENT_TABS = ("mine", "waiting", "ended")
+PATIENT_CHIPS = ("all", "access", "waiting", "emergency", "denied")
+# old ?tab= addresses (bookmarks) mapped to the filter chips
+OLD_PATIENT_TABS = {"mine": "access", "waiting": "waiting", "ended": "denied"}
+ACCESS_TABS = ("requests", "doctors", "history")
+ACTIVITY_FILTERS = ("all", "scan", "approved", "emergency")
+# The page a patient lands on for each destination word a Notification gives (see Notification.destination).
+PATIENT_DESTINATIONS = {"requests": "/access/?tab=requests", "history": "/access/?tab=history", "record": "/record/"}
 
 
 def current_user(request):
-    """The logged-in Patient or Doctor, treated as a User (polymorphism), or None."""
+    """The logged-in Patient or Doctor, or None. Both kinds come back as a User, so the rest of the code can treat
+    them the same way (polymorphism) and only looks at the role when it matters."""
     uid = request.session.get("uid")
     return system.get_user(uid) if uid else None
 
 
 def _doctor(request):
-    """The logged-in user if they are a doctor, otherwise None."""
+    """The logged-in user if they are a doctor, otherwise None. The doctor-only views use it as their guard."""
     user = current_user(request)
     return user if user and user.role == "Doctor" else None
 
 
 def _patient(request):
-    """The logged-in user if they are a patient, otherwise None."""
+    """The logged-in user if they are a patient, otherwise None. The patient-only views use it as their guard."""
     user = current_user(request)
     return user if user and user.role == "Patient" else None
 
 
 def _back_to(request, allowed, default):
-    """Redirect to the page named in the form's 'next' field if it is one of ours, otherwise to default."""
+    """Redirect to the page named in the form's 'next' field, but only if it is one of our own pages (allowed).
+    Otherwise go to the default. That stops a made-up form from sending someone to another site."""
     target = request.POST.get("next")
     return redirect(target if target in allowed else default)
 
 
 def _paginate(request, items, per_page=10):
-    """One page of a long list. Returns (page, query), where query repeats the other URL parameters
-    (such as a filter) so the Previous and Next links keep them."""
+    """Cut a long list into pages of 10. Returns (page, query), where query repeats the other URL parameters (such as
+    a filter) so the Previous and Next links keep them."""
     page = Paginator(items, per_page).get_page(request.GET.get("page"))
     params = request.GET.copy()
     params.pop("page", None)
     return page, params.urlencode()
 
 
-def _from_script(request):
-    """True when the page's own script made the request (the buttons in the notification panel),
-    so the answer should be JSON instead of a redirect."""
-    return request.headers.get("X-Requested-With") == "fetch"
-
-
 # ---------- before login ----------
 def login_view(request):
-    """Show the login form and log the user in. The ID can be 1001, PT-2026-01001 or a patient's mobile number."""
+    """Show the login form and log the person in. The ID box accepts 1001, PT-2026-01001 or a patient's mobile number.
+    A wrong ID or password gives one message that does not say which of the two was wrong."""
     if current_user(request):
         return redirect("dashboard")
     if request.method == "POST":
-        uid = system.resolve_login(request.POST.get("user_id", ""))   # an ID, a full ID, or a mobile number
+        uid = system.resolve_login(request.POST.get("user_id", ""))   # Accepts an ID, a full ID, or a mobile number.
         user = system.authenticate(uid, request.POST.get("password", ""))
         if user:
             request.session["uid"] = user.user_id
@@ -73,8 +80,9 @@ def login_view(request):
 
 
 def register_view(request):
-    """Create a patient or doctor account. First a page asks which one (no role in the address), then a short
-    form for that role (?role=patient or ?role=doctor); the error is shown on the form if the input is bad."""
+    """Create a patient or doctor account. It is one form with a Patient / Doctor switch (?role=patient or
+    ?role=doctor, patient when there is none). If the input is bad, the error is shown on the form and what was
+    typed is kept. After a successful sign-up the person is logged in and lands on Home."""
     if current_user(request):
         return redirect("dashboard")
     if request.method == "POST":
@@ -82,23 +90,23 @@ def register_view(request):
         try:
             if f.get("role") == "Doctor":
                 user = system.register_doctor(f.get("name"), f.get("password"), f.get("specialty") or "General",
-                                              f.get("clinic", ""))
+                                              f.get("clinic", ""), f.get("contact_number", ""))
             else:
                 user = system.register_patient(f.get("name"), f.get("password"), f.get("sex", ""),
                                                f.get("date_of_birth"), f.get("allergies", ""), f.get("surgeries", ""),
                                                contact_number=f.get("contact_number", ""))
         except ValueError as error:
             messages.error(request, str(error))
-            return render(request, "G_Register.html", {"form": f, "role": f.get("role")})
-        request.session["uid"] = user.user_id      # registering also logs you in
-        request.session["welcome"] = True          # the dashboard shows the ID card once
+            return render(request, "G_Register.html", {"form": f, "role": "Doctor" if f.get("role") == "Doctor" else "Patient"})
+        request.session["uid"] = user.user_id      # Registering also logs the new person in.
+        request.session["welcome"] = True          # Home shows the welcome card with the new ID, once.
         return redirect("dashboard")
-    role = {"patient": "Patient", "doctor": "Doctor"}.get(request.GET.get("role", ""))
+    role = {"patient": "Patient", "doctor": "Doctor"}.get(request.GET.get("role", ""), "Patient")
     return render(request, "G_Register.html", {"role": role})
 
 
 def logout_view(request):
-    """Ask to confirm, then clear the session."""
+    """Show the log-out question. Once it is confirmed, clear the session and go back to the login page."""
     if request.method == "POST":
         request.session.flush()
         return redirect("login")
@@ -109,9 +117,10 @@ def logout_view(request):
 
 # ---------- notifications ----------
 def notifications_poll(request):
-    """Answered every few seconds by the page: how many notifications are unread, the sidebar counts and the
-    list for the panel. The page then updates the bell without reloading."""
-    request.medscan_passive = True   # this does not count as activity, or it would keep an idle session alive
+    """Answered every few seconds by the page: how many notifications are unread, the sidebar counts, and the list for
+    the bell panel. The page uses it to update the bell without reloading. It is marked passive, so it does not
+    keep an idle session alive."""
+    request.medscan_passive = True   # This is not the person doing anything, so it must not keep an idle session alive.
     uid = request.session.get("uid")
     user = system.get_user(uid, with_record=False) if uid else None
     if not user:
@@ -122,9 +131,7 @@ def notifications_poll(request):
         "ok": True,
         "unread": system.unread_count(user.user_id),
         "latest": next((n.message for n in inbox if not n.is_read), ""),
-        "html": render_to_string("G_Notification_List.html", {
-            "inbox_items": inbox,
-            "pending_ids": system.pending_request_ids_for_patient(user.user_id) if patient else set()}),
+        "html": render_to_string("G_Notification_List.html", {"inbox_items": inbox, "user": user}),
     }
     if patient:
         data["waiting"] = system.pending_count_for_patient(user.user_id)
@@ -134,7 +141,7 @@ def notifications_poll(request):
 
 
 def notifications_read(request):
-    """Called by the notification panel's "Mark all read" button."""
+    """Called by the notification panel's "Mark all as read" button."""
     user = current_user(request)
     if user and request.method == "POST":
         system.mark_inbox_read(user.user_id)
@@ -143,8 +150,9 @@ def notifications_read(request):
 
 
 def notification_open(request, nid):
-    """Mark one notification as read and go to what it is about: a doctor whose request was approved goes
-    straight to the record, a patient goes to Privacy."""
+    """Mark one notification as read and go to what it is about. A doctor whose request was approved goes straight to
+    that patient's record, and otherwise to the Patients list filtered to Waiting or Denied. A patient goes to the
+    page that matches the message: Requests, My Record or History (see Notification.destination)."""
     user = current_user(request)
     if not user:
         return redirect("login")
@@ -155,12 +163,13 @@ def notification_open(request, nid):
         behind = system.request_behind(note)
         if behind and behind.is_approved():
             return redirect("record", pid=behind.patient_id)
-        return redirect("/patients/?tab=ended" if behind and behind.status != "Pending" else "/patients/?tab=waiting")
-    return redirect("privacy" if note.related_request_id else "/privacy/?tab=activity")
+        return redirect("/patients/?show=denied" if behind and behind.status != "Pending" else "/patients/?show=waiting")
+    return redirect(PATIENT_DESTINATIONS[note.destination("Patient")])
 
 
 def keepalive(request):
-    """The page calls this while the user is active. Opening it starts the idle logout timer again."""
+    """The page calls this while the person is active. Opening it renews the session, which starts the idle logout
+    timer again."""
     if request.session.get("uid") and request.method == "POST":
         return JsonResponse({"ok": True})
     return JsonResponse({"ok": False}, status=403)
@@ -168,8 +177,9 @@ def keepalive(request):
 
 # ---------- both roles ----------
 def dashboard(request):
-    """Patient home (what needs an answer, health snapshot, recent activity) or doctor home
-    (patients ready to open, recently opened, requests waiting)."""
+    """Home. A patient sees their ID card, the requests waiting for an answer and their latest activity. A doctor sees
+    the patients who approved them but have not been opened yet, the patients they opened recently, and the
+    requests still waiting."""
     user = current_user(request)
     if not user:
         return redirect("login")
@@ -180,45 +190,98 @@ def dashboard(request):
             "welcome": welcome,
             "record": user.record,
             "waiting": groups["waiting"],
-            "doctors": (groups["with_access"] + groups["waiting"])[:4],   # who can open the record now, or soon
-            "activity": system.activity_for_patient(user.user_id)[:2],
-            "profile": system.profile_progress(user),
+            "activity": system.activity_for_patient(user.user_id)[:3],
         })
-    week = system.notes_this_week(user.user_id)
     return render(request, "G_Doctor_Dashboard.html", {
         "welcome": welcome,
-        "stats": system.doctor_stats(user.user_id),
         "ready": system.unopened_patients_for_doctor(user.user_id),
-        "recent": system.recent_patients_for_doctor(user.user_id),
-        "week": week, "week_total": sum(day["count"] for day in week),
-        "feed": system.inbox(user.user_id, 4),
+        "recent": system.recent_patient_rows_for_doctor(user.user_id),
+        "waiting": system.request_rows_for_doctor(user.user_id, "Pending"),
     })
 
 
-def qr_page(request):
-    """QR Code. A patient sees their own code to show; a doctor sees the scanner. Only patients have a code."""
+def profile(request):
+    """Profile: the account details of whoever is logged in. Log out lives here and nowhere else, so there is one
+    place to find it."""
+    if not current_user(request):
+        return redirect("login")
+    return render(request, "G_Profile.html")
+
+
+def profile_contact(request):
+    """Save the mobile number from the Profile page's "Edit contact info" sheet (patients and doctors)."""
     user = current_user(request)
     if not user:
         return redirect("login")
-    qr_svg = user.qr_code().svg() if user.role == "Patient" else ""
-    return render(request, "G_QR.html", {"qr_svg": qr_svg})
+    if request.method == "POST":
+        try:
+            system.update_contact_number(user.user_id, request.POST.get("contact_number", ""))
+            messages.success(request, "Your contact number was updated.")
+        except ValueError as error:
+            messages.error(request, str(error))
+    return redirect("profile")
+
+
+def qr_page(request):
+    """Scan QR code, for doctors. A patient's code is a sheet that opens on whatever page they are on, so patients
+    have no page of their own here."""
+    user = current_user(request)
+    if not user:
+        return redirect("login")
+    if user.role == "Patient":
+        return redirect("/dashboard/?sheet=qr")        # A patient's code is a sheet on every page (see G_Base.html).
+    return render(request, "G_QR.html")
+
+
+def _qr_reply(patient, token):
+    """The patient's live code as JSON for the QR sheet: the picture, the seconds it still works, and its ID. The
+    sheet compares the ID to know when the code was replaced."""
+    return JsonResponse({"ok": True, "svg": patient.qr_code(token).svg(), "seconds": token.seconds_left,
+                         "id": token.token_id})
+
+
+def qr_code(request):
+    """The patient's live QR code (made if they have none). The sheet asks for it when it opens and every few seconds
+    while it stays open, so it follows a code that was used or replaced. Looking does not count as being active."""
+    request.medscan_passive = True
+    patient = _patient(request)
+    if not patient:
+        return JsonResponse({"ok": False}, status=403)
+    return _qr_reply(patient, system.current_qr(patient.user_id))
+
+
+def qr_new(request):
+    """The patient pressed "Make a new code": the old one stops working and a new one is returned."""
+    patient = _patient(request)
+    if not patient or request.method != "POST":
+        return JsonResponse({"ok": False}, status=403)
+    return _qr_reply(patient, system.new_qr(patient.user_id))
 
 
 def qr_scan(request):
-    """The scanner found a code. If it is a MedScan patient code, show the same result as typing that ID in the
-    search box, so scanning never opens a record by itself: access still needs the patient's approval."""
-    if not _doctor(request):
+    """The scanner found a code. A live one-time code is the patient's approval in person: the doctor is let in and
+    lands on the record. A plain ID code only finds the patient (the same result as typing the ID), so knowing an ID
+    can never approve anyone."""
+    doctor = _doctor(request)
+    if not doctor:
         return redirect("dashboard")
-    patient_id = system.patient_id_from_qr(request.GET.get("code", ""))
-    if patient_id is None:
-        messages.error(request, "That is not a MedScan patient code. Ask the patient to open My QR Code.")
-        return redirect("qr")
-    return redirect(f"/patients/?q={patient_id}")
+    result = system.scan_qr(doctor, request.GET.get("code", ""))
+    if result.opens_record:
+        messages.success(request, "Scan successful. Access approved and logged." if result.outcome == ScanResult.APPROVED
+                         else "Scan logged. You already had access.")
+        return redirect("record", pid=result.patient_id)
+    if result.outcome == ScanResult.FOUND:
+        return redirect("record", pid=result.patient_id)        # The locked page: it says what the doctor can do next.
+    if result.outcome == ScanResult.EXPIRED:
+        messages.error(request, "That code was already used or has run out of time. Ask the patient to show it again.")
+    else:
+        messages.error(request, "That is not a MedScan patient code. Ask the patient to open Show my QR code.")
+    return redirect("qr")
 
 
 # ---------- patient pages ----------
 def my_record(request):
-    """My Health: the patient's details and medical record, with a form to edit them."""
+    """My Record: the patient's own details and medical record, with a form to edit them."""
     patient = _patient(request)
     if not patient:
         return redirect("dashboard")
@@ -242,35 +305,35 @@ def update_info(request):
     return redirect("my_record")
 
 
-def privacy(request):
-    """Privacy: which doctors can open the record and what they asked for (tab Doctors),
-    and everything that happened to the record (tab Activity)."""
+def access(request):
+    """Access: one page with three tabs. Requests (waiting for the patient's answer), Doctors (who can open the record
+    now) and History (everything that happened to the record, with filter chips: All, QR scan, Approved and
+    Emergency). It opens on Requests when something is waiting, and on Doctors otherwise."""
     patient = _patient(request)
     if not patient:
         return redirect("dashboard")
-    tab = "activity" if request.GET.get("tab") == "activity" else "doctors"
-    ctx = {"tab": tab, "doctors": system.doctor_groups_for_patient(patient.user_id)}
-    ctx["doctor_total"] = sum(len(group) for group in ctx["doctors"].values())
-    activity = system.activity_for_patient(patient.user_id)
-    ctx["activity_total"] = len(activity)
-    if tab == "activity":
-        ctx["activity"], ctx["query"] = _paginate(request, activity)
-    return render(request, "G_Privacy.html", ctx)
+    groups = system.doctor_groups_for_patient(patient.user_id)
+    tab = request.GET.get("tab")
+    if tab not in ACCESS_TABS:
+        tab = "requests" if groups["waiting"] else "doctors"
+    ctx = {"tab": tab, "waiting": groups["waiting"], "with_access": groups["with_access"]}
+    if tab == "history":
+        show = request.GET.get("show") if request.GET.get("show") in ACTIVITY_FILTERS else "all"
+        items = system.activity_for_patient(patient.user_id)
+        ctx["show"] = show
+        ctx["counts"] = system.activity_counts(items)
+        ctx["activity"], ctx["query"] = _paginate(request, system.filter_activity(items, show))
+    return render(request, "G_Access.html", ctx)
 
 
 def respond(request, rid, decision):
-    """Patient approves or denies a request. The notification panel's buttons ask for JSON instead of a page."""
+    """The patient approves or denies a request. The buttons on Home, on Access and in the Review sheet all post here."""
     patient = _patient(request)
     approve = decision == "approve"
     if patient and request.method == "POST":
-        done = system.respond_to_request(rid, patient.user_id, approve)
-        if _from_script(request):
-            return JsonResponse({"ok": done, "status": "Approved" if approve else "Denied"}, status=200 if done else 409)
-        if done:
+        if system.respond_to_request(rid, patient.user_id, approve):
             messages.success(request, "Access approved." if approve else "Access denied.")
-    elif _from_script(request):
-        return JsonResponse({"ok": False}, status=403)
-    return _back_to(request, ["privacy"], "dashboard")
+    return _back_to(request, ["access"], "dashboard")
 
 
 def revoke(request, rid):
@@ -279,35 +342,40 @@ def revoke(request, rid):
     if patient and request.method == "POST":
         if system.revoke_access(rid, patient.user_id):
             messages.success(request, "Access revoked.")
-    return _back_to(request, ["privacy"], "dashboard")
+    return _back_to(request, ["access"], "dashboard")
 
 
 # ---------- doctor pages ----------
 def patients(request):
-    """Patients: look someone up by ID or mobile number (the result shows what you can do next), and the
-    doctor's patients in three tabs: mine (they approved), waiting (not answered yet), ended (denied or taken back)."""
+    """Patients: one list of everyone this doctor has asked, scanned or opened in an emergency, with chips:
+    All, With access, Waiting, Emergency, Denied. Each line opens that patient's page."""
     doctor = _doctor(request)
     if not doctor:
         return redirect("dashboard")
-    tab = request.GET.get("tab") if request.GET.get("tab") in PATIENT_TABS else "mine"
-    groups = system.patient_groups_for_doctor(doctor.user_id)
-    ctx = {"tab": tab, "counts": {name: len(rows) for name, rows in groups.items()}}
-    ctx["rows"], ctx["query"] = _paginate(request, groups[tab])
-    q = request.GET.get("q", "").strip()
-    if q:
-        uid = system.resolve_login(q)
-        found = system.get_patient(uid) if uid else None
-        ctx.update(searched=q, found=found)
-        if found:
-            ctx["status"] = system.access_status(doctor.user_id, found.user_id)
-        else:   # maybe it was a name: show the doctor's own patients with that name
-            ctx["matches"] = system.search_my_patients(doctor.user_id, q, limit=10)
+    # /patients/?q= still works (bookmarks); searching lives on /search/
+    if request.GET.get("q"):
+        return redirect("/search/?" + urlencode({"q": request.GET["q"]}))
+    show = request.GET.get("show") or OLD_PATIENT_TABS.get(request.GET.get("tab"), "all")
+    show = show if show in PATIENT_CHIPS else "all"
+    links = system.patient_links_for_doctor(doctor.user_id)
+    ctx = {"show": show, "counts": system.link_counts(links)}
+    ctx["rows"], ctx["query"] = _paginate(request, system.filter_links(links, show))
     return render(request, "G_Patients.html", ctx)
+
+
+def search(request):
+    """Search: find a patient by ID or mobile number (any patient, to send a request), or one of the doctor's own
+    patients by name. Each result says how the patient stands with the doctor and opens their page."""
+    doctor = _doctor(request)
+    if not doctor:
+        return redirect("dashboard")
+    q = request.GET.get("q", "").strip()
+    return render(request, "G_Search.html", {"q": q, "results": system.find_patients(doctor.user_id, q)})
 
 
 def patient_suggest(request):
     """The search box's suggestions: this doctor's own patients matching what is typed. Never anyone else."""
-    request.medscan_passive = True   # typing in a box is not a reason to renew a session by itself
+    request.medscan_passive = True   # Typing in a box is not a reason to renew the session by itself.
     doctor = _doctor(request)
     if not doctor:
         return JsonResponse({"ok": False}, status=403)
@@ -324,24 +392,24 @@ def send_request(request, pid):
             messages.success(request, "Access request sent. Waiting for the patient to approve.")
         else:
             messages.error(request, "You already have access or a pending request for this patient.")
-    return redirect(f"/patients/?q={pid}")
+    return redirect("record", pid=pid)
 
 
 def patient_record(request, pid):
-    """Show a full record only if the doctor has approval, or an emergency override from the last hour."""
+    """The Patient page, one page with two states. Open (the doctor has approval, or an emergency override from the
+    last hour): the record, with Notes / Medical / Info. Locked: only who the patient is, and what the doctor can do
+    next (scan their code, send a request, or emergency access). The locked state never receives the record."""
     doctor = _doctor(request)
     if not doctor or not system.patient_exists(pid):
         return redirect("dashboard")
     patient = system.open_record(doctor, pid)
-    if not patient:
-        messages.error(request, "You need the patient's approval (or an emergency override) to view this record.")
-        return redirect(f"/patients/?q={pid}")
-    has_access = system.has_access(doctor.user_id, pid)
-    return render(request, "G_Record.html", {
-        "patient": patient, "record": patient.record,
-        "latest": patient.record.latest_consultation(),
-        "emergency": not has_access, "has_access": has_access,
-    })
+    if patient:
+        return render(request, "G_Patient.html", {
+            "patient": patient, "record": patient.record, "open": True, "link": system.patient_link(doctor.user_id, patient),
+            "emergency": not system.has_access(doctor.user_id, pid)})
+    patient = system.get_patient(pid, with_record=False)
+    return render(request, "G_Patient.html", {
+        "patient": patient, "open": False, "link": system.patient_link(doctor.user_id, patient)})
 
 
 def emergency(request, pid=None):

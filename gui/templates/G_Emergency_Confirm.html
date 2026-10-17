@@ -1,32 +1,29 @@
 {% extends "G_Base.html" %}
 {% block title %}Emergency Access{% endblock %}
 {% block content %}
-{# The same thing as the pop-up, for browsers without scripts. #}
-<div class="page-h">
-  <div><h1>Emergency Access</h1><p>Open a record when the patient cannot answer.</p></div>
-</div>
+{# The same question as the sheet on a locked patient's page, for a browser without scripts or after a form mistake. #}
+<div class="head"><div><h1>Emergency access</h1><p>Open a record when the patient cannot answer.</p></div></div>
 
-<form method="post" class="grid g2 eq" data-confirm="This opens the record without the patient's approval. Your name, the time and your reason are logged, and the patient is told right away." data-confirm-title="Open this record in an emergency?" data-confirm-button="Open record" data-confirm-tone="danger">{% csrf_token %}
-  <div class="card fill"><div class="card-b">
-    <div class="banner amber">{% icon "alert" %}<div><b>This bypasses patient approval.</b><br>Your name, the time and your reason are logged, and the patient is notified right away.</div></div>
-    <div class="field">
-      <label>Patient ID or mobile number</label>
+<form method="post" class="card narrow-620" data-confirm="This opens the record without the patient's approval. Your name, the time and your reason are logged, and the patient is told right away." data-confirm-title="Open this record in an emergency?" data-confirm-button="Open record" data-confirm-tone="danger">{% csrf_token %}
+  <div class="card-b">
+    <div class="alert red"><span><b>This skips the patient's approval.</b> Your name, the time and your reason are logged, and the patient is told right away.</span></div>
+    <div class="field top-gap">
+      <label for="who">Patient ID or mobile number</label>
       {% if patient %}
-        <input value="{{ patient.display_id }} &middot; {{ patient.name }}" readonly>
+        <input id="who" value="{{ patient.display_id }} &middot; {{ patient.name }}" readonly>
       {% else %}
-        <div class="with-icon">{% icon "user" "sm" %}<input name="patient_id" placeholder="PT-2026-01001 or 0917 123 4567" value="{{ form.patient_id|default:'' }}" required autofocus></div>
+        <input id="who" name="patient_id" placeholder="PT-2026-01001 or 0917 123 4567" value="{{ form.patient_id|default:'' }}" required autofocus>
       {% endif %}
     </div>
-  </div></div>
-  <div class="card fill"><div class="card-b">
     <div class="field">
-      <label>Reason for emergency access</label>
-      <textarea maxlength="500" data-counter name="reason" rows="5" placeholder="e.g. Patient unconscious on arrival, ER" required>{{ form.reason|default:'' }}</textarea>
+      <label for="why">Reason (required)</label>
+      <textarea class="input" id="why" name="reason" maxlength="500" data-counter rows="4" placeholder="e.g. Patient unconscious on arrival, ER" required>{{ form.reason|default:'' }}</textarea>
     </div>
-    <div class="row">
-      <button type="submit" class="danger">{% icon "shield" "sm" %}Open record now</button>
-      <a class="btn ghost" href="{% url 'dashboard' %}">Cancel</a>
+    <label class="confirm-line"><input type="checkbox" name="confirm" required> I confirm this is a medical emergency.</label>
+    <div class="sheet-actions">
+      <a class="btn lg" href="{% url 'dashboard' %}">Cancel</a>
+      <button type="submit" class="btn solid-red lg">{% icon "shield" "sm" %}Open record</button>
     </div>
-  </div></div>
+  </div>
 </form>
 {% endblock %}

@@ -25,37 +25,6 @@ class Doctors(unittest.TestCase):
         return request
 
 
-class PatientGroups(Doctors):
-    def test_each_patient_is_in_one_group_by_the_newest_request(self):
-        yes, wait, no, back = (self.patient(n) for n in ["Yes", "Wait", "No", "Back"])
-        self.ask(yes, True)
-        self.ask(wait)
-        self.ask(no, False)
-        revoked = self.ask(back, True)
-        self.s.revoke_access(revoked.request_id, back.user_id)
-        groups = self.s.patient_groups_for_doctor(2001)
-        names = lambda key: sorted(p.name for _, p in groups[key])
-        self.assertEqual((names("mine"), names("waiting"), names("ended")), (["Yes"], ["Wait"], ["Back", "No"]))
-
-    def test_asking_again_moves_a_patient_to_waiting_and_not_into_two_groups(self):
-        no = self.patient("No")
-        self.ask(no, False)
-        self.ask(no)
-        groups = self.s.patient_groups_for_doctor(2001)
-        self.assertEqual(([p.name for _, p in groups["waiting"]], groups["ended"]), (["No"], []))
-
-    def test_the_patients_come_with_their_records_for_the_list(self):
-        yes = self.patient("Yes", allergies="Latex")
-        self.ask(yes, True)
-        (_, patient), = self.s.patient_groups_for_doctor(2001)["mine"]
-        self.assertEqual(patient.record.allergies, ["Latex"])
-
-    def test_another_doctors_patients_are_not_mine(self):
-        other = self.s.register_doctor("Cruz", PASSWORD, "ENT")
-        self.ask(self.patient("Theirs"), True, doctor=other)
-        self.assertEqual(self.s.patient_groups_for_doctor(2001), {"mine": [], "waiting": [], "ended": []})
-
-
 class ReadyAndRecent(Doctors):
     def test_ready_to_open_means_approved_and_never_opened(self):
         a, b, c = (self.patient(n) for n in ["Ana", "Bea", "Cy"])
@@ -77,10 +46,10 @@ class ReadyAndRecent(Doctors):
         for p in people:
             self.ask(p, True)
             self.s.open_record(self.reyes, p.user_id)
-        execute("UPDATE record_views SET created_at = created_at - INTERVAL 20 MINUTE")
+        execute("UPDATE tb_record_views SET created_at = created_at - INTERVAL 20 MINUTE")
         self.s.open_record(self.reyes, people[0].user_id)   # opened again: now the newest
-        recent = self.s.recent_patients_for_doctor(2001, limit=5)
-        self.assertEqual([p.name for p in recent], ["P0", "P6", "P5", "P4", "P3"])
+        recent = self.s.recent_patient_rows_for_doctor(2001, limit=5)
+        self.assertEqual([p.name for p, _ in recent], ["P0", "P6", "P5", "P4", "P3"])
 
     def test_recent_leaves_out_patients_who_took_access_back(self):
         ana, bea = self.patient("Ana"), self.patient("Bea")
@@ -89,15 +58,15 @@ class ReadyAndRecent(Doctors):
         self.s.open_record(self.reyes, ana.user_id)
         self.s.open_record(self.reyes, bea.user_id)
         self.s.revoke_access(ask_ana.request_id, ana.user_id)
-        self.assertEqual([p.name for p in self.s.recent_patients_for_doctor(2001)], ["Bea"])
+        self.assertEqual([p.name for p, _ in self.s.recent_patient_rows_for_doctor(2001)], ["Bea"])
 
     def test_an_emergency_opened_record_is_recent_until_the_hour_is_up(self):
         stranger = self.patient("Stranger")
         self.s.emergency_access(self.reyes, stranger.user_id, "Collapsed")
         self.s.open_record(self.reyes, stranger.user_id)
-        self.assertEqual([p.name for p in self.s.recent_patients_for_doctor(2001)], ["Stranger"])
-        execute("UPDATE emergency_logs SET created_at = created_at - INTERVAL 61 MINUTE")
-        self.assertEqual(self.s.recent_patients_for_doctor(2001), [])
+        self.assertEqual([p.name for p, _ in self.s.recent_patient_rows_for_doctor(2001)], ["Stranger"])
+        execute("UPDATE tb_emergency_logs SET created_at = created_at - INTERVAL 61 MINUTE")
+        self.assertEqual(self.s.recent_patient_rows_for_doctor(2001), [])
 
 
 class SearchingMyPatients(Doctors):
@@ -138,7 +107,7 @@ class SearchingMyPatients(Doctors):
         self.assertEqual(len(self.names("1", limit=2)), 2)
 
     def test_odd_text_is_harmless(self):
-        for text in ["%", "'; DROP TABLE patients; --", "<script>", "\\", "x" * 500]:
+        for text in ["%", "'; DROP TABLE tb_patients; --", "<script>", "\\", "x" * 500]:
             self.assertEqual(self.names(text), [])
 
 
@@ -150,7 +119,7 @@ class WhatHappenedToMyRecord(unittest.TestCase):
     def test_views_and_emergency_uses_are_one_feed_newest_first(self):
         approve(self.s)
         self.s.open_record(self.reyes, 1001)
-        execute("UPDATE record_views SET created_at = created_at - INTERVAL 5 MINUTE")
+        execute("UPDATE tb_record_views SET created_at = created_at - INTERVAL 5 MINUTE")
         self.s.emergency_access(self.reyes, 1001, "Collapsed")
         feed = self.s.activity_for_patient(1001)
         self.assertEqual([item["kind"] for item in feed], ["override", "view"])
@@ -240,7 +209,7 @@ class SuggestionsEndpoint(unittest.TestCase):
 
     def test_names_are_escaped_by_json_and_never_become_markup(self):
         approve(self.s)
-        execute("UPDATE patients SET name = '<b>Juan</b>' WHERE user_id = 1001")
+        execute("UPDATE tb_patients SET name = '<b>Juan</b>' WHERE patient_id = 1001")
         self.assertEqual(self.ask("juan").json()["items"][0]["name"], "<b>Juan</b>")   # plain text: the script adds it as text
 
     def test_typing_does_not_count_as_activity(self):
@@ -269,7 +238,7 @@ class RelativeTimes(unittest.TestCase):
         s = fresh_system(self)
         s.request_access(s.get_doctor(2001), 1001)
         page = html(login(1001, "pat123").get("/dashboard/"))
-        self.assertRegex(page, r'<span class="faint small" title="[A-Z][a-z]{2} \d\d, \d{4} \d\d:\d\d">just now</span>')
+        self.assertRegex(page, r'<div class="s" title="[A-Z][a-z]{2} \d\d, \d{4} \d\d:\d\d">Today, \d\d:\d\d &middot; Opens Access')
 
 
 class LoginRemembersTheId(unittest.TestCase):
@@ -291,10 +260,22 @@ class LoginRemembersTheId(unittest.TestCase):
         self.assertIn('data-validate="login-password"', page)
         self.assertIn("data-validate-form", page)
 
-    def test_the_logout_confirmation_is_centred_on_the_page(self):
+    def test_the_logout_question_is_a_modal_over_the_profile_page(self):
         page = html(login(1001, "pat123").get("/logout/"))
-        self.assertIn('class="center-page"', page)
+        self.assertIn('<div class="scrim"', page)
+        self.assertIn('<div class="modal">', page)
         self.assertIn("Log out of MedScan?", page)
+        self.assertIn("You will need your ID and password to log in again.", page)
+        self.assertIn("Juan Dela Cruz", page.split('<div class="scrim"')[0])          # the Profile page is behind it
+        self.assertRegex(page, r'(?s)<form method="post" action="/logout/">.*Log out</button>')
+        self.assertIn('href="/profile/">Stay</a>', page)
+
+    def test_logging_out_ends_the_session(self):
+        client = login(1001, "pat123")
+        r = client.post("/logout/")
+        self.assertEqual((r.status_code, r["Location"]), (302, "/"))
+        self.assertEqual(client.get("/dashboard/")["Location"], "/")
+        self.assertEqual(Client().get("/logout/")["Location"], "/")                  # nobody logged in: just the login page
 
     def test_the_password_is_never_part_of_it(self):
         page = html(Client().get("/"))
@@ -310,9 +291,9 @@ class ThePageFrame(unittest.TestCase):
     def test_doctors_get_the_search_scripts_and_patients_do_not(self):
         doctor = html(self.doc.get("/dashboard/"))
         patient = html(self.pat.get("/dashboard/"))
-        for script in ["G_Suggest.js", "G_Emergency.js"]:
-            self.assertIn(script, doctor)
-            self.assertNotIn(script, patient)
+        self.assertIn("G_Suggest.js", doctor)
+        self.assertNotIn("G_Suggest.js", patient)
+        self.assertNotIn("G_Emergency.js", doctor)           # the emergency question is a sheet on the locked patient page now
         for script in ["G_Shell.js", "G_Idle.js", "G_Dialogs.js"]:
             self.assertIn(script, doctor)
             self.assertIn(script, patient)
@@ -339,19 +320,20 @@ class ThePageFrame(unittest.TestCase):
 
 
 class SignUpAndHomeScreens(unittest.TestCase):
-    """The sign-up and home screens: role choice first, short forms, the profile nudge, the doctor's week chart, the search dim."""
+    """The sign-up and home screens: one sign-up form with a Patient / Doctor switch, and the search dim."""
 
     def setUp(self):
         self.s = fresh_system(self)
         self.doc = login(2001, "doc123")
         self.pat = login(1001, "pat123")
 
-    def test_signing_up_starts_with_a_choice_of_two_equal_tiles(self):
+    def test_signing_up_is_one_form_with_a_patient_doctor_switch_and_starts_as_a_patient(self):
         page = html(Client().get("/register/"))
-        self.assertEqual(page.count('class="role-tile"'), 2)
-        self.assertIn('href="?role=patient"', page)
-        self.assertIn('href="?role=doctor"', page)
-        self.assertNotIn("<form", page)            # no form until a role is chosen
+        self.assertEqual(page.count("<form"), 1)
+        self.assertIn('<div class="seg">', page)
+        self.assertIn('<a href="?role=patient" class="on">Patient</a>', page)
+        self.assertIn('<a href="?role=doctor" class="">Doctor</a>', page)
+        self.assertIn('name="role" value="Patient"', page)
 
     def test_each_role_gets_its_own_short_form(self):
         patient = html(Client().get("/register/?role=patient"))
@@ -364,8 +346,10 @@ class SignUpAndHomeScreens(unittest.TestCase):
             self.assertIn(f'name="{field}"', doctor)
         for field in ("specialty", "clinic"):
             self.assertNotIn(f'name="{field}"', patient)
-        for field in ("contact_number", "date_of_birth", "allergies"):
+        for field in ("date_of_birth", "allergies"):
             self.assertNotIn(f'name="{field}"', doctor)
+        self.assertIn('name="contact_number"', doctor)                      # optional for a doctor
+        self.assertNotIn("required", re.search(r'<input[^>]*name="contact_number"[^>]*>', doctor).group(0))
 
     def test_medical_history_is_a_collapsed_optional_section(self):
         page = html(Client().get("/register/?role=patient"))
@@ -380,24 +364,13 @@ class SignUpAndHomeScreens(unittest.TestCase):
         self.assertIn('value="Dr Who"', page)
         self.assertIn("Password must be", page)
 
-    def test_an_unknown_role_in_the_address_shows_the_choice_again(self):
-        self.assertEqual(html(Client().get("/register/?role=admin")).count('class="role-tile"'), 2)
+    def test_an_unknown_role_in_the_address_shows_the_patient_form(self):
+        page = html(Client().get("/register/?role=admin"))
+        self.assertIn('name="role" value="Patient"', page)
+        self.assertIn('name="date_of_birth"', page)
 
-    def test_the_profile_card_counts_what_is_still_missing(self):
-        patient = self.s.get_patient(1001)
-        progress = self.s.profile_progress(patient)
-        self.assertEqual(progress["todo"], ["Medications"])         # the seed has blood type and an allergy
-        self.assertEqual(progress["percent"], 80)
-        bare = new_patient(self.s, "Bare", PASSWORD, "F", BORN)
-        progress = self.s.profile_progress(self.s.get_patient(bare.user_id))
-        self.assertEqual(progress["todo"], ["Blood type", "Allergies", "Medications"])
-        self.assertEqual(progress["percent"], 40)
-
-    def test_the_nudge_card_shows_while_something_is_missing_and_disappears_when_complete(self):
-        page = html(self.pat.get("/dashboard/"))
-        self.assertIn("Finish your health profile", page)
-        self.assertIn('data-hide-key="medscan_hide_profile_nudge"', page)
-        self.s.update_patient_info(1001, "Penicillin", "Appendectomy", "Amlodipine", "O+", "09171234567")
+    def test_home_has_no_finish_your_profile_card_any_more(self):
+        """Home has the ID card, the waiting requests and the recent activity."""
         self.assertNotIn("Finish your health profile", html(self.pat.get("/dashboard/")))
 
     def test_an_empty_allergy_list_says_none_recorded_not_no_known_allergies(self):
@@ -407,48 +380,36 @@ class SignUpAndHomeScreens(unittest.TestCase):
         pages = [html(mine.get("/dashboard/")), html(mine.get("/record/")), html(self.doc.get(f"/patient/{bare.user_id}/"))]
         for page in pages:
             self.assertNotIn("No known allergies", page)
-        self.assertIn("None recorded", pages[0])
-        self.assertIn("None recorded", pages[2])
+        self.assertIn("None recorded", pages[1])      # My Record
+        self.assertIn("None recorded", pages[2])      # the doctor's page
 
-    def test_the_doctors_week_has_seven_bars_ending_today(self):
-        week = self.s.notes_this_week(2001)
-        self.assertEqual(len(week), 7)
-        self.assertEqual([d["today"] for d in week], [False] * 6 + [True])
-        self.assertTrue(all(d["count"] == 0 and d["height"] == 4 for d in week))
-
-    def test_a_note_written_today_shows_in_todays_bar(self):
-        approve(self.s)
-        self.s.add_consultation(self.s.get_doctor(2001), 1001, "Checked.")
-        week = self.s.notes_this_week(2001)
-        self.assertEqual((week[-1]["count"], week[-1]["height"]), (1, 100))
+    def test_the_doctor_home_has_the_two_panels_of_the_design(self):
         page = html(self.doc.get("/dashboard/"))
-        self.assertEqual(len(re.findall(r'class="bar( today)?"', page)), 7)
-        self.assertIn("1 note", page)
+        for heading in ("Recent patients", "Waiting on patients"):
+            self.assertIn(f"</svg>{heading}</h2>", page)
+        self.assertNotIn("stat2", page)
 
-    def test_the_doctor_home_has_four_equal_stat_cards_and_four_equal_panels(self):
-        page = html(self.doc.get("/dashboard/"))
-        self.assertEqual(page.count('class="card stat2"'), 4)
-        for heading in ("Ready to open", "Notes this week", "Recently opened", "Latest activity"):
-            self.assertIn(f"<h2>{heading}</h2>", page)
-
-    def test_the_patients_page_is_a_table_with_a_header_row(self):
+    def test_the_patients_page_is_one_list_with_a_pill_and_a_chevron_on_every_line(self):
         approve(self.s)
         page = html(self.doc.get("/patients/"))
-        self.assertIn("rowgrid head", page)
-        self.assertIn("<span>Allergies</span>", page)
-        self.assertIn("Penicillin", page)
+        line = re.search(r'<a class="row" href="/patient/1001/">.*?</a>', page, re.S).group(0)
+        self.assertIn("Juan Dela Cruz", line)
+        self.assertIn("PT-2026-01001 &middot; Male", line)
+        self.assertIn('<span class="pill green">Access</span>', line)
+        self.assertIn("approved today", line)
+        for chip in ("All", "With access", "Waiting", "Emergency", "Denied"):
+            self.assertIn(f"{chip} <em>", page)
 
-    def test_the_search_result_has_two_equal_buttons(self):
-        page = html(self.doc.get("/patients/?q=1001"))
-        self.assertIn('class="split"', page)
-        self.assertIn("Send access request", page)
-        self.assertIn("Emergency access", page)
+    def test_the_locked_page_offers_scan_request_and_emergency_in_that_order(self):
+        page = html(self.doc.get("/patient/1001/"))
+        scan, send, emergency = (page.index(text) for text in ("QR code</a>", "Send access request", "Emergency access"))
+        self.assertTrue(scan < send < emergency)
 
     def test_the_search_box_stays_sharp_while_the_rest_of_the_page_is_dimmed_and_blurred(self):
         from pathlib import Path
         root = Path(__file__).resolve().parent.parent / "gui"
         css = (root / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
-        self.assertRegex(css, r"body\.searching \.sidebar, body\.searching \.content, body\.searching \.top > :not\(\.top-search\) \{ filter:blur\(")
+        self.assertRegex(css, r"body\.searching \.side, body\.searching \.content, body\.searching \.top > :not\(\.tsearch\) \{ filter:blur\(")
         self.assertIn("body.searching .top {", css)                      # the bar's own background is dimmed too
         self.assertNotIn("search-scrim", html(self.doc.get("/dashboard/")))   # no separate layer is needed any more
         script = (root / "static" / "js" / "G_Suggest.js").read_text(encoding="utf-8")
@@ -482,41 +443,47 @@ class QrCodePage(unittest.TestCase):
         self.pat = login(1001, "pat123")
 
     def test_each_role_has_it_as_its_own_menu_item_with_its_own_name(self):
-        self.assertIn("My QR Code</a>", html(self.pat.get("/dashboard/")))
-        self.assertIn("Scan QR</a>", html(self.doc.get("/dashboard/")))
+        self.assertIn("Show my QR code</a>", html(self.pat.get("/dashboard/")))
+        self.assertIn("Scan QR code</a>", html(self.doc.get("/dashboard/")))
 
     def test_you_must_be_logged_in(self):
         self.assertEqual(Client().get("/qr/").status_code, 302)
 
-    def test_a_patient_sees_their_own_code_and_nothing_to_scan(self):
-        page = html(self.pat.get("/qr/"))
-        self.assertIn('class="qr-box"', page)
-        self.assertIn("PT-2026-01001", page)
+    def test_a_patient_sees_their_own_code_as_a_sheet_and_nothing_to_scan(self):
+        r = self.pat.get("/qr/")
+        self.assertEqual((r.status_code, r["Location"]), (302, "/dashboard/?sheet=qr"))
+        page = html(self.pat.get("/dashboard/"))
+        sheet = re.search(r'<dialog id="qr-sheet".*?</dialog>', page, re.S).group(0)
+        self.assertIn('class="qrbox"', sheet)
+        self.assertIn("PT-2026-01001", sheet)
         self.assertNotIn('class="camera"', page)
-        self.assertNotIn("class=\"tabs", page)
+        self.assertNotIn('id="qr-sheet"', html(self.doc.get("/dashboard/")))      # doctors have no code
 
     def test_a_doctor_sees_only_the_scanner_and_has_no_code_of_their_own(self):
         page = html(self.doc.get("/qr/"))
-        self.assertIn('class="camera"', page)
-        self.assertNotIn('class="qr-box"', page)
-        self.assertNotIn("DR-2026-02001", page.split('<div class="content">')[1])   # no code, no ID card here
-        self.assertNotIn("class=\"tabs", page)
+        self.assertIn('class="cam"', page)
+        self.assertNotIn('class="qrbox"', page)
+        self.assertNotIn("DR-2026-02001", page.split('<main class="content')[1])   # no code, no ID card here
+        self.assertNotIn('id="qr-sheet"', page)
+        for gone in ("Upload a photo", 'id="qr-file"', 'name="q"', "Type the ID"):   # camera only: no upload, no typing
+            self.assertNotIn(gone, page.split('<main class="content')[1].split("</main>")[0])
 
     def test_there_is_no_type_the_id_option_beside_the_scanner(self):
         page = html(self.doc.get("/qr/"))
         self.assertNotIn("Type the ID", page)
-        self.assertNotIn('name="q"', page.split('<div class="content">')[1])
+        self.assertNotIn('name="q"', page.split('<main class="content')[1])
 
     def test_the_words_speak_to_the_user_not_to_a_reviewer(self):
         for client in (self.pat, self.doc):
-            page = html(client.get("/qr/")).split('<div class="content">')[1].split('<div class="toasts"')[0]
+            page = html(client.get("/qr/", follow=True)).split('<main class="content')[1].split('<div class="toasts"')[0]
             for jargon in ("will work", "Preview", "Coming soon", "not a real", "laceholder"):
                 self.assertNotIn(jargon, page)
-        self.assertIn("Tap Approve to let them in.", html(self.pat.get("/qr/")))
-        self.assertIn("Point your camera at their code.", html(self.doc.get("/qr/")))
+        self.assertIn("When they scan it, they can open your record right away and it is logged.", html(self.pat.get("/dashboard/")))
+        self.assertIn("Ask the patient to tap", html(self.doc.get("/qr/")))
+        self.assertIn("Their record opens right away. The scan counts as their approval.", html(self.doc.get("/qr/")))
 
     def test_the_old_tab_address_still_works(self):
-        self.assertEqual(self.pat.get("/qr/?tab=scan").status_code, 200)
+        self.assertEqual(self.pat.get("/qr/?tab=scan").status_code, 302)      # a patient's code is a sheet now
         self.assertEqual(self.doc.get("/qr/?tab=show").status_code, 200)
 
     def test_the_picture_depends_on_the_id_and_is_always_the_same_for_one_id(self):
@@ -525,7 +492,8 @@ class QrCodePage(unittest.TestCase):
         self.assertNotEqual(QRCode("PT-2026-01001").svg(), QRCode("PT-2026-01002").svg())
 
     def test_the_code_never_carries_health_information(self):
-        page = html(self.pat.get("/qr/"))
+        page = html(self.pat.get("/dashboard/"))
+        page = re.search(r'<dialog id="qr-sheet".*?</dialog>', page, re.S).group(0)
         for secret in ("Penicillin", "Appendectomy", "O+", "09171234567"):
             self.assertNotIn(secret, page)
 
@@ -542,21 +510,22 @@ class FrameAndBubbles(unittest.TestCase):
         from pathlib import Path
         return (Path(__file__).resolve().parent.parent / "gui" / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
 
-    def test_the_menu_has_labelled_sections_for_each_role(self):
-        doctor = html(self.doc.get("/dashboard/"))
-        patient = html(self.pat.get("/dashboard/"))
-        self.assertEqual(re.findall(r'class="nav-label">([A-Za-z]+)<', doctor), ["Workspace", "Tools"])
-        self.assertEqual(re.findall(r'class="nav-label">([A-Za-z]+)<', patient), ["Records", "Tools"])
+    def test_the_menu_has_an_account_section_for_each_role(self):
+        for client in (self.doc, self.pat):
+            self.assertEqual(re.findall(r'class="nav-label">([A-Za-z]+)<', html(client.get("/dashboard/"))), ["Account"])
 
-    def test_the_user_card_and_log_out_sit_at_the_bottom_of_the_sidebar(self):
+    def test_the_name_and_id_at_the_bottom_of_the_sidebar_open_the_profile_where_log_out_lives(self):
         page = html(self.pat.get("/dashboard/"))
-        self.assertIn('class="me-card"', page)
-        self.assertIn("PT-2026-01001", page.split('class="me-card"')[1].split("</aside>")[0])
-        self.assertRegex(page, r'<a class="logout-link" href="/logout/">.*Log out</a>')
+        foot = page.split('class="side-foot"')[1].split("</aside>")[0]
+        self.assertIn('href="/profile/"', page.split('class="side-foot"')[0][-40:] + foot)
+        self.assertIn("PT-2026-01001", foot)
+        self.assertNotRegex(page, r"Log out\s*</a>")                      # no log out button on the other pages
+        self.assertRegex(html(self.pat.get("/profile/")), r'href="/logout/">.*Log out\s*</a>')
 
-    def test_the_sidebar_numbers_and_the_bell_are_the_same_red_bubble(self):
+    def test_the_sidebar_numbers_and_the_bell_are_red_bubbles(self):
         css = self.css()
-        self.assertIn(".count, .icon-btn .badge {", css)
+        self.assertIn(".nav a .count{", css)
+        self.assertIn(".ibtn .badge {", css)
         self.assertNotIn(".count.red", css)
         for client in (self.doc, self.pat):
             page = html(client.get("/dashboard/"))
@@ -566,30 +535,31 @@ class FrameAndBubbles(unittest.TestCase):
 
     def test_the_bubbles_are_small_red_dots_without_a_drawn_number(self):
         import re as _re
-        rule = _re.search(r"\.count, \.icon-btn \.badge \{([^}]*)\}", self.css()).group(1)
-        self.assertRegex(rule, r"width:12px; height:12px")
+        rule = _re.search(r"\.ibtn \.badge \{([^}]*)\}", self.css()).group(1)
+        self.assertRegex(rule, r"width:8px; height:8px")
         self.assertIn("font-size:0", rule)                  # the number stays in the page for screen readers, but is not drawn
         self.assertIn("var(--red)", rule)
 
-    def test_the_record_page_shows_allergies_once_not_in_a_second_red_banner(self):
+    def test_an_open_record_warns_about_allergies_and_a_locked_one_shows_none(self):
+        page = html(self.doc.get("/patient/1001/"))
+        self.assertNotIn("Penicillin", page)                                   # locked: nothing leaks
         approve(self.s)
         page = html(self.doc.get("/patient/1001/"))
-        self.assertNotIn("Check before prescribing", page)
-        self.assertNotIn('class="banner red', page)
-        self.assertEqual(page.count("Penicillin"), 1)          # only in the Allergies card
-
-    def test_page_headers_are_boxed(self):
-        self.assertRegex(self.css(), r"\.page-h \{[^}]*background:var\(--surface\)[^}]*border:1px solid")
+        self.assertIn("Check before prescribing", page)                        # the red alert under the name
+        self.assertIn('class="alert red top-gap"', page)
+        self.assertIn('data-pane="medical"', page)                             # and the Medical tab lists them
 
     def test_the_page_sits_in_the_middle_of_the_screen(self):
-        self.assertRegex(self.css(), r"\.content \{ margin:0 auto;")
+        self.assertRegex(self.css(), r"\.content\{padding:[^}]*max-width:\d+px")
 
-    def test_patients_and_privacy_show_a_live_count_next_to_the_title(self):
+    def test_patients_counts_each_chip_and_access_shows_how_many_requests_are_waiting(self):
         approve(self.s)
-        self.assertRegex(html(self.doc.get("/patients/")), r'class="live">live</span><span class="pill gray nodot">1 patient</span>')
-        self.assertRegex(html(self.pat.get("/privacy/")), r'class="live">live</span><span class="pill gray nodot">1 doctor</span>')
-
-
+        patients = html(self.doc.get("/patients/"))
+        self.assertRegex(patients, r"All <em>1</em>")
+        self.assertRegex(patients, r"With access <em>1</em>")
+        self.assertNotIn('class="badge">', html(self.pat.get("/access/?tab=doctors")))          # nothing is waiting
+        self.s.request_access(self.s.register_doctor("Antonio Santos", PASSWORD, "Cardiology", "Northview"), 1001)
+        self.assertIn('Requests<span class="badge">1</span>', html(self.pat.get("/access/?tab=doctors")))
 class AssetAddresses(unittest.TestCase):
     """The page links its styles and scripts with the file's last-changed time, so browsers never keep an old copy."""
 

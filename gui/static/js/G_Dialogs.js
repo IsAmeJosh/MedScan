@@ -73,7 +73,7 @@
       window.navigator.clipboard.writeText(text).then(done, function () { /* blocked: nothing to do */ });
       return;
     }
-    var box = document.createElement('textarea');       // older browsers
+    var box = document.createElement('textarea');       // Older browsers have no clipboard API, so a hidden text box is selected and copied instead.
     box.value = text;
     document.body.appendChild(box);
     box.select();
@@ -127,14 +127,6 @@
       var inputEvent = document.createEvent('Event');       // lets the character counter notice
       inputEvent.initEvent('input', true, true);
       box.dispatchEvent(inputEvent);
-    });
-  });
-
-  // ---- a link that opens a closed box on the same page: <a href="#edit" data-open="edit"> ----
-  each(document.querySelectorAll('[data-open]'), function (link) {
-    link.addEventListener('click', function () {
-      var box = document.getElementById(link.getAttribute('data-open'));
-      if (box) { box.open = true; }
     });
   });
 

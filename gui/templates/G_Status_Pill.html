@@ -1,5 +1,0 @@
-{# The coloured status of one access request. Needs: r. #}
-{% if r.status == "Approved" %}<span class="pill green">Approved</span>
-{% elif r.status == "Pending" %}<span class="pill amber">Pending</span>
-{% elif r.status == "Revoked" %}<span class="pill gray">Revoked</span>
-{% else %}<span class="pill red">Denied</span>{% endif %}

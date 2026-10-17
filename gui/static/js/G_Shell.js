@@ -1,7 +1,8 @@
 // The bell and the notification panel.
 // - The page asks the server every few seconds whether anything is new, and updates the bell, the counts in
 //   the sidebar and the panel. It never reloads the page, so nothing you are typing is lost.
-// - "Mark all read" clears the unread marks. Clicking one notification opens the page it is about.
+// - "Mark all as read" clears the unread marks. A notification is only a pointer: clicking it opens the page it is about
+//   (the Approve and Deny buttons live on Home and Access, not here).
 (function () {
   var drawer = document.getElementById('notifications-drawer');
   var backdrop = document.getElementById('drawer-backdrop');
@@ -40,10 +41,15 @@
   }
 
   function showSidebarCount(id, count) {
-    var element = document.getElementById(id);
-    if (element && typeof count === 'number') {
-      element.innerHTML = count;
-      element.hidden = count === 0;
+    if (typeof count !== 'number') { return; }
+    var shown = [document.getElementById(id)];
+    var mirrors = document.querySelectorAll('[data-mirror="' + id + '"]');    // the same count on the phone tabs
+    for (var i = 0; i < mirrors.length; i++) { shown.push(mirrors[i]); }
+    for (var j = 0; j < shown.length; j++) {
+      if (shown[j]) {
+        shown[j].innerHTML = count;
+        shown[j].hidden = count === 0;
+      }
     }
   }
 
@@ -88,10 +94,10 @@
   }
 
   function poll() {
-    if (document.hidden) { schedule(); return; }          // nobody is looking: wait
+    if (document.hidden) { schedule(); return; }          // The tab is hidden, so nobody is looking: wait and try again later.
     window.fetch(pollUrl, { credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
       .then(function (response) {
-        if (response.status === 403) { return null; }     // logged out: stop asking
+        if (response.status === 403) { return null; }     // The session has ended (403): stop asking.
         return response.json();
       })
       .then(function (data) {
@@ -109,50 +115,6 @@
     });
   }
 
-  // ---- Approve and Deny right inside the panel (patients): answers the request without leaving the page ----
-  function answer(button) {
-    var token = document.querySelector('#csrf-holder input[name=csrfmiddlewaretoken]');
-    if (!token) { return; }
-    var holder = button.parentNode;
-    var approved = button.getAttribute('data-request-action') === 'approve';
-    var buttons = holder.querySelectorAll('button');
-    for (var i = 0; i < buttons.length; i++) { buttons[i].disabled = true; }
-    window.fetch(button.getAttribute('data-url'), {
-      method: 'POST',
-      headers: { 'X-CSRFToken': token.value, 'X-Requested-With': 'fetch' },
-      credentials: 'same-origin'
-    }).then(function (response) {
-      return response.json().then(function (data) { return { ok: response.ok && data.ok }; });
-    }).then(function (result) {
-      holder.innerHTML = '<span class="pill ' + (approved ? 'green' : 'gray') + '">' +
-        (result.ok ? (approved ? 'Approved' : 'Denied') : 'Already answered') + '</span>';
-      if (result.ok) { toast(approved ? 'Access approved.' : 'Access denied.'); }
-      poll();                                              // refresh the counts and the list right away
-    }).then(null, function () {
-      for (var j = 0; j < buttons.length; j++) { buttons[j].disabled = false; }
-    });
-  }
-
-  if (list) {
-    list.addEventListener('click', function (event) {     // one listener for the whole list: the list is replaced on every update
-      var button = event.target;
-      while (button && button !== list && !(button.getAttribute && button.getAttribute('data-request-action'))) {
-        button = button.parentNode;
-      }
-      if (!button || button === list) { return; }
-      if (button.getAttribute('data-confirm') && window.MedScanConfirm) {
-        window.MedScanConfirm.ask({
-          title: button.getAttribute('data-confirm-title'),
-          message: button.getAttribute('data-confirm'),
-          button: button.getAttribute('data-confirm-button'),
-          tone: 'danger'
-        }, function () { answer(button); });
-      } else {
-        answer(button);
-      }
-    });
-  }
-
   // ---- mark all read ----
   if (markAll) {
     markAll.addEventListener('click', function () {
@@ -166,6 +128,8 @@
         if (!response.ok) { return; }
         var unread = drawer.querySelectorAll('.unread');
         for (var i = 0; i < unread.length; i++) { unread[i].classList.remove('unread'); }
+        var dots = drawer.querySelectorAll('.udot');
+        for (var d = dots.length - 1; d >= 0; d--) { dots[d].parentNode.removeChild(dots[d]); }
         showUnread(0);
       });
     });

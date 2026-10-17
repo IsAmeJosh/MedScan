@@ -33,11 +33,11 @@ class Persistence(unittest.TestCase):
         G_Views.db.reset_data()
 
     def test_every_table_received_rows(self):
-        expected = {"doctors": 2, "patients": 2, "record_items": 5, "consultations": 2, "access_requests": 3,
-                    "emergency_logs": 1, "record_views": 1}
+        expected = {"tb_doctors": 2, "tb_patients": 2, "tb_medical_items": 5, "tb_consultations": 2, "tb_access_requests": 3,
+                    "tb_emergency_logs": 1, "tb_record_views": 1}
         for table, n in expected.items():
             self.assertEqual(count(table), n, table)
-        self.assertGreaterEqual(count("notifications"), 5)
+        self.assertGreaterEqual(count("tb_notifications"), 5)
 
     def test_a_second_system_reads_the_same_patient_back(self):
         ana = self.other.get_patient(self.ana.user_id)
@@ -100,9 +100,9 @@ class Transactions(unittest.TestCase):
 
     def tearDown(self):
         with self.db.cursor() as cur:
-            cur.execute("DELETE FROM record_items WHERE item IN ('Latex', 'Dust')")
-            cur.execute("DELETE FROM patients WHERE user_id > 1001")
-            cur.execute("DELETE FROM doctors WHERE user_id > 2001")
+            cur.execute("DELETE FROM tb_medical_items WHERE item_name IN ('Latex', 'Dust')")
+            cur.execute("DELETE FROM tb_patients WHERE patient_id > 1001")
+            cur.execute("DELETE FROM tb_doctors WHERE doctor_id > 2001")
 
     @classmethod
     def tearDownClass(cls):
@@ -110,7 +110,7 @@ class Transactions(unittest.TestCase):
 
     def insert_doctor(self, name):
         with self.db.cursor() as cur:
-            cur.execute("INSERT INTO doctors (name, password, specialty, created_year) VALUES (%s, 'x', 'y', 2026)",
+            cur.execute("INSERT INTO tb_doctors (name, password, specialty, created_year) VALUES (%s, 'x', 'y', 2026)",
                         (name,))
 
     def test_an_error_inside_a_unit_of_work_undoes_all_of_it(self):
@@ -119,7 +119,7 @@ class Transactions(unittest.TestCase):
                 self.insert_doctor("Ghost 1")
                 self.insert_doctor("Ghost 2")
                 raise RuntimeError("boom")
-        self.assertEqual(count("doctors", "name LIKE 'Ghost%'"), 0)
+        self.assertEqual(count("tb_doctors", "name LIKE 'Ghost%'"), 0)
 
     def test_a_unit_of_work_inside_another_joins_it(self):
         with self.assertRaises(RuntimeError):
@@ -127,29 +127,29 @@ class Transactions(unittest.TestCase):
                 with self.db.unit_of_work():
                     self.insert_doctor("Ghost")
                 raise RuntimeError("the outer block fails after the inner one finished")
-        self.assertEqual(count("doctors", "name = 'Ghost'"), 0)
+        self.assertEqual(count("tb_doctors", "name = 'Ghost'"), 0)
 
     def test_a_good_unit_of_work_is_saved(self):
         with self.db.unit_of_work():
             self.insert_doctor("Kept")
-        self.assertEqual(count("doctors", "name = 'Kept'"), 1)
+        self.assertEqual(count("tb_doctors", "name = 'Kept'"), 1)
 
     def test_a_refused_registration_leaves_no_rows_behind(self):
-        before = count("patients")
+        before = count("tb_patients")
         with self.assertRaises(ValueError):
             new_patient(self.s, "Ana", PASSWORD, "F", "1990-01-01", contact_number="bad")
-        self.assertEqual(count("patients"), before)
+        self.assertEqual(count("tb_patients"), before)
 
     def test_adding_a_patient_and_their_items_is_all_or_nothing(self):
-        before = (count("patients"), count("record_items"))
+        before = (count("tb_patients"), count("tb_medical_items"))
         with self.assertRaises(pymysql.MySQLError):
             new_patient(self.s, "Ana", PASSWORD, "F", "1990-01-01", allergies="Latex")
             with self.db.unit_of_work():
                 new_patient(self.s, "Bea", PASSWORD, "F", "1990-01-01", allergies="Dust")
                 with self.db.cursor() as cur:
-                    cur.execute("INSERT INTO record_items (patient_id, kind, item) VALUES (999999, 'allergy', 'x')")
-        self.assertEqual(count("patients"), before[0] + 1)      # Ana was saved on her own
-        self.assertEqual(count("patients", "name = 'Bea'"), 0)  # Bea was rolled back with her failed item
+                    cur.execute("INSERT INTO tb_medical_items (patient_id, item_type, item_name) VALUES (999999, 'allergy', 'x')")
+        self.assertEqual(count("tb_patients"), before[0] + 1)      # Ana was saved on her own
+        self.assertEqual(count("tb_patients", "name = 'Bea'"), 0)  # Bea was rolled back with her failed item
 
 
 class Constraints(unittest.TestCase):
@@ -166,61 +166,61 @@ class Constraints(unittest.TestCase):
                 cur.execute(sql, params)
 
     def test_foreign_keys_refuse_orphans(self):
-        self.refuses("INSERT INTO access_requests (doctor_id, patient_id) VALUES (999, 1001)")
-        self.refuses("INSERT INTO access_requests (doctor_id, patient_id) VALUES (2001, 999)")
-        self.refuses("INSERT INTO consultations (patient_id, doctor_id, doctor_name, notes) VALUES (1001, 999, 'x', 'y')")
-        self.refuses("INSERT INTO emergency_logs (doctor_id, patient_id, reason) VALUES (2001, 999, 'x')")
-        self.refuses("INSERT INTO record_views (doctor_id, patient_id, via) VALUES (999, 1001, 'approved')")
+        self.refuses("INSERT INTO tb_access_requests (doctor_id, patient_id) VALUES (999, 1001)")
+        self.refuses("INSERT INTO tb_access_requests (doctor_id, patient_id) VALUES (2001, 999)")
+        self.refuses("INSERT INTO tb_consultations (patient_id, doctor_id, doctor_name, notes) VALUES (1001, 999, 'x', 'y')")
+        self.refuses("INSERT INTO tb_emergency_logs (doctor_id, patient_id, reason) VALUES (2001, 999, 'x')")
+        self.refuses("INSERT INTO tb_record_views (doctor_id, patient_id, via) VALUES (999, 1001, 'approved')")
 
     def test_a_patient_with_history_cannot_be_deleted_by_accident(self):
         build_sample_data(self.s)
-        self.refuses("DELETE FROM patients WHERE user_id = 1001")
+        self.refuses("DELETE FROM tb_patients WHERE patient_id = 1001")
 
     def test_status_and_via_only_take_known_values(self):
-        self.refuses("INSERT INTO access_requests (doctor_id, patient_id, status) VALUES (2001, 1001, 'Maybe')")
-        self.refuses("INSERT INTO record_views (doctor_id, patient_id, via) VALUES (2001, 1001, 'sneaked')")
+        self.refuses("INSERT INTO tb_access_requests (doctor_id, patient_id, status) VALUES (2001, 1001, 'Maybe')")
+        self.refuses("INSERT INTO tb_record_views (doctor_id, patient_id, via) VALUES (2001, 1001, 'sneaked')")
 
     def test_mobile_number_and_blood_type_are_checked(self):
-        base = ("INSERT INTO patients (name, password, sex, date_of_birth, created_year, {col}) "
+        base = ("INSERT INTO tb_patients (name, password, sex, date_of_birth, created_year, {col}) "
                 "VALUES ('Z', 'secret1', 'F', '1990-01-01', 2026, %s)")
-        self.refuses(base.format(col="contact_number"), "12345")
-        self.refuses(base.format(col="contact_number"), "")
+        self.refuses(base.format(col="mobile_number"), "12345")
+        self.refuses(base.format(col="mobile_number"), "")
         self.refuses(base.format(col="blood_type"), "Z+")   # (no mobile number either: also refused)
         with self.db.cursor() as cur:
-            cur.execute(base.format(col="contact_number"), ("09170000001",))  # a valid, unused one goes through
+            cur.execute(base.format(col="mobile_number"), ("09170000001",))  # a valid, unused one goes through
 
     def test_one_mobile_number_cannot_belong_to_two_patients(self):
-        insert = ("INSERT INTO patients (name, password, sex, date_of_birth, contact_number, created_year) "
+        insert = ("INSERT INTO tb_patients (name, password, sex, date_of_birth, mobile_number, created_year) "
                   "VALUES ('Copy', 'secret1', 'F', '1990-01-01', %s, 2026)")
         self.refuses(insert, "09171234567")   # Juan's number
 
     def test_missing_required_values_are_refused(self):
-        self.refuses("INSERT INTO patients (name, password, sex, created_year) VALUES ('Z', 'secret1', 'F', 2026)")
+        self.refuses("INSERT INTO tb_patients (name, password, sex, created_year) VALUES ('Z', 'secret1', 'F', 2026)")
 
 
 class SeedAndSchema(unittest.TestCase):
     def test_the_test_accounts_come_from_seed_sql(self):
         committed_system(self)
-        (doctor,) = rows("SELECT * FROM doctors")
-        (patient,) = rows("SELECT * FROM patients")
-        self.assertEqual((doctor["user_id"], doctor["name"], doctor["password"], doctor["clinic"]),
+        (doctor,) = rows("SELECT * FROM tb_doctors")
+        (patient,) = rows("SELECT * FROM tb_patients")
+        self.assertEqual((doctor["doctor_id"], doctor["name"], doctor["password"], doctor["clinic"]),
                          (2001, "Reyes", "doc123", "Bayanihan Family Clinic"))
-        self.assertEqual((patient["user_id"], patient["name"], patient["password"], patient["blood_type"]),
+        self.assertEqual((patient["patient_id"], patient["name"], patient["password"], patient["blood_type"]),
                          (1001, "Juan Dela Cruz", "pat123", "O+"))
-        self.assertEqual([r["item"] for r in rows("SELECT item FROM record_items ORDER BY item_id")],
+        self.assertEqual([r["item_name"] for r in rows("SELECT item_name FROM tb_medical_items ORDER BY item_id")],
                          ["Penicillin", "Appendectomy"])
 
     def test_prepare_can_run_again_without_duplicating_anything(self):
         s = committed_system(self)
         s.db.prepare()
         s.db.prepare()
-        self.assertEqual((count("doctors"), count("patients"), count("record_items")), (1, 1, 2))
+        self.assertEqual((count("tb_doctors"), count("tb_patients"), count("tb_medical_items")), (1, 1, 2))
 
     def test_reset_data_goes_back_to_the_test_accounts_and_numbers(self):
         s = committed_system(self)
         build_sample_data(s)
         s.db.reset_data()
-        self.assertEqual((count("doctors"), count("patients"), count("access_requests"), count("notifications")),
+        self.assertEqual((count("tb_doctors"), count("tb_patients"), count("tb_access_requests"), count("tb_notifications")),
                          (1, 1, 0, 0))
         self.assertEqual(new_patient(s, "Next", PASSWORD, "F", "1990-01-01").user_id, 1002)
         self.assertEqual(s.register_doctor("Next", PASSWORD, "ENT").user_id, 2002)
@@ -246,9 +246,9 @@ class SeveralUsersAtOnce(unittest.TestCase):
             t.start()
         for t in threads:
             t.join()
-        self.assertEqual(count("access_requests"), 1)
+        self.assertEqual(count("tb_access_requests"), 1)
         self.assertEqual(sum(r is not None for r in results), 1)
-        self.assertEqual(count("notifications", "recipient_id = 1001"), 1)
+        self.assertEqual(count("tb_notifications", "recipient_id = 1001"), 1)
 
     def test_simultaneous_answers_are_counted_once(self):
         s = committed_system(self)
@@ -264,7 +264,7 @@ class SeveralUsersAtOnce(unittest.TestCase):
         for t in threads:
             t.join()
         self.assertEqual(sum(results), 1)
-        self.assertEqual(count("notifications", "recipient_id = 2001"), 1)
+        self.assertEqual(count("tb_notifications", "recipient_id = 2001"), 1)
 
 
 class RequestTransactions(unittest.TestCase):
@@ -282,8 +282,8 @@ class RequestTransactions(unittest.TestCase):
 
     def tearDown(self):
         with G_Views.db.cursor() as cur:
-            cur.execute("DELETE FROM notifications")
-            cur.execute("DELETE FROM access_requests")
+            cur.execute("DELETE FROM tb_notifications")
+            cur.execute("DELETE FROM tb_access_requests")
 
     def count_connections(self, work):
         """Run work() and return how many database connections were opened meanwhile."""
@@ -300,21 +300,21 @@ class RequestTransactions(unittest.TestCase):
 
     def test_a_page_that_works_is_saved_for_everyone_to_see(self):
         login(2001, "doc123").post("/request/1001/")
-        self.assertEqual(count("access_requests"), 1)   # read back on a different connection
-        self.assertEqual(count("notifications", "recipient_id = 1001"), 1)
+        self.assertEqual(count("tb_access_requests"), 1)   # read back on a different connection
+        self.assertEqual(count("tb_notifications", "recipient_id = 1001"), 1)
 
     def test_a_page_that_fails_saves_nothing_it_started(self):
         doctor = login(2001, "doc123")
         with mock.patch("gui.G_Views.messages.success", side_effect=RuntimeError("boom")):
             with self.assertRaises(RuntimeError):
                 doctor.post("/request/1001/")   # the request is written first, then the page breaks
-        self.assertEqual(count("access_requests"), 0)
-        self.assertEqual(count("notifications"), 0)
+        self.assertEqual(count("tb_access_requests"), 0)
+        self.assertEqual(count("tb_notifications"), 0)
 
     def test_a_whole_page_uses_one_connection(self):
         patient = login(1001, "pat123")
         self.assertEqual(self.count_connections(lambda: patient.get("/dashboard/")), 1)
-        self.assertEqual(self.count_connections(lambda: patient.get("/privacy/")), 1)
+        self.assertEqual(self.count_connections(lambda: patient.get("/access/")), 1)
         self.assertEqual(self.count_connections(lambda: patient.get("/record/")), 1)
         doctor = login(2001, "doc123")
         self.assertEqual(self.count_connections(lambda: doctor.get("/dashboard/")), 1)

@@ -8,9 +8,9 @@ from django.test import Client
 from tests.helpers import (BORN, PASSWORD, age_emergencies, approve, count, fresh_system, html, login, rows)
 from tests.helpers import new_patient
 
-DOCTOR_PAGES = ["/dashboard/", "/patients/", "/patients/?q=1001", "/patients/?tab=waiting", "/patients/?tab=ended",
-                "/emergency/", "/logout/"]
-PATIENT_PAGES = ["/dashboard/", "/record/", "/privacy/", "/privacy/?tab=activity", "/logout/"]
+DOCTOR_PAGES = ["/dashboard/", "/patients/", "/patients/?show=access", "/patients/?show=waiting", "/patients/?show=denied",
+                "/search/", "/search/?q=1001", "/patient/1001/", "/qr/", "/profile/", "/emergency/", "/logout/"]
+PATIENT_PAGES = ["/dashboard/", "/record/", "/access/", "/access/?tab=history", "/profile/", "/logout/"]
 
 
 class PageTestCase(unittest.TestCase):
@@ -30,19 +30,19 @@ class BeforeLogin(PageTestCase):
 
     def test_pages_that_need_a_login_send_you_to_the_login_page(self):
         anon = Client()
-        for url in ["/dashboard/", "/patients/", "/record/", "/privacy/", "/emergency/", "/logout/", "/patient/1001/"]:
+        for url in ["/dashboard/", "/patients/", "/search/", "/record/", "/access/", "/profile/", "/emergency/", "/logout/", "/patient/1001/"]:
             r = anon.get(url)
             self.assertEqual(r.status_code, 302, url)
             self.assertIn(r["Location"], ("/", "/dashboard/"), url)
 
     def test_the_addresses_of_earlier_versions_lead_to_the_page_that_replaced_them(self):
         anon = Client()
-        for old, new in [("/search/", "/patients/"), ("/search/?q=1001", "/patients/?q=1001"),
-                         ("/requests/", "/patients/?tab=waiting"), ("/doctors/", "/privacy/"),
-                         ("/access-log/", "/privacy/?tab=activity"), ("/profile/", "/record/")]:
+        for old, new in [("/requests/", "/patients/?show=waiting"), ("/doctors/", "/access/?tab=doctors"),
+                         ("/privacy/", "/access/"), ("/access-log/", "/access/?tab=history")]:
             r = anon.get(old)
             self.assertEqual((r.status_code, r["Location"]), (302, new), old)
         self.assertEqual(anon.get("/welcome/").status_code, 404)
+        self.assertEqual(anon.get("/profile/").status_code, 302)          # Profile is a real page now: it asks for a login
 
     def test_login_accepts_the_number_and_the_display_id(self):
         for user_id in ["2001", self.s.get_doctor(2001).display_id, self.s.get_doctor(2001).display_id.lower()]:
@@ -87,7 +87,7 @@ class Registration(PageTestCase):
         self.assertNotIn("Welcome to MedScan, Zed!", html(client.get("/dashboard/")))   # shown once
         self.assertEqual(client.get("/record/").status_code, 200)                       # really logged in
         new_id = int(shown.group(1))
-        self.assertEqual(rows("SELECT contact_number FROM patients WHERE user_id = %s", new_id)[0]["contact_number"],
+        self.assertEqual(rows("SELECT mobile_number FROM tb_patients WHERE patient_id = %s", new_id)[0]["mobile_number"],
                          "09170001111")
 
     def test_the_new_account_can_log_in_by_number_by_full_id_and_by_mobile(self):
@@ -109,27 +109,27 @@ class Registration(PageTestCase):
         self.assertIn("Welcome to MedScan, Cruz!", page)
         self.assertIn("DR-", page)
         self.assertNotIn("your mobile number", page)   # doctors log in with their ID
-        self.assertEqual(rows("SELECT clinic, specialty FROM doctors ORDER BY user_id DESC LIMIT 1")[0],
+        self.assertEqual(rows("SELECT clinic, specialty FROM tb_doctors ORDER BY doctor_id DESC LIMIT 1")[0],
                          {"clinic": "Rizal Clinic", "specialty": "ENT"})
 
     def test_the_old_welcome_page_is_gone(self):
         self.assertEqual(Client().get("/welcome/").status_code, 404)
 
     def test_a_patient_must_give_a_mobile_number(self):
-        before = count("patients")
+        before = count("tb_patients")
         r = Client().post("/register/", self.form(contact_number=""))
         self.assertEqual(r.status_code, 200)
         self.assertIn("Enter your mobile number.", html(r))
-        self.assertEqual(count("patients"), before)
+        self.assertEqual(count("tb_patients"), before)
 
     def test_one_mobile_number_is_one_account_however_it_is_written(self):
         Client().post("/register/", self.form())
-        before = count("patients")
+        before = count("tb_patients")
         for typed in ["0917 000 1111", "09170001111", "+63 917 000 1111", "63-917-000-1111"]:
             r = Client().post("/register/", self.form(name="Copy", contact_number=typed))
             self.assertEqual(r.status_code, 200, typed)
             self.assertIn("already used by another account", html(r), typed)
-        self.assertEqual(count("patients"), before)
+        self.assertEqual(count("tb_patients"), before)
 
     def test_the_form_keeps_what_was_typed_when_the_number_is_taken(self):
         r = Client().post("/register/", self.form(contact_number="0917 123 4567"))   # Juan's number
@@ -148,68 +148,74 @@ class DoctorPages(PageTestCase):
             self.assertEqual(r.status_code, 200, url)
             self.assertIn("Dr. Reyes", html(r), url)
 
-    def test_the_menu_is_home_and_patients_with_search_and_emergency_in_the_top_bar(self):
+    def test_the_menu_is_home_and_patients_with_search_in_the_top_bar_and_scan_as_the_main_action(self):
         page = html(self.doc.get("/dashboard/"))
         nav = re.search(r'<nav class="nav">(.*?)</nav>', page, re.S).group(1)
-        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "Patients", "Scan QR"])
-        for gone in ["Search Patient", "My Requests", "My Patients", "Emergency Access"]:
+        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "Patients"])
+        self.assertIn("Scan QR code</a>", page.split('class="cta"')[1].split("</div>")[0])
+        for gone in ["Search Patient", "My Requests", "My Patients", "Emergency Access", "Emergency"]:
             self.assertNotIn(gone, nav)
         self.assertIn('id="top-search-input"', page)
-        self.assertIn('action="/patients/"', page)
-        self.assertRegex(page, r'<a class="btn danger-ghost sm" href="/emergency/" data-emergency>')
+        self.assertIn('action="/search/"', page)
+        self.assertNotIn('<a class="btn danger-ghost sm" href="/emergency/"', page)   # Emergency is not in the menu or the top bar
 
     def test_search_by_number_display_id_and_mobile_number(self):
         for query in ["1001", self.s.get_patient(1001).display_id, "0917 123 4567", "+63 917 123 4567", "09171234567"]:
-            page = html(self.doc.get("/patients/", {"q": query}))
+            page = html(self.doc.get("/search/", {"q": query}))
             self.assertIn("Juan Dela Cruz", page, query)
-            self.assertIn("Send access request", page, query)
-            self.assertIn("This record is private", page, query)
+            self.assertIn("Locked", page, query)                       # nothing between them yet
+            self.assertIn('href="/patient/1001/"', page, query)        # the line opens the patient's page
 
     def test_search_by_name_only_finds_your_own_patients(self):
-        self.assertIn("No patient found", html(self.doc.get("/patients/?q=Juan")))   # not approved yet: not yours
+        self.assertIn("No patient found", html(self.doc.get("/search/?q=Juan")))   # no link yet: not yours
         approve(self.s)
-        page = html(self.doc.get("/patients/?q=juan"))
-        self.assertIn("Your patients matching", page)
-        self.assertIn("Open record", page)
+        page = html(self.doc.get("/search/?q=juan"))
+        self.assertIn("Juan Dela Cruz", page)
+        self.assertIn("Access", page)
 
     def test_search_for_nobody_or_nonsense_is_polite(self):
         for query in ["9999", "abc", "2001", "0917 999 9999", "%C2%B2", "x" * 300]:
-            r = self.doc.get("/patients/", {"q": query})
+            r = self.doc.get("/search/", {"q": query})
             self.assertEqual(r.status_code, 200, query)
             self.assertIn("No patient found", html(r), query)   # a doctor's ID is not a patient
+        self.assertEqual(self.doc.get("/search/").status_code, 200)        # an empty box just waits
 
-    def test_search_shows_each_state_of_a_request(self):
+    def test_the_patient_page_shows_each_state_of_a_request(self):
         self.doc.post("/request/1001/")
-        page = html(self.doc.get("/patients/?q=1001"))
-        self.assertIn("Request pending", page)
+        page = html(self.doc.get("/patient/1001/"))
+        self.assertIn("Request sent", page)
         self.assertNotIn("Send access request", page)
-        request = rows("SELECT request_id FROM access_requests")[0]["request_id"]
+        self.assertIn("Emergency access", page)
+        request = rows("SELECT request_id FROM tb_access_requests")[0]["request_id"]
         self.s.respond_to_request(request, 1001, False)
-        page = html(self.doc.get("/patients/?q=1001"))
-        self.assertIn("Access denied", page)
+        page = html(self.doc.get("/patient/1001/"))
+        self.assertIn("Record locked", page)
         self.assertIn("Request again", page)
         self.doc.post("/request/1001/")
-        newest = rows("SELECT MAX(request_id) AS r FROM access_requests")[0]["r"]
+        newest = rows("SELECT MAX(request_id) AS r FROM tb_access_requests")[0]["r"]
         self.s.respond_to_request(newest, 1001, True)
-        self.assertIn("Access approved", html(self.doc.get("/patients/?q=1001")))
+        self.assertIn("Access approved", html(self.doc.get("/patient/1001/")))
         self.s.revoke_access(newest, 1001)
-        page = html(self.doc.get("/patients/?q=1001"))
-        self.assertIn("Access revoked", page)
+        page = html(self.doc.get("/patient/1001/"))
+        self.assertIn("Record locked", page)
         self.assertIn("Request again", page)
+        self.assertNotIn("Penicillin", page)
 
-    def test_sending_a_request_comes_back_to_the_result_with_a_message(self):
+    def test_sending_a_request_comes_back_to_the_patient_page_with_a_message(self):
         r = self.doc.post("/request/1001/")
-        self.assertEqual(r["Location"], "/patients/?q=1001")
-        self.assertIn("Request pending", html(self.doc.get(r["Location"])))
+        self.assertEqual(r["Location"], "/patient/1001/")
+        page = html(self.doc.get(r["Location"]))
+        self.assertIn("Request sent", page)
+        self.assertIn("Access request sent.", page)
 
     def test_sending_a_second_request_shows_a_message(self):
         self.doc.post("/request/1001/")
         r = self.doc.post("/request/1001/", follow=True)
         self.assertIn("already have access or a pending request", html(r))
-        self.assertEqual(count("access_requests"), 1)
+        self.assertEqual(count("tb_access_requests"), 1)
 
-    def test_the_three_tabs_follow_the_newest_request_with_each_patient(self):
-        self.assertIn("No patient has approved you yet", html(self.doc.get("/patients/")))
+    def test_the_chips_follow_the_newest_request_with_each_patient(self):
+        self.assertIn("No patients yet", html(self.doc.get("/patients/")))
         yes = new_patient(self.s, "Yes Patient", PASSWORD, "F", BORN)
         wait = new_patient(self.s, "Wait Patient", PASSWORD, "F", BORN)
         no = new_patient(self.s, "No Patient", PASSWORD, "F", BORN)
@@ -218,28 +224,37 @@ class DoctorPages(PageTestCase):
             request = self.s.request_access(doctor, patient.user_id)
             if answer is not None:
                 self.s.respond_to_request(request.request_id, patient.user_id, answer)
-        mine, waiting, ended = (html(self.doc.get(f"/patients/?tab={t}")) for t in ("mine", "waiting", "ended"))
-        names = lambda page: re.findall(r'<div><b>([A-Za-z ]+ Patient)</b><span>', page)
-        self.assertEqual((names(mine), names(waiting), names(ended)), (["Yes Patient"], ["Wait Patient"], ["No Patient"]))
-        self.assertIn("Ask again", ended)
-        self.assertRegex(mine, r"My patients <span>1</span>")
-        self.assertRegex(mine, r"Waiting for an answer <span>1</span>")
-        self.assertRegex(mine, r"Declined or ended <span>1</span>")
+        everyone, access, waiting, denied = (html(self.doc.get(f"/patients/?show={s}")) for s in ("all", "access", "waiting", "denied"))
+        names = lambda page: re.findall(r'<div class="g">\s*<b>([A-Za-z ]+ Patient)</b>', page)
+        self.assertEqual((names(access), names(waiting), names(denied)), (["Yes Patient"], ["Wait Patient"], ["No Patient"]))
+        self.assertEqual(names(everyone), ["Yes Patient", "Wait Patient", "No Patient"])          # in list order
+        self.assertRegex(everyone, r"All <em>3</em>")
+        self.assertRegex(everyone, r"With access <em>1</em>")
+        self.assertRegex(everyone, r"Waiting <em>1</em>")
+        self.assertRegex(everyone, r"Denied <em>1</em>")
         # the one who said no is asked again, and moves to Waiting
         self.doc.post(f"/request/{no.user_id}/")
-        self.assertEqual(names(html(self.doc.get("/patients/?tab=waiting"))), ["No Patient", "Wait Patient"])
-        self.assertEqual(names(html(self.doc.get("/patients/?tab=ended"))), [])
+        self.assertEqual(names(html(self.doc.get("/patients/?show=waiting"))), ["No Patient", "Wait Patient"])
+        self.assertEqual(names(html(self.doc.get("/patients/?show=denied"))), [])
 
-    def test_an_unknown_tab_shows_my_patients(self):
+    def test_an_unknown_chip_shows_everyone_and_the_old_tab_links_still_work(self):
         approve(self.s)
-        self.assertIn("Juan Dela Cruz", html(self.doc.get("/patients/?tab=bogus")))
+        self.assertIn("Juan Dela Cruz", html(self.doc.get("/patients/?show=bogus")))
+        self.assertIn("Juan Dela Cruz", html(self.doc.get("/patients/?tab=mine")))      # an address from an earlier version
+        self.assertNotIn("Juan Dela Cruz", html(self.doc.get("/patients/?tab=waiting")).split('<main class="content')[1].split("</main>")[0])
+        r = self.doc.get("/patients/?q=1001")                                           # searching moved to its own page
+        self.assertEqual((r.status_code, r["Location"]), (302, "/search/?q=1001"))
 
     def test_the_record_is_locked_until_approved_and_nothing_is_logged(self):
         r = self.doc.get("/patient/1001/")
-        self.assertEqual((r.status_code, r["Location"]), (302, "/patients/?q=1001"))
-        self.assertEqual(count("record_views"), 0)
+        self.assertEqual(r.status_code, 200)
+        page = html(r)
+        self.assertIn("You need Juan&#x27;s OK to open this record".replace("&#x27;", "'"), page.replace("&#x27;", "'"))
+        for secret in ("Penicillin", "Appendectomy", "O+", "0917 123 4567", "Consultation notes"):
+            self.assertNotIn(secret, page)                                  # the locked page never receives the record
+        self.assertEqual(count("tb_record_views"), 0)
         self.doc.post("/patient/1001/consult/", {"notes": "sneaky"})
-        self.assertEqual(count("consultations"), 0)
+        self.assertEqual(count("tb_consultations"), 0)
 
     def test_record_page_shows_everything_after_approval(self):
         approve(self.s)
@@ -251,7 +266,7 @@ class DoctorPages(PageTestCase):
         approve(self.s)
         self.doc.post("/patient/1001/consult/", {"notes": "Fever"})
         self.doc.post("/patient/1001/consult/", {"notes": "   "})
-        self.assertEqual(count("consultations"), 1)
+        self.assertEqual(count("tb_consultations"), 1)
         self.assertIn("Fever", html(self.doc.get("/patient/1001/")))
         self.assertIn("Fever", html(self.pat.get("/record/")))
 
@@ -259,38 +274,45 @@ class DoctorPages(PageTestCase):
         approve(self.s)
         for _ in range(3):
             self.doc.get("/patient/1001/")
-        self.assertEqual(count("record_views"), 1)
+        self.assertEqual(count("tb_record_views"), 1)
         self.assertIn("Dr. Reyes opened your record", html(self.pat.get("/dashboard/")))
-        self.assertIn("Dr. Reyes opened your record", html(self.pat.get("/privacy/?tab=activity")))
+        self.assertIn("Dr. Reyes opened your record", html(self.pat.get("/access/?tab=history")))
 
     def test_home_lists_new_approvals_until_the_record_is_opened_then_recent_patients(self):
-        self.assertIn("Nobody is waiting", html(self.doc.get("/dashboard/")))
+        self.assertIn("Nobody yet", html(self.doc.get("/dashboard/")))
         approve(self.s)
         home = html(self.doc.get("/dashboard/"))
         self.assertIn("approved your request", home)
-        self.assertNotIn("Nobody is waiting", home)
+        self.assertNotIn("Nobody yet", home)
         self.assertRegex(html(self.doc.get("/patients/")), r'id="count-ready" >1<')   # and the menu says so
         self.doc.get("/patient/1001/")
         home = html(self.doc.get("/dashboard/"))
         self.assertNotIn("approved your request", home)
-        self.assertIn("Recently opened", home)
+        self.assertIn("Recent patients", home)
+        self.assertIn("seen today", home)
         self.assertIn("Juan Dela Cruz", home)
         self.assertRegex(html(self.doc.get("/patients/")), r'id="count-ready" hidden>0<')
+
+    def test_home_lists_the_requests_waiting_on_patients(self):
+        self.assertIn("No requests are waiting", html(self.doc.get("/dashboard/")))
+        self.doc.post("/request/1001/")
+        home = html(self.doc.get("/dashboard/"))
+        self.assertIn("Waiting on patients", home)
+        self.assertRegex(home, r"requested today")
+        self.assertIn('<span class="pill amber">Waiting</span>', home)
 
     def test_a_patient_who_took_access_back_leaves_the_recent_list(self):
         request = approve(self.s)
         self.doc.get("/patient/1001/")
         self.s.revoke_access(request.request_id, 1001)
-        self.assertIn("Records you open show up here", html(self.doc.get("/dashboard/")))   # the list is empty again
-
-
+        self.assertIn("Nobody yet", html(self.doc.get("/dashboard/")))   # the list is empty again
 class EmergencyPages(PageTestCase):
     def test_a_reason_is_required_and_the_patient_must_exist(self):
         r = self.doc.post("/emergency/", {"patient_id": "PT-2026-01001", "reason": ""})
         self.assertIn("reason is required", html(r))
         r = self.doc.post("/emergency/", {"patient_id": "9999", "reason": "x"})
         self.assertIn("No patient with that ID", html(r))
-        self.assertEqual(count("emergency_logs"), 0)
+        self.assertEqual(count("tb_emergency_logs"), 0)
 
     def test_the_page_can_be_prefilled_from_a_patient(self):
         self.assertIn("Juan Dela Cruz", html(self.doc.get("/patient/1001/emergency/")))
@@ -304,44 +326,52 @@ class EmergencyPages(PageTestCase):
         self.assertEqual((r.status_code, r["Location"]), (302, "/patient/1001/"))
         page = html(self.doc.get("/patient/1001/"))
         self.assertIn("Emergency access", page)
-        activity = html(self.pat.get("/privacy/?tab=activity"))
+        activity = html(self.pat.get("/access/?tab=history"))
         self.assertIn("used emergency access", activity)
         self.assertIn("Reason: Collapsed", activity)
         self.assertIn("emergency: Collapsed", html(self.pat.get("/dashboard/")))
-        self.assertEqual(rows("SELECT via FROM record_views")[0]["via"], "emergency")
+        self.assertEqual(rows("SELECT via FROM tb_record_views")[0]["via"], "emergency")
 
     def test_notes_are_allowed_during_the_emergency_and_stop_after_an_hour(self):
         self.doc.post("/patient/1001/emergency/", {"reason": "Collapsed"})
         self.doc.post("/patient/1001/consult/", {"notes": "ER note"})
-        self.assertEqual(count("consultations"), 1)
+        self.assertEqual(count("tb_consultations"), 1)
         age_emergencies(61)
-        self.assertEqual(self.doc.get("/patient/1001/").status_code, 302)
+        locked = html(self.doc.get("/patient/1001/"))                        # the page locks again
+        self.assertIn("OK to open this record", locked.replace("&#x27;", "'"))
+        self.assertNotIn("ER note", locked)
         self.doc.post("/patient/1001/consult/", {"notes": "too late"})
-        self.assertEqual(count("consultations"), 1)
+        self.assertEqual(count("tb_consultations"), 1)
 
-    def test_doctors_get_the_pop_up_on_every_page_and_patients_do_not(self):
-        for url in ["/dashboard/", "/patients/", "/patients/?q=1001"]:
-            self.assertIn('id="emergency-dialog"', html(self.doc.get(url)), url)
-        for url in ["/dashboard/", "/record/", "/privacy/"]:
-            self.assertNotIn("emergency-dialog", html(self.pat.get(url)), url)
-            self.assertNotIn("data-emergency", html(self.pat.get(url)), url)
+    def test_the_emergency_sheet_is_only_on_a_locked_patient_and_never_in_the_menu(self):
+        locked = html(self.doc.get("/patient/1001/"))
+        self.assertIn('<dialog id="emergency-sheet"', locked)
+        self.assertIn('data-sheet="emergency-sheet"', locked)
+        for url in ["/dashboard/", "/patients/", "/search/?q=1001", "/qr/", "/profile/"]:
+            self.assertNotIn("emergency-sheet", html(self.doc.get(url)), url)
+            self.assertNotIn("Emergency", html(self.doc.get(url)).split('class="nav"')[1].split("</aside>")[0], url)
+        approve(self.s)
+        self.assertNotIn("emergency-sheet", html(self.doc.get("/patient/1001/")))     # an open record needs no override
+        for url in ["/dashboard/", "/record/", "/access/"]:
+            self.assertNotIn("emergency", html(self.pat.get(url)).lower().split('<main class="content')[1].split("</main>")[0], url)
 
-    def test_the_pop_up_has_a_reason_box_with_a_counter_and_asks_for_the_patient_when_it_does_not_know(self):
-        page = html(self.doc.get("/dashboard/"))
-        dialog = re.search(r'<dialog id="emergency-dialog".*?</dialog>', page, re.S).group(0)
-        self.assertIn('maxlength="500"', dialog)
-        self.assertIn("data-counter", dialog)
-        self.assertIn('name="patient_id"', dialog)
-        self.assertIn("without the patient's approval", dialog)
+    def test_the_sheet_needs_a_reason_and_a_confirmation_and_posts_for_that_patient(self):
+        page = html(self.doc.get("/patient/1001/"))
+        sheet = re.search(r'<dialog id="emergency-sheet".*?</dialog>', page, re.S).group(0)
+        self.assertIn('action="/patient/1001/emergency/"', sheet)
+        self.assertIn('name="reason"', sheet)
+        self.assertIn('maxlength="500"', sheet)
+        self.assertIn("data-counter", sheet)
+        self.assertRegex(sheet, r'<input type="checkbox" name="confirm" required>')
+        self.assertIn("This skips Juan", sheet.replace("&#x27;s", "'s"))
+        self.assertIn("Your name, the time and your reason are logged", sheet)
+        self.assertNotIn('name="patient_id"', sheet)                         # it already knows who the patient is
 
-    def test_a_search_result_opens_the_pop_up_for_that_patient(self):
-        link = re.search(r"<a[^>]*data-patient-id=[^>]*>", html(self.doc.get("/patients/?q=1001"))).group(0)
-        self.assertIn('data-emergency', link)
-        self.assertIn('data-patient-id="1001"', link)
-        self.assertIn('data-patient-name="Juan Dela Cruz (PT-', link)
-        self.assertIn('href="/patient/1001/emergency/"', link)   # and without scripts it is a normal link
-
-
+    def test_without_scripts_the_emergency_page_is_still_reachable_for_that_patient(self):
+        page = html(self.doc.get("/patient/1001/emergency/"))
+        self.assertIn("Juan Dela Cruz", page)
+        self.assertIn('name="confirm"', page)
+        self.assertIn('name="reason"', page)
 class PatientPages(PageTestCase):
     def test_every_page_renders_with_the_patient_menu(self):
         for url in PATIENT_PAGES:
@@ -349,21 +379,24 @@ class PatientPages(PageTestCase):
             self.assertEqual(r.status_code, 200, url)
             self.assertIn("Juan Dela Cruz", html(r), url)
 
-    def test_the_menu_is_home_my_health_and_privacy(self):
+    def test_the_menu_is_home_my_record_and_access_with_show_my_qr_code_as_the_main_action(self):
         nav = re.search(r'<nav class="nav">(.*?)</nav>', html(self.pat.get("/dashboard/")), re.S).group(1)
-        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "My Health", "Privacy", "My QR Code"])
-        for gone in ["My Doctors", "Access Log", "Profile", "My Record"]:
+        self.assertEqual(re.findall(r"</svg>([A-Za-z ]+)(?:<span|</a>)", nav), ["Home", "My Record", "Access"])
+        page = html(self.pat.get("/dashboard/"))
+        self.assertIn("Show my QR code</a>", page.split('class="cta"')[1].split("</div>")[0])
+        for gone in ["My Doctors", "Access Log", "My Health", "Privacy"]:
             self.assertNotIn(gone, nav)
 
     def test_the_dashboard_shows_the_age_worked_out_from_the_date_of_birth(self):
         self.assertIn(f"{self.s.get_patient(1001).age} years", html(self.pat.get("/dashboard/")))
 
-    def test_my_health_has_everything_the_old_profile_had(self):
+    def test_my_record_shows_what_a_doctor_sees_and_opens_the_edit_sheet(self):
         page = html(self.pat.get("/record/"))
-        for text in ["PT-2026-01001", "0917 123 4567", "Member since", "O+", "Penicillin", "Appendectomy", "Edit my information"]:
+        for text in ["0917 123 4567", "O+", "Penicillin", "Appendectomy", "Consultation notes", "Basic info", "Edit my information"]:
             self.assertIn(text, page)
-        self.assertIn('data-open="edit"', page)
-        self.assertIn('id="edit"', page)
+        self.assertIn('data-sheet="edit-sheet"', page)
+        self.assertIn('<dialog id="edit-sheet"', page)
+        self.assertIn("PT-2026-01001", html(self.pat.get("/profile/")))
 
     def test_editing_info_replaces_the_lists_and_saves_them(self):
         r = self.pat.post("/record/edit/", {"allergies": "Peanuts, Latex", "surgeries": "", "medications": "Metformin",
@@ -380,50 +413,55 @@ class PatientPages(PageTestCase):
         self.assertEqual(self.s.get_patient(1001).record.allergies, ["Penicillin"])
 
     def test_home_asks_for_an_answer_first_and_the_buttons_work(self):
-        self.assertNotIn("Waiting for your answer", html(self.pat.get("/dashboard/")))
+        self.assertNotIn("Needs your answer", html(self.pat.get("/dashboard/")))
+        self.assertIn("Nothing needs your answer right now.", html(self.pat.get("/dashboard/")))
         request = self.s.request_access(self.s.get_doctor(2001), 1001)
         page = html(self.pat.get("/dashboard/"))
-        self.assertIn("Waiting for your answer", page)
-        self.assertIn("Dr. Reyes wants to open your record", page)
+        self.assertIn("Needs your answer", page)
+        self.assertIn("One request needs your answer.", page)
+        self.assertIn("Dr. Reyes wants to see your record", page)
         r = self.pat.post(f"/respond/{request.request_id}/approve/")
         self.assertEqual((r.status_code, r["Location"]), (302, "/dashboard/"))
-        self.assertNotIn("Waiting for your answer", html(self.pat.get("/dashboard/")))
+        self.assertNotIn("Needs your answer", html(self.pat.get("/dashboard/")))
         self.assertEqual(self.s.access_status(2001, 1001), "approved")
 
-    def test_privacy_groups_doctors_by_status_and_answers_requests(self):
+    def test_access_splits_requests_from_doctors_and_answers_requests(self):
         approved = approve(self.s)
         santos = self.s.register_doctor("Antonio Santos", PASSWORD, "Cardiology", "Northview Medical Center")
         waiting = self.s.request_access(santos, 1001)
-        page = html(self.pat.get("/privacy/"))
-        self.assertIn("Doctor in <b>General Medicine</b> at <b>Bayanihan Family Clinic</b>", page)
-        self.assertIn("Waiting for your answer", page)
-        self.assertIn("Can open your record", page)
-        r = self.pat.post(f"/respond/{waiting.request_id}/approve/", {"next": "privacy"})
-        self.assertEqual((r.status_code, r["Location"]), (302, "/privacy/"))
-        r = self.pat.post(f"/revoke/{approved.request_id}/", {"next": "privacy"})
-        self.assertEqual(r["Location"], "/privacy/")
-        self.assertIn("Past access", html(self.pat.get("/privacy/")))
+        self.assertIn("Waiting for your answer", html(self.pat.get("/access/")))             # a waiting request: Requests is the first tab
+        doctors = html(self.pat.get("/access/?tab=doctors"))
+        self.assertIn("General Medicine &middot; approved ", doctors)
+        self.assertNotIn("Northview", doctors)
+        r = self.pat.post(f"/respond/{waiting.request_id}/approve/", {"next": "access"})
+        self.assertEqual((r.status_code, r["Location"]), (302, "/access/"))
+        r = self.pat.post(f"/revoke/{approved.request_id}/", {"next": "access"})
+        self.assertEqual(r["Location"], "/access/")
+        self.assertNotIn("Dr. Reyes", html(self.pat.get("/access/?tab=doctors")).split('<main class="content')[1].split('</main>')[0])
 
-    def test_privacy_tab_counts_and_an_empty_state(self):
-        page = html(self.pat.get("/privacy/"))
-        self.assertIn("No doctor has asked for access yet", page)
-        self.assertRegex(page, r"Doctors <span>0</span>")
+    def test_access_tabs_and_empty_states(self):
+        page = html(self.pat.get("/access/"))                                                 # nothing waiting: starts on Doctors
+        self.assertIn("No doctor can open your record yet", page)
+        self.assertNotIn('Requests<span class="badge">', page)
+        self.assertIn("Nothing is waiting for you", html(self.pat.get("/access/?tab=requests")))
         approve(self.s)
-        self.assertRegex(html(self.pat.get("/privacy/")), r"Doctors <span>1</span>")
+        self.assertIn("Remove access", html(self.pat.get("/access/")))
 
     def test_the_activity_tab_mixes_record_views_and_emergency_uses_newest_first(self):
         approve(self.s)
         doctor = self.s.get_doctor(2001)
         self.s.open_record(doctor, 1001)
         self.s.emergency_access(doctor, 1001, "Collapsed in the lobby")
-        page = html(self.pat.get("/privacy/?tab=activity"))
-        self.assertRegex(page, r"Who opened my record <span>2</span>")
+        page = html(self.pat.get("/access/?tab=history"))
+        self.assertRegex(page, r"All <em>2</em>")
+        self.assertRegex(page, r"Approved <em>1</em>")
+        self.assertRegex(page, r"Emergency <em>1</em>")
         self.assertLess(page.index("used emergency access"), page.index("opened your record"))   # newest first
         self.assertIn("Reason: Collapsed in the lobby", page)
 
     def test_the_doctor_is_notified_with_the_patients_name(self):
         self.doc.post("/request/1001/")
-        self.pat.post(f"/respond/{rows('SELECT request_id FROM access_requests')[0]['request_id']}/approve/")
+        self.pat.post(f"/respond/{rows('SELECT request_id FROM tb_access_requests')[0]['request_id']}/approve/")
         self.assertTrue(any("Juan Dela Cruz approved" in n.message for n in self.s.inbox(2001)))
 
     def test_the_scanner_lives_on_its_own_page_not_on_patients(self):
@@ -432,7 +470,7 @@ class PatientPages(PageTestCase):
 
 class RolesStayApart(PageTestCase):
     def test_doctors_cannot_open_patient_pages(self):
-        for url in ["/record/", "/privacy/", "/privacy/?tab=activity"]:
+        for url in ["/record/", "/access/", "/access/?tab=history"]:
             self.assertEqual(self.doc.get(url).status_code, 302, url)
             self.assertEqual(self.doc.get(url)["Location"], "/dashboard/", url)
 
@@ -441,7 +479,7 @@ class RolesStayApart(PageTestCase):
             self.assertEqual(self.pat.get(url).status_code, 302, url)
         self.pat.post("/request/1001/")
         self.pat.post("/patient/1001/consult/", {"notes": "x"})
-        self.assertEqual((count("access_requests"), count("consultations")), (0, 0))
+        self.assertEqual((count("tb_access_requests"), count("tb_consultations")), (0, 0))
         self.assertEqual(self.pat.get("/patients/suggest/?q=juan").status_code, 403)
 
     def test_only_the_patient_who_owns_a_request_can_answer_or_revoke_it(self):

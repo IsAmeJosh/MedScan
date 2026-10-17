@@ -2,70 +2,43 @@
 {% block title %}Home{% endblock %}
 {% block content %}
 {% include "G_Welcome_Card.html" %}
-<div class="hero-doc">
-  <div>
-    <span class="eyebrow">{% now "l, F j" %}</span>
-    <h1>Hello, Dr. {{ user.name }}</h1>
-    <p>{{ ready|length }} patient{{ ready|length|pluralize }} {{ ready|length|pluralize:"is,are" }} ready to open and {{ stats.pending }} request{{ stats.pending|pluralize }} {{ stats.pending|pluralize:"is,are" }} waiting for an answer.</p>
-  </div>
-  <div class="row">
-    <a class="btn light" href="{% url 'patients' %}">{% icon "search" "sm" %}Find a patient</a>
-    <a class="btn outline-light" href="{% url 'emergency_form' %}" data-emergency>{% icon "shield" "sm" %}Emergency access</a>
-  </div>
-</div>
+<div class="head"><div>
+  <h1>{% greeting %}, Dr. {{ user.name }}</h1>
+  <p>Scan a patient's code to open their record, or search by ID.</p>
+</div></div>
 
-<div class="grid g4 eq mb-16">
-  <div class="card stat2"><div class="top-row"><span>Patients</span></div><div class="num">{{ stats.patients }}</div><div class="cap">have approved you</div></div>
-  <div class="card stat2"><div class="top-row"><span>Ready to open</span>{% if ready %}<span class="pill teal nodot">New</span>{% endif %}</div><div class="num">{{ ready|length }}</div><div class="cap">approved, not opened yet</div></div>
-  <div class="card stat2"><div class="top-row"><span>Waiting for an answer</span></div><div class="num">{{ stats.pending }}</div><div class="cap">requests you sent</div></div>
-  <div class="card stat2"><div class="top-row"><span>Notes written</span>{% if week_total %}<span class="pill green nodot">{{ week_total }} this week</span>{% endif %}</div><div class="num">{{ stats.notes }}</div><div class="cap">in total</div></div>
-</div>
-
-<div class="grid g2 eq">
-  <div class="card fill">
-    <div class="card-h">{% icon "check" %}<h2>Ready to open</h2>{% if ready %}<span class="pill teal ml-auto">{{ ready|length }} new</span>{% endif %}</div>
-    <div class="list">
+<div class="grid">
+  <div class="col">
+    <div class="card">
+      <div class="card-h"><h2>{% icon "users" %}Recent patients</h2><a class="link" href="{% url 'patients' %}">All patients</a></div>
       {% for p in ready %}
-        <a class="lr" href="{% url 'record' p.user_id %}">
-          <div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
-          <div class="grow"><b>{{ p.name }}</b><span class="sub">{{ p.sex }}, {{ p.age }} &middot; approved your request</span></div>
-          <span class="chev">{% icon "chev" "sm" %}</span>
+        <a class="row" href="{% url 'record' p.user_id %}">
+          <div class="avatar">{{ p.name|initials }}</div>
+          <div class="g"><b>{{ p.name }}</b><div class="s">{{ p.display_id }} &middot; approved your request</div></div>
+          <span class="pill green">Access</span><span class="faint">{% icon "chev" "sm" %}</span>
         </a>
-      {% empty %}<p class="empty">Nobody is waiting. When a patient approves a request, they show up here.</p>{% endfor %}
-    </div>
-  </div>
-
-  <div class="card fill">
-    <div class="card-h">{% icon "trend" %}<h2>Notes this week</h2><span class="muted small ml-auto">{{ week_total }} note{{ week_total|pluralize }}</span></div>
-    <div class="bars">
-      {% for d in week %}
-        <div class="bar{% if d.today %} today{% endif %}"><b>{{ d.count }}</b><i style="height:{{ d.height }}%"></i><span>{{ d.label }}</span></div>
       {% endfor %}
+      {% for p, when in recent %}
+        <a class="row" href="{% url 'record' p.user_id %}">
+          <div class="avatar">{{ p.name|initials }}</div>
+          <div class="g"><b>{{ p.name }}</b><div class="s">{{ p.display_id }} &middot; seen {{ when|day }}</div></div>
+          <span class="pill green">Access</span><span class="faint">{% icon "chev" "sm" %}</span>
+        </a>
+      {% endfor %}
+      {% if not ready and not recent %}<p class="empty">Nobody yet. Scan a patient's code, or search for them, and they show up here.</p>{% endif %}
     </div>
   </div>
 
-  <div class="card fill">
-    <div class="card-h">{% icon "history" %}<h2>Recently opened</h2><a class="link" href="{% url 'patients' %}">All patients</a></div>
-    <div class="list">
-      {% for p in recent %}
-        <a class="lr" href="{% url 'record' p.user_id %}">
-          <div class="avatar {{ p.user_id|tint }}">{{ p.name|initials }}</div>
-          <div class="grow"><b>{{ p.name }}</b><span class="sub">{{ p.display_id }}</span></div>
-          <span class="chev">{% icon "chev" "sm" %}</span>
+  <div class="col">
+    <div class="card">
+      <div class="card-h"><h2>{% icon "send" %}Waiting on patients</h2>{% if waiting %}<span class="pill amber">{{ waiting|length }}</span>{% endif %}</div>
+      {% for r, p in waiting %}
+        <a class="row" href="{% url 'record' p.user_id %}">
+          <div class="avatar">{{ p.name|initials }}</div>
+          <div class="g"><b>{{ p.name }}</b><div class="s">{{ p.display_id }} &middot; requested {{ r.created_at|day }}</div></div>
+          <span class="pill amber">Waiting</span>
         </a>
-      {% empty %}<p class="empty">Records you open show up here. To find a patient, use the search box above (press / to jump to it).</p>{% endfor %}
-    </div>
-  </div>
-
-  <div class="card fill">
-    <div class="card-h">{% icon "bell" %}<h2>Latest activity</h2></div>
-    <div class="feed">
-      {% for n in feed %}
-        <a class="f" href="{% url 'notification_open' n.notification_id %}">
-          <span class="dot{% if n.is_read %} read{% endif %}"></span>
-          <div><b>{{ n.message }}</b><div class="t">{{ n.timestamp|ago }}</div></div>
-        </a>
-      {% empty %}<p class="empty">Answers to your requests show up here.</p>{% endfor %}
+      {% empty %}<p class="empty">No requests are waiting. Answers to the requests you send show up here.</p>{% endfor %}
     </div>
   </div>
 </div>
