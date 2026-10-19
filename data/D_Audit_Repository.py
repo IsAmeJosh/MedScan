@@ -1,5 +1,6 @@
 """Reads and writes the audit trail: record views, emergency openings and QR scans."""
 from models.M_Emergency_Log import EmergencyLog
+from models.M_Health_Change import HealthChange
 from models.M_QR_Scan import QRScan
 from models.M_Record_View import RecordView
 
@@ -48,6 +49,22 @@ class AuditRepository:
             cur.execute("SELECT 1 FROM tb_emergency_logs WHERE doctor_id = %s AND patient_id = %s "
                         "AND created_at > NOW(6) - INTERVAL %s HOUR LIMIT 1", (doctor_id, patient_id, hours))
             return cur.fetchone() is not None
+
+    # ---- changes a doctor made to a patient's health details ----
+    def add_health_change(self, doctor_id, patient_id, action, kind, item_name):
+        """Record that a doctor added, changed or removed an item (action is added, changed or removed). Returns its ID."""
+        with self.db.cursor() as cur:
+            cur.execute("INSERT INTO tb_health_log (doctor_id, patient_id, action, kind, item_name) VALUES (%s, %s, %s, %s, %s)",
+                        (doctor_id, patient_id, action, kind, item_name))
+            return cur.lastrowid
+
+    def health_changes_for_patient(self, patient_id):
+        """Everything doctors changed in this patient's health details, newest first."""
+        with self.db.cursor() as cur:
+            cur.execute("SELECT log_id, doctor_id, patient_id, action, kind, item_name, created_at FROM tb_health_log "
+                        "WHERE patient_id = %s ORDER BY log_id DESC", (patient_id,))
+            return [HealthChange(row["log_id"], row["doctor_id"], row["patient_id"], row["action"], row["kind"], row["item_name"],
+                                 row["created_at"]) for row in cur.fetchall()]
 
     # ---- QR scans ----
     def add_scan(self, doctor_id, patient_id):

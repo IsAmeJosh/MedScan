@@ -5,12 +5,13 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from urllib.parse import urlencode
 
-from django.http import JsonResponse
+from django.http import Http404, HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
 
 from data.D_Database import Database
-from logic.L_MedScan_System import MedScanSystem
+from gui import G_Details as details
+from logic.L_MedScan_System import FieldErrors, MedScanSystem, NotAllowed
 from models.M_Scan_Result import ScanResult
 
 db = Database.from_environment()
@@ -189,6 +190,8 @@ def dashboard(request):
             "waiting": groups["waiting"],
             "team": groups["with_access"][:3],
             "activity": system.activity_for_patient(user.user_id)[:3],
+            "health_sheets": details.build_health_sheets(user, user, request.session.pop("sheet_form", None),
+                                                         kinds=("medication", "vaccine"), only_new=True),
         })
     return render(request, "G_Doctor_Dashboard.html", {
         "ready": system.unopened_patients_for_doctor(user.user_id),
@@ -231,21 +234,122 @@ def profile(request):
     if not user:
         return redirect("login")
     month = system.month_counts_for_doctor(user.user_id) if user.role == "Doctor" else None
-    return render(request, "G_Profile.html", {"month": month})
+    names = ("work",) if user.role == "Doctor" else ("personal", "emergency")
+    flash = request.session.pop("sheet_form", None)
+    health = details.build_health_sheets(user, user, flash, only_new=True) if user.role == "Patient" else []
+    return render(request, "G_Profile.html", {"month": month, "sheets": details.build_sheets(user, names, flash), "health_sheets": health})
 
 
-def profile_contact(request):
-    """Save the mobile number from the Profile page's "Edit contact info" sheet (patients and doctors)."""
+# The pages an edit sheet may send the person back to (the page the sheet was opened on).
+SHEET_PAGES = ("/profile/", "/record/", "/dashboard/")
+
+
+def _page_after_save(request, patient_id=None, default="/profile/"):
+    """The page to return to after a sheet is saved or fails: the form's 'next' field, but only one of our own pages that can hold
+    a sheet (and, for a doctor, only that patient's page). Anything else goes to the default, so a made-up form cannot send someone
+    to another site."""
+    target = request.POST.get("next", "")
+    allowed = SHEET_PAGES if patient_id is None else (f"/patient/{patient_id}/",)
+    return target if target.startswith(allowed) and "//" not in target else default
+
+
+def edit_details(request, sheet):
+    """Save one edit sheet: the sheet sends only its own fields, and only those are saved. When every box passes, the
+    person goes back to the page they were on with the teal "Saved" message. When a box does not, they go back with
+    the sheet open again, their typing kept and a plain message under each wrong box (the messages wait in the session
+    for that one page)."""
     user = current_user(request)
     if not user:
         return redirect("login")
-    if request.method == "POST":
-        try:
-            system.update_contact_number(user.user_id, request.POST.get("contact_number", ""))
-            messages.success(request, "Your contact number was updated.")
-        except ValueError as error:
-            messages.error(request, str(error))
-    return redirect("profile")
+    sheets = details.sheets_for(user.role)
+    if request.method != "POST" or sheet not in sheets:
+        return redirect("profile")
+    given = {field: request.POST.get(field, "") for field in sheets[sheet][1]}
+    errors = {}
+    try:
+        if user.role == "Doctor":
+            try:
+                system.update_contact_number(user.user_id, given["contact_number"])
+            except ValueError as error:
+                raise FieldErrors({"contact_number": str(error)}) from error
+        else:
+            system.update_patient_details(user.user_id, given)
+    except FieldErrors as error:
+        errors = error.errors
+    page = _page_after_save(request)
+    if not errors:
+        messages.success(request, "Saved")
+        return redirect(page)
+    request.session["sheet_form"] = {"sheet": sheet, "values": given, "errors": errors}
+    return redirect(page + ("&" if "?" in page else "?") + "sheet=edit-" + sheet)      # the page opens that sheet again
+
+
+def _health_patient_id(actor, pid):
+    """Whose health details a request is about: a patient's are always their own (an address that names someone else gives None),
+    and a doctor names the patient in the address."""
+    if actor.role == "Patient":
+        return actor.user_id if pid is None or pid == actor.user_id else None
+    return pid
+
+
+def _health_default_page(actor, patient_id):
+    """Where to go after a health item request that came without a 'next' page: the Medical tab of the person's record."""
+    return "/record/?tab=medical" if actor.role == "Patient" else f"/patient/{patient_id}/?tab=medical"
+
+
+def save_health(request, kind, pid=None):
+    """Add or change one allergy, condition, medication or vaccine. The sheet posts the boxes of its kind (and an item_id when it
+    is changing an item). The patient edits their own record; a doctor edits a patient's only while that record is open to them, and
+    a locked record answers 403. A wrong box sends the person back with the sheet open again and a plain message under the box."""
+    actor = current_user(request)
+    if not actor:
+        return redirect("login")
+    patient_id = _health_patient_id(actor, pid)
+    if patient_id is None:
+        return HttpResponseForbidden("This is not your record.")
+    if actor.role == "Doctor" and not system.patient_exists(patient_id):
+        raise Http404
+    page = _page_after_save(request, None if actor.role == "Patient" else patient_id, _health_default_page(actor, patient_id))
+    if request.method != "POST":
+        return redirect(page)
+    if kind not in MedScanSystem.HEALTH_FIELDS:
+        raise Http404
+    given = {field: request.POST.get(field, "") for field in MedScanSystem.HEALTH_FIELDS[kind]}
+    item_id = int(request.POST["item_id"]) if request.POST.get("item_id", "").isdigit() else None
+    try:
+        system.save_health_item(actor, patient_id, kind, given, item_id)
+    except NotAllowed:
+        return HttpResponseForbidden("This record is not open to you.")
+    except LookupError:
+        raise Http404
+    except FieldErrors as error:
+        sheet = f"{kind}-{item_id if item_id else 'new'}"
+        request.session["sheet_form"] = {"sheet": sheet, "values": given, "errors": error.errors}
+        return redirect(page + ("&" if "?" in page else "?") + "sheet=edit-" + sheet)      # the page opens that sheet again
+    messages.success(request, "Saved")
+    return redirect(page)
+
+
+def remove_health(request, item_id, pid=None):
+    """Remove one allergy, condition, medication or vaccine (the sheet's Remove button asks "Remove [name]?" first). The same
+    rules as save_health decide who may do it."""
+    actor = current_user(request)
+    if not actor:
+        return redirect("login")
+    patient_id = _health_patient_id(actor, pid)
+    if patient_id is None:
+        return HttpResponseForbidden("This is not your record.")
+    page = _page_after_save(request, None if actor.role == "Patient" else patient_id, _health_default_page(actor, patient_id))
+    if request.method != "POST":
+        return redirect(page)
+    try:
+        system.remove_health_item(actor, patient_id, item_id)
+    except NotAllowed:
+        return HttpResponseForbidden("This record is not open to you.")
+    except LookupError:
+        raise Http404
+    messages.success(request, "Removed")
+    return redirect(page)
 
 
 def qr_page(request):
@@ -311,24 +415,13 @@ def my_record(request):
     patient = _patient(request)
     if not patient:
         return redirect("dashboard")
+    names = ("basic", "contact", "emergency", "surgeries")
+    flash = request.session.pop("sheet_form", None)
     return render(request, "G_My_Record.html", {
-        "record": patient.record, "blood_types": system.BLOOD_TYPES, "authors": system.note_authors(patient.record),
+        "record": patient.record, "authors": system.note_authors(patient.record),
+        "sheets": details.build_sheets(patient, names, flash),
+        "health_sheets": details.build_health_sheets(patient, patient, flash),
     })
-
-
-def update_info(request):
-    """Patient edits their allergies, surgeries, medications, blood type and mobile number."""
-    patient = _patient(request)
-    if patient and request.method == "POST":
-        f = request.POST
-        try:
-            system.update_patient_info(patient.user_id, f.get("allergies", ""), f.get("surgeries", ""),
-                                       f.get("medications", ""), f.get("blood_type", ""),
-                                       f.get("contact_number", ""))
-            messages.success(request, "Your information was updated.")
-        except ValueError as error:
-            messages.error(request, str(error))
-    return redirect("my_record")
 
 
 def access(request):
@@ -404,6 +497,18 @@ def search(request):
     return render(request, "G_Search.html", {"q": q, "results": system.find_patients(doctor.user_id, q)})
 
 
+def search_results(request):
+    """Only the results part of the Search page (the count and the list, or the "no patient found" panel). The page asks
+    for it as the doctor types, so the results change without the page reloading. Typing is not a reason to renew an idle
+    session by itself."""
+    request.medscan_passive = True
+    doctor = _doctor(request)
+    if not doctor:
+        return JsonResponse({"ok": False}, status=403)
+    q = request.GET.get("q", "").strip()
+    return render(request, "G_Search_Results.html", {"q": q, "results": system.find_patients(doctor.user_id, q)})
+
+
 def patient_suggest(request):
     """The search box's suggestions: this doctor's own patients matching what is typed. Never anyone else."""
     request.medscan_passive = True   # Typing in a box is not a reason to renew the session by itself.
@@ -437,7 +542,8 @@ def patient_record(request, pid):
     if patient:
         return render(request, "G_Patient.html", {
             "patient": patient, "record": patient.record, "open": True, "link": system.patient_link(doctor.user_id, patient),
-            "emergency": not system.has_access(doctor.user_id, pid)})
+            "emergency": not system.has_access(doctor.user_id, pid),
+            "health_sheets": details.build_health_sheets(patient, doctor, request.session.pop("sheet_form", None))})
     patient = system.get_patient(pid, with_record=False)
     return render(request, "G_Patient.html", {
         "patient": patient, "open": False, "link": system.patient_link(doctor.user_id, patient)})

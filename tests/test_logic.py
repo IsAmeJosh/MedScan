@@ -192,6 +192,7 @@ class Registration(unittest.TestCase):
         record = self.s.get_patient(1001).record
         self.assertEqual((record.allergies, record.surgeries, record.medications, record.blood_type),
                          (["Peanuts"], [], ["Metformin"], "A+"))
+        self.assertEqual([i.added_by_role for i in record.allergies + record.medications], ["patient", "patient"])
 
     def test_authenticate(self):
         self.assertEqual(self.s.authenticate(2001, "doc123").name, "Reyes")

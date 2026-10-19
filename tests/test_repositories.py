@@ -33,8 +33,8 @@ class Persistence(unittest.TestCase):
         G_Views.db.reset_data()
 
     def test_every_table_received_rows(self):
-        expected = {"tb_doctors": 2, "tb_patients": 2, "tb_medical_items": 5, "tb_consultations": 2, "tb_access_requests": 3,
-                    "tb_emergency_logs": 1, "tb_record_views": 1}
+        expected = {"tb_doctors": 2, "tb_patients": 2, "tb_medical_items": 1, "tb_health_items": 5, "tb_health_log": 1,
+                    "tb_consultations": 2, "tb_access_requests": 3, "tb_emergency_logs": 1, "tb_record_views": 1}
         for table, n in expected.items():
             self.assertEqual(count(table), n, table)
         self.assertGreaterEqual(count("tb_notifications"), 5)
@@ -207,14 +207,16 @@ class SeedAndSchema(unittest.TestCase):
                          (2001, "Reyes", "doc123", "Bayanihan Family Clinic"))
         self.assertEqual((patient["patient_id"], patient["name"], patient["password"], patient["blood_type"]),
                          (1001, "Juan Dela Cruz", "pat123", "O+"))
-        self.assertEqual([r["item_name"] for r in rows("SELECT item_name FROM tb_medical_items ORDER BY item_id")],
-                         ["Penicillin", "Appendectomy"])
+        self.assertEqual([r["item_name"] for r in rows("SELECT item_name FROM tb_medical_items ORDER BY item_id")], ["Appendectomy"])
+        (allergy,) = rows("SELECT * FROM tb_health_items")
+        self.assertEqual((allergy["kind"], allergy["name"], allergy["severity"], allergy["added_by_role"], allergy["added_by_id"]),
+                         ("allergy", "Penicillin", "Severe", "patient", 1001))
 
     def test_prepare_can_run_again_without_duplicating_anything(self):
         s = committed_system(self)
         s.db.prepare()
         s.db.prepare()
-        self.assertEqual((count("tb_doctors"), count("tb_patients"), count("tb_medical_items")), (1, 1, 2))
+        self.assertEqual((count("tb_doctors"), count("tb_patients"), count("tb_medical_items"), count("tb_health_items")), (1, 1, 1, 1))
 
     def test_reset_data_goes_back_to_the_test_accounts_and_numbers(self):
         s = committed_system(self)

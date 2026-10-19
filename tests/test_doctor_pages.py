@@ -89,17 +89,18 @@ class WorkingOutTheLinks(unittest.TestCase):
         self.assertEqual(len(self.s.filter_links(links, "nonsense")), 4)
         self.assertIsNotNone(again)
 
-    def test_search_finds_anyone_by_id_or_mobile_but_a_name_only_finds_your_own(self):
-        found = self.s.find_patients(2001, "1001")
+    def test_a_stranger_is_found_only_by_the_whole_id_and_your_own_patients_by_part_of_the_id_or_name(self):
+        found = self.s.find_patients(2001, "PT-2026-01001")
         self.assertEqual([(l.patient.user_id, l.kind) for l in found], [(1001, "locked")])
-        self.assertEqual(self.s.find_patients(2001, "0917 123 4567")[0].patient.user_id, 1001)
-        self.assertEqual(self.s.find_patients(2001, "juan"), [])                     # not theirs yet
+        for text in ("1001", "01001", "PT-2026-0100", "PT-2026", "0917 123 4567", "juan"):
+            self.assertEqual(self.s.find_patients(2001, text), [], text)              # not theirs yet: a stranger stays hidden
         approve(self.s)
         self.assertEqual([(l.patient.name, l.kind) for l in self.s.find_patients(2001, "juan")], [("Juan Dela Cruz", "access")])
+        self.assertEqual(len(self.s.find_patients(2001, "PT-2026-0100")), 1)
 
     def test_search_never_lists_a_patient_twice_and_ignores_nonsense(self):
         approve(self.s)
-        self.assertEqual(len(self.s.find_patients(2001, "1001")), 1)                 # found by ID and by being theirs
+        self.assertEqual(len(self.s.find_patients(2001, "PT-2026-01001")), 1)       # found by the whole ID and by being theirs
         for text in ("", "   ", None, "zzz", "2001", "9999999"):
             self.assertEqual(self.s.find_patients(2001, text), [], text)
 
@@ -183,12 +184,12 @@ class ThePages(unittest.TestCase):
         self.assertIn("Your request is with Juan", waiting)
 
     def test_search_results_open_the_patient_page_and_say_where_things_stand(self):
-        page = self.main(self.doc.get("/search/?q=1001"))
+        page = self.main(self.doc.get("/search/?q=PT-2026-01001"))
         self.assertIn('href="/patient/1001/"', page)
         self.assertIn('<span class="pill grey">Locked</span>', page)
         self.doc.post("/request/1001/")
-        self.assertIn('<span class="pill amber">Waiting</span>', self.main(self.doc.get("/search/?q=1001")))
-        self.assertIn('value="1001"', html(self.doc.get("/search/?q=1001")))          # the box keeps what was typed
+        self.assertIn('<span class="pill amber">Waiting</span>', self.main(self.doc.get("/search/?q=PT-2026-01001")))
+        self.assertIn('value="PT-2026-01001"', html(self.doc.get("/search/?q=PT-2026-01001")))          # the box keeps what was typed
 
     def test_the_top_bar_and_the_phone_tab_both_lead_to_search(self):
         page = html(self.doc.get("/dashboard/"))

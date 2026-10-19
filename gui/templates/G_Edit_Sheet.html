@@ -1,0 +1,33 @@
+{% comment %}
+  The one edit sheet for a person's own details and for a health item. Every panel's Edit (or Add) link opens one of these, with only that
+  panel's boxes. Needs: sheet (from G_Details: id, title, action, the boxes, and for an item its id, name and remove_url) and next (the page
+  to come back to). It posts to sheet.action, which saves only the boxes it is given. A sheet for an existing item has a red Remove button
+  at the bottom left that asks "Remove [name]?" first.
+{% endcomment %}
+<dialog id="{{ sheet.id }}" class="sheet">
+  <form method="post" action="{{ sheet.action }}" class="sheet-in" novalidate>{% csrf_token %}
+    <input type="hidden" name="next" value="{{ next }}">
+    {% if sheet.item_id %}<input type="hidden" name="item_id" value="{{ sheet.item_id }}">{% endif %}
+    <div class="grab"></div>
+    <div class="sheet-h"><h2>{{ sheet.title }}</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
+    {% for f in sheet.fields %}
+      <div class="field{% if f.error %} has-error{% endif %}">
+        <label for="{{ sheet.id }}-{{ f.name }}">{{ f.label }}</label>
+        {% if f.kind == "select" %}
+          <select id="{{ sheet.id }}-{{ f.name }}" name="{{ f.name }}">{% for option in f.choices %}<option value="{{ option.value }}"{% if option.value == f.value %} selected{% endif %}>{{ option.label }}</option>{% endfor %}</select>
+        {% elif f.kind == "chips" %}
+          <input id="{{ sheet.id }}-{{ f.name }}" name="{{ f.name }}" data-chips placeholder="Type one, press Enter" value="{{ f.value }}">
+        {% else %}
+          <input id="{{ sheet.id }}-{{ f.name }}" name="{{ f.name }}" type="text" inputmode="{{ f.inputmode }}" placeholder="{{ f.placeholder }}" value="{{ f.value }}"{% if f.format %} data-format="{{ f.format }}"{% endif %}{% if f.error %} aria-invalid="true"{% endif %} autocomplete="off">
+        {% endif %}
+        {% if f.error %}<p class="field-error" role="alert">{{ f.error }}</p>{% endif %}
+      </div>
+    {% endfor %}
+    {# Save comes first in the markup so that pressing Enter in a box saves (the first button is the one Enter presses). The styles put Remove on the left, then Cancel, then Save. #}
+    <div class="sheet-actions">
+      <button type="submit" class="btn primary lg save" data-submit>Save</button>
+      <button type="button" class="btn lg cancel" data-close>Cancel</button>
+      {% if sheet.remove_url %}<button type="submit" class="btn ghost red remove" formaction="{{ sheet.remove_url }}" formnovalidate data-confirm="It will be taken out of the record." data-confirm-title="Remove {{ sheet.item_name }}?" data-confirm-button="Remove" data-confirm-tone="danger">Remove</button>{% endif %}
+    </div>
+  </form>
+</dialog>

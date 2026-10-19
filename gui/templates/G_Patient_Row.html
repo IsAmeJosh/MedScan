@@ -1,10 +1,12 @@
-{# One line of a patient list. Needs: link (a PatientLink). Opens that patient's page. #}
+{# One line of a patient list. Needs: link (a PatientLink). With q (what was typed in Search) the matching part is marked. Opens that patient's page. #}
+{% with typed=q|default:"" %}
 <a class="row" href="{% url 'record' link.patient.user_id %}">
   <div class="avatar">{{ link.patient.name|initials }}</div>
   <div class="g">
-    <b>{{ link.patient.name }}</b>
-    <div class="s">{{ link.patient.display_id }} &middot; {{ link.patient.sex }}, {{ link.patient.age }}{% if detail %} &middot; {% if link.kind == "access" %}{% if link.approved_by_qr %}QR scan {{ link.when|day }}{% else %}allowed {{ link.when|day }}{% endif %}{% elif link.kind == "waiting" %}asked {{ link.when|day }}{% elif link.kind == "emergency" %}emergency, ended {{ link.ends|day }}{% elif link.kind == "denied" %}declined {{ link.when|day }}{% endif %}{% endif %}</div>
+    <b>{{ link.patient.name|highlight:typed }}</b>
+    <div class="s">{{ link.patient.display_id|highlight:typed }} &middot; {{ link.patient.sex }}, {{ link.patient.age }}{% if detail %} &middot; {% if link.kind == "access" %}{% if link.approved_by_qr %}QR scan {{ link.when|day }}{% else %}allowed {{ link.when|day }}{% endif %}{% elif link.kind == "waiting" %}asked {{ link.when|day }}{% elif link.kind == "emergency" %}emergency, ended {{ link.ends|day }}{% elif link.kind == "denied" %}declined {{ link.when|day }}{% endif %}{% endif %}</div>
   </div>
   <span class="pill {% if link.kind == 'access' %}green{% elif link.kind == 'waiting' %}amber{% elif link.kind == 'emergency' %}red{% elif link.kind == 'denied' %}declined{% else %}grey{% endif %}">{{ link.label }}</span>
   <span class="faint">{% icon "chev" "sm" %}</span>
 </a>
+{% endwith %}

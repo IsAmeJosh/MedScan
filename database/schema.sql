@@ -1,4 +1,5 @@
--- MedScan database schema, version 1.
+-- MedScan database schema, version 3 (version 2 added a patient's height, weight and emergency contact; version 3 added the
+-- health items: allergies, conditions, medications and vaccines, each with who added it and when).
 -- MedScan runs this file by itself on startup. Every table is created only if it is missing, so it is safe to run again.
 -- You can also import it by hand in phpMyAdmin.
 --
@@ -39,9 +40,17 @@ CREATE TABLE IF NOT EXISTS tb_patients (
     blood_type          VARCHAR(3)   NOT NULL DEFAULT '',   -- '' means not set
     password_changed_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     created_year        SMALLINT     NOT NULL,
+    height_cm              SMALLINT      NULL,                -- optional: NULL means not added
+    weight_kg              DECIMAL(4,1)  NULL,                -- optional: NULL means not added
+    emergency_name         VARCHAR(100)  NOT NULL DEFAULT '', -- the emergency contact: '' means not added
+    emergency_relationship VARCHAR(50)   NOT NULL DEFAULT '',
+    emergency_mobile       VARCHAR(11)   NOT NULL DEFAULT '',
     UNIQUE KEY uq_patients_mobile (mobile_number),
     CONSTRAINT ck_patients_mobile CHECK (mobile_number REGEXP '^09[0-9]{9}$'),
-    CONSTRAINT ck_patients_blood  CHECK (blood_type IN ('', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'))
+    CONSTRAINT ck_patients_blood  CHECK (blood_type IN ('', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
+    CONSTRAINT ck_patients_height CHECK (height_cm IS NULL OR height_cm BETWEEN 50 AND 250),
+    CONSTRAINT ck_patients_weight CHECK (weight_kg IS NULL OR weight_kg BETWEEN 2 AND 300),
+    CONSTRAINT ck_patients_emergency_mobile CHECK (emergency_mobile = '' OR emergency_mobile REGEXP '^09[0-9]{9}$')
 ) ENGINE=InnoDB AUTO_INCREMENT=1001;
 
 -- ---------------------------------------------------------------- a patient's record
@@ -54,6 +63,40 @@ CREATE TABLE IF NOT EXISTS tb_medical_items (
     item_name  VARCHAR(200) NOT NULL,
     INDEX ix_medical_items_patient (patient_id),
     CONSTRAINT fk_medical_items_patient FOREIGN KEY (patient_id) REFERENCES tb_patients (patient_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- an allergy, a condition, a medication or a vaccine, with who added it and when
+CREATE TABLE IF NOT EXISTS tb_health_items (
+    item_id       INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id    INT          NOT NULL,
+    kind          ENUM('allergy', 'condition', 'medication', 'vaccine') NOT NULL,
+    name          VARCHAR(200) NOT NULL,                  -- the allergen, the condition, the medicine or the vaccine
+    severity      ENUM('Mild', 'Moderate', 'Severe') NULL, -- allergies only
+    reaction      VARCHAR(200) NOT NULL DEFAULT '',        -- allergies only: '' means not added
+    status        ENUM('Active', 'Managed', 'Resolved') NULL, -- conditions only
+    dose          VARCHAR(100) NOT NULL DEFAULT '',        -- medications only
+    frequency     VARCHAR(100) NOT NULL DEFAULT '',        -- medications only: how often
+    date_on       DATE         NULL,                       -- diagnosed (condition), started (medication) or given on (vaccine)
+    added_by_role ENUM('patient', 'doctor') NOT NULL,
+    added_by_id   INT          NOT NULL,
+    added_by_name VARCHAR(100) NOT NULL,
+    added_at      DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    INDEX ix_health_items_patient (patient_id, kind),
+    CONSTRAINT fk_health_items_patient FOREIGN KEY (patient_id) REFERENCES tb_patients (patient_id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- what a doctor added, changed or removed in a patient's health details (the patient sees it in Access, History)
+CREATE TABLE IF NOT EXISTS tb_health_log (
+    log_id     INT AUTO_INCREMENT PRIMARY KEY,
+    patient_id INT          NOT NULL,
+    doctor_id  INT          NOT NULL,
+    action     ENUM('added', 'changed', 'removed') NOT NULL,
+    kind       ENUM('allergy', 'condition', 'medication', 'vaccine') NOT NULL,
+    item_name  VARCHAR(200) NOT NULL,
+    created_at DATETIME(6)  NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    INDEX ix_health_log_patient (patient_id),
+    CONSTRAINT fk_health_log_patient FOREIGN KEY (patient_id) REFERENCES tb_patients (patient_id) ON DELETE CASCADE,
+    CONSTRAINT fk_health_log_doctor  FOREIGN KEY (doctor_id)  REFERENCES tb_doctors (doctor_id)  ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE IF NOT EXISTS tb_consultations (
@@ -149,4 +192,4 @@ CREATE TABLE IF NOT EXISTS tb_notifications (
     INDEX ix_notifications_recipient (recipient_id, is_read)
 ) ENGINE=InnoDB;
 
-INSERT IGNORE INTO tb_schema_version (version) VALUES (1);
+INSERT IGNORE INTO tb_schema_version (version) VALUES (3);

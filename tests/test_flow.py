@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from django.test import Client
 
 from gui.G_Filters import ago
-from tests.helpers import (BORN, PASSWORD, approve, count, execute, fresh_system, html, login, new_patient, rows)
+from tests.helpers import (BORN, PASSWORD, add_health_samples, approve, count, execute, fresh_system, html, login, new_patient, rows)
 
 
 class Doctors(unittest.TestCase):
@@ -299,10 +299,10 @@ class ThePageFrame(unittest.TestCase):
             self.assertIn(script, doctor)
             self.assertIn(script, patient)
 
-    def test_the_top_bar_has_the_search_box_with_its_shortcut_hint_and_suggestion_area(self):
+    def test_the_top_bar_has_the_search_box_with_its_suggestion_area_and_no_key_badge(self):
         page = html(self.doc.get("/dashboard/"))
         self.assertIn('data-suggest-url="/patients/suggest/"', page)
-        self.assertIn('<kbd title="Press / to search">/</kbd>', page)
+        self.assertNotIn("<kbd", page)
         self.assertIn('id="suggest" hidden', page)
         self.assertNotIn("top-search", html(self.pat.get("/dashboard/")))
 
@@ -374,15 +374,15 @@ class SignUpAndHomeScreens(unittest.TestCase):
         """Home has the ID card, the waiting requests and the recent activity."""
         self.assertNotIn("Finish your health profile", html(self.pat.get("/dashboard/")))
 
-    def test_an_empty_allergy_list_says_none_recorded_not_no_known_allergies(self):
+    def test_an_empty_allergy_list_says_not_added_not_no_known_allergies(self):
         bare = new_patient(self.s, "Bare", PASSWORD, "F", BORN)
         approve(self.s, 2001, bare.user_id)
         mine = login(bare.user_id, PASSWORD)
         pages = [html(mine.get("/dashboard/")), html(mine.get("/record/")), html(self.doc.get(f"/patient/{bare.user_id}/"))]
         for page in pages:
             self.assertNotIn("No known allergies", page)
-        self.assertIn("None recorded", pages[1])      # My Record
-        self.assertIn("None recorded", pages[2])      # the doctor's page
+        self.assertIn("Not added", pages[1])      # My Record
+        self.assertIn("Not added", pages[2])      # the doctor's page
 
     def test_the_doctor_home_has_the_two_panels_of_the_design(self):
         page = html(self.doc.get("/dashboard/"))
@@ -477,6 +477,7 @@ class QrCodePage(unittest.TestCase):
     def test_the_words_speak_to_the_user_not_to_a_reviewer(self):
         for client in (self.pat, self.doc):
             page = html(client.get("/qr/", follow=True)).split('<main class="content')[1].split('<div class="toasts"')[0]
+            page = re.sub(r'placeholder="[^"]*"', "", page)                    # the boxes' own hints are not words on the page
             for jargon in ("will work", "Preview", "Coming soon", "not a real", "laceholder"):
                 self.assertNotIn(jargon, page)
         self.assertIn("When they scan it, they can open your record right away and it is logged.", html(self.pat.get("/dashboard/")))
@@ -705,7 +706,7 @@ class CareHistoryPlaceholders(unittest.TestCase):
                                    "contact_number": "0917 000 5555"})
         page = html(client.get("/record/"))
         care = page.split('data-pane="care"')[1].split('data-pane="medical"')[0]
-        self.assertIn("Not recorded", care)
+        self.assertIn("Not added", care)
         for sample in ("Northview", "Maria Reyes", "Hidden from doctors"):
             self.assertNotIn(sample, care)
         medical = page.split('data-pane="medical"')[1].split('data-pane="info"')[0]
@@ -822,7 +823,7 @@ class ShellAndSettings(unittest.TestCase):
 
     def test_the_header_lines_are_the_designs_words(self):
         self.assertIn("Everyone you can see, or have asked to see.", html(self.doc.get("/patients/")))
-        self.assertIn("Search by MedScan ID. You'll send them a request to open their record.", html(self.doc.get("/search/")))
+        self.assertIn("Search by MedScan ID or name. You'll send them a request to open their record.", html(self.doc.get("/search/")))
         self.assertIn("History can't be edited or cleared.", html(self.pat.get("/access/?tab=history")))
         self.assertNotIn("History can't be edited or cleared.", html(self.pat.get("/access/?tab=doctors")))
 
@@ -831,8 +832,9 @@ class ShellAndSettings(unittest.TestCase):
         header = page.split('<main class="content">')[1].split('<div class="utabs">')[0]
         self.assertNotIn("Edit my information", header)
         self.assertNotIn("data-sheet", header)
-        self.assertIn('<h2>Basic info</h2><a class="link" href="#" data-sheet="edit-sheet">Edit</a>', page)
-        self.assertIn('<dialog id="edit-sheet"', page)
+        self.assertIn('<h2>Basic info</h2><a class="link" href="#" data-sheet="edit-basic">Edit</a>', page)
+        self.assertIn('<dialog id="edit-basic"', page)
+        self.assertNotIn('id="edit-sheet"', page)                              # the old combined sheet is gone
         info = page.split('data-pane="info"')[1]
         self.assertEqual(re.findall(r"<span>([A-Za-z &;]+)</span><b>", info),
                          ["Date of birth", "Age", "Sex", "Blood type", "Height", "Weight", "Mobile", "Name", "Relationship", "Mobile"])
@@ -897,7 +899,7 @@ class PatientProfile(unittest.TestCase):
                          ["Personal details", "Emergency contact", "Health at a glance", "Recent care"])
         self.assertEqual(re.findall(r"<span>([A-Za-z ]+)</span><b>", main),
                          ["Date of birth", "Age", "Sex", "Blood type", "Mobile", "Name", "Relationship", "Mobile",
-                          "Allergies", "Conditions", "Medication", "Last vaccine", "Given on"])
+                          "Allergies", "Conditions", "Medication", "Last vaccine"])
         self.assertEqual(re.findall(r'class="link"[^>]*>([A-Za-z ]+)</a>', main), ["Edit", "Edit", "My Record", "Care history"])
         self.assertNotIn("Security", main)
         self.assertNotIn('class="btn" data-sheet="contact-sheet"', main)   # the old button under the details is gone
@@ -912,26 +914,31 @@ class PatientProfile(unittest.TestCase):
 
     def test_personal_details_edit_opens_the_mobile_sheet_and_emergency_contact_edit_does_nothing(self):
         page = html(self.pat.get("/profile/"))
-        self.assertIn('<h2>Personal details</h2><a class="link" href="#" data-sheet="contact-sheet">Edit</a>', page)
-        self.assertIn('<h2>Emergency contact</h2><a class="link" href="#">Edit</a>', page)
-        self.assertIn('<dialog id="contact-sheet"', page)
+        self.assertIn('<h2>Personal details</h2><a class="link" href="#" data-sheet="edit-personal">Edit</a>', page)
+        self.assertIn('<h2>Emergency contact</h2><a class="link" href="#" data-sheet="edit-emergency">Edit</a>', page)
+        self.assertIn('<dialog id="edit-personal"', page)
+        self.assertIn('<dialog id="edit-emergency"', page)
+        self.assertNotIn("contact-sheet", page)                                # the old combined sheet is gone
 
     def test_the_demo_patient_shows_the_sample_values(self):
+        add_health_samples(self.s)
         main = self.main(self.pat)
         for sample in ("Maria Dela Cruz", "Mother", "0918 765 4321", "Hypertension", "Last vaccine</span><b>Flu shot</b>", "Given on</span><b>Sep 14, 2026</b>"):
             self.assertIn(sample, main)
         self.assertNotIn("Not recorded", main)
+        self.assertNotIn("None recorded", main)
 
     def test_every_other_account_says_not_recorded_instead_of_borrowing_the_samples(self):
         client = Client()
         client.post("/register/", {"role": "Patient", "name": "Zed", "password": PASSWORD, "date_of_birth": BORN,
                                    "contact_number": "0917 000 3333"})
         main = self.main(client)
-        self.assertEqual(main.count("Not recorded"), 7)                   # 3 emergency contact rows, conditions, last vaccine, given on, recent care
+        self.assertEqual(main.count("Not added"), 6)                      # blood type, allergies, conditions, medication, last vaccine and recent care
+        self.assertNotIn("Given on</span>", main)                                # shown only when a vaccine exists
         for sample in ("Maria Dela Cruz", "Hypertension", "Flu shot", "0918 765 4321"):
             self.assertNotIn(sample, main)
         record = html(client.get("/record/")).split('data-pane="info"')[1]
-        self.assertEqual(record.count("Not recorded"), 5)                 # height, weight, and the three emergency contact rows
+        self.assertNotIn("Not recorded", record)
 
     def test_recent_care_repeats_the_sample_entries_of_the_care_history_tab(self):
         main = self.main(self.pat)
@@ -942,7 +949,7 @@ class PatientProfile(unittest.TestCase):
 
     def test_the_doctors_profile_keeps_its_own_page_until_the_doctor_pages_are_done(self):
         page = html(login(2001, "doc123").get("/profile/"))
-        self.assertIn("Edit contact info", page)
+        self.assertIn('data-sheet="edit-work"', page)
         self.assertIn("Specialty", page)
 
 
@@ -975,12 +982,12 @@ class MyRecordAsTheDesignDrawsIt(unittest.TestCase):
         self.assertIn("General Medicine &middot; 2 notes</div>", self.pane("notes"))
 
     def test_medical_has_allergies_medications_conditions_surgeries_and_vaccinations_in_order(self):
-        self.s.update_patient_info(1001, "Penicillin, Peanuts", "Appendectomy", "Amlodipine 5 mg daily", "O+", "09171234567")
+        add_health_samples(self.s)
         medical = self.pane("medical")
         self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', medical),
                          ["Allergies", "Medications", "Conditions", "Past surgeries", "Vaccinations"])
         self.assertIn('<span>Penicillin</span><b><span class="atag">Severe</span>Hives, ER visit Jan 12, 2025</b>', medical)
-        self.assertIn('<span class="atag mod">Moderate</span>Swelling', medical)       # moderate is the amber pill
+        self.assertIn('<span>Peanuts</span><b><span class="atag mod">Moderate</span>Swelling</b>', medical)       # moderate is the amber pill
         self.assertIn("<span>Appendectomy</span><b>Aug 9, 2021</b>", medical)
         self.assertIn("<span>Hospital</span><b>Northview Medical Center</b>", medical)
         self.assertIn("<span>Hypertension</span><b>Managed</b>", medical)
@@ -988,10 +995,13 @@ class MyRecordAsTheDesignDrawsIt(unittest.TestCase):
         self.assertIn("<span>Tetanus (Td)</span><b>May 20, 2021</b>", medical)
 
     def test_a_medication_is_split_into_the_drug_and_its_dose(self):
-        self.s.update_patient_info(1001, "Penicillin", "Appendectomy", "Amlodipine 5 mg daily, Aspirin", "O+", "09171234567")
+        patient = self.s.get_patient(1001)
+        self.s.save_health_item(patient, 1001, "medication", {"name": "Amlodipine", "dose": "5 mg", "frequency": "daily"})
+        self.s.save_health_item(patient, 1001, "medication", {"name": "Aspirin"})
         medical = self.pane("medical")
-        self.assertIn("<span>Amlodipine</span><b>5 mg daily</b>", medical)
-        self.assertIn("<span>Aspirin</span><b>Not recorded</b>", medical)
+        self.assertIn("<span>Amlodipine</span><b>5 mg</b>", medical)
+        self.assertIn("<span>How often</span><b>daily</b>", medical)
+        self.assertIn('<span>Aspirin</span><b><span class="faint">Not added</span></b>', medical)
 
     def test_the_tab_panes_use_the_designs_columns(self):
         page = html(self.pat.get("/record/"))
@@ -1119,7 +1129,8 @@ class DoctorPagesAsTheDesignDrawsIt(unittest.TestCase):
         self.pat = login(1001, "pat123")
 
     def main(self, url, client=None):
-        return html((client or self.doc).get(url)).split('<main class="content">')[1].split("</main>")[0]
+        page = html((client or self.doc).get(url)).split('<main class="content')[1]
+        return page.split(">", 1)[1].split("</main>")[0]
 
     # ---- Home (20)
     def test_home_has_today_and_recent_notes(self):
@@ -1162,7 +1173,7 @@ class DoctorPagesAsTheDesignDrawsIt(unittest.TestCase):
         self.assertIn('<span class="pill declined">Declined</span>', self.main("/patients/", santos))
 
     def test_search_results_are_one_panel_and_a_stranger_is_locked(self):
-        main = self.main("/search/?q=1001")
+        main = self.main("/search/?q=PT-2026-01001")
         self.assertRegex(main, r'<div class="panel">\s*<div class="list">')
         self.assertIn('<span class="pill grey">Locked</span>', main)
 
@@ -1221,14 +1232,14 @@ class DoctorPagesAsTheDesignDrawsIt(unittest.TestCase):
         self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', main), ["Work details", "This month"])
         self.assertEqual(re.findall(r"<span>([A-Za-z .]+)</span><b>", main),
                          ["Specialty", "Clinic", "License no.", "Mobile", "Patients seen", "Notes written", "QR scans", "Emergency access"])
-        self.assertIn('<a class="link" href="#" data-sheet="contact-sheet">Edit</a>', main)
+        self.assertIn('<a class="link" href="#" data-sheet="edit-work">Edit</a>', main)
         self.assertIn("PRC 0123456", main)                                       # the sample, for demo doctor 2001 only
 
     def test_another_doctor_reads_not_recorded_for_the_licence(self):
         client = Client()
         client.post("/register/", {"role": "Doctor", "name": "Cruz", "password": PASSWORD, "specialty": "ENT"})
         main = self.main("/profile/", client)
-        self.assertIn("License no.</span><b>Not recorded</b>", main)
+        self.assertIn("License no.</span><b>Not added</b>", main)
         self.assertNotIn("PRC 0123456", main)
 
     def test_this_month_counts_what_the_doctor_did(self):
@@ -1325,6 +1336,7 @@ class OneLinePerPanelAndFullDates(unittest.TestCase):
         self.assertRegex(html(self.doc.get("/dashboard/")), r"[A-Z][a-z]{2} \d+, \d{4} &middot; BP ok\.")
 
     def test_the_sample_dates_match_the_design(self):
+        add_health_samples(self.s)
         record = html(self.pat.get("/record/"))
         for date in ("Nov 8, 2024", "Aug 9, 2021", "last Mar 7, 2025", "last Oct 16, 2026", "last Oct 15, 2026", "Jan 12, 2025", "Jun 3, 2024",
                      "Sep 14, 2026", "May 20, 2021"):

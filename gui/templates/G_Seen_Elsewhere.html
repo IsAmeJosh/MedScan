@@ -1,7 +1,7 @@
 {% comment %}
   demo placeholder. "Seen elsewhere" on the doctor's patient page is hard-coded sample data, the same entries as the care history
   tab (G_Care_History.html). MedScan does not store visits to other places yet, so nothing here comes from the database.
-  Only patient 1001 has the sample entries, every other patient reads "Not recorded". Needs: patient.
+  Only patient 1001 has the sample entries, every other patient reads "Not added". Needs: patient.
 {% endcomment %}
 <div class="panel">
 <section class="sec">
@@ -12,7 +12,7 @@
     <div class="row"><div class="ic red">{% icon "alert" "sm" %}</div><div class="g"><b>ER visit: Penicillin reaction</b><div class="s">Jan 12, 2025 &middot; Mabini General Hospital</div></div></div>
     <div class="row"><div class="ic">{% icon "stethoscope" "sm" %}</div><div class="g"><b>Consultation: Dr. Jose Lim</b><div class="s">Oct 15, 2026 &middot; Mabini Skin Center</div></div></div>
     <div class="row"><div class="ic">{% icon "hidden" "sm" %}</div><div class="g"><b>1 entry hidden by the patient</b><div class="s">You can't see what it is</div></div></div>
-    {% else %}<p class="empty">Not recorded</p>{% endif %}
+    {% else %}<p class="empty">Not added</p>{% endif %}
   </div>
 </section>
 </div>

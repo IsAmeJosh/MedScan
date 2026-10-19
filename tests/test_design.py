@@ -136,20 +136,23 @@ class TheSharedGrid(unittest.TestCase):
         ])
         self.assertIn(".panel>.sec-h,.panel>.card-h,.panel>.sec>.sec-h,.card>.card-h{padding-bottom:14px!important;border-bottom:1px solid var(--line)!important;margin-bottom:8px}", self.css)
 
+    def run_of(self, expected):
+        """True when these lines appear one after the other, with nothing between them, in the stylesheet."""
+        css_lines = [line for line in self.css.splitlines() if line.strip()]
+        return any(css_lines[i:i + len(expected)] == expected for i in range(len(css_lines)))
+
     def test_panels_are_only_as_tall_as_their_content(self):
         self.assertIn(".grid{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:var(--gap);align-items:start}", self.css)
         self.assertNotIn("align-items:stretch", self.clean)
         self.assertNotIn("flex:1 1 auto", self.clean)
-        lines = [line for line in self.css.rstrip().splitlines() if line]
-        self.assertEqual(lines[-13:-10], [
+        self.assertTrue(self.run_of([
             ".grid{align-items:start!important}",
             ".grid>.col>:last-child,.grid>.col>.panel{flex:0 0 auto!important}",
             ".grid>.panel,.grid>.card{align-self:start}",
-        ])
+        ]))
 
-    def test_the_end_of_the_stylesheet_has_the_designs_row_rules_in_order(self):
-        lines = [line for line in self.css.rstrip().splitlines() if line]
-        self.assertEqual(lines[-10:-3], [
+    def test_the_stylesheet_ends_with_the_designs_own_blocks_in_order(self):
+        self.assertTrue(self.run_of([
             ".kvs .kv{align-items:flex-start!important;min-height:0!important;padding:12px 0!important;line-height:1.45}",
             ".kvs .kv>b{align-items:flex-start}",
             "@media(max-width:760px){.kvs .kv>span{width:104px!important}}",
@@ -157,15 +160,29 @@ class TheSharedGrid(unittest.TestCase):
             '.kvs .kv>span::after{content:":"}',
             ".kvs .kv>b{font-weight:400!important;color:#12333A}",
             ".panel .row,.panel .list>*,.panel .kv{border-top:0!important;border-bottom:0!important}",
-        ])
+        ]))
+        last = [line for line in self.css.splitlines() if line.strip()][-1]
+        self.assertTrue(last.startswith(".s-empty{"))                          # the search block is the last thing in the file
 
     def test_allergy_and_severity_tags_are_soft_pills_and_moderate_is_amber(self):
-        lines = [line for line in self.css.rstrip().splitlines() if line]
-        self.assertEqual(lines[-3:], [
+        self.assertTrue(self.run_of([
             ".atag{display:inline-flex;align-items:center;height:24px;padding:0 10px;margin:-2px 6px -2px 0;border-radius:999px;background:#FDECEA;color:#B42318!important;font-size:12.5px;font-weight:600;line-height:1}",
             ".atag:before{display:none}",
             ".atag.mod{background:#FEF3E2;color:#9A5B00!important}",
-        ])
+        ]))
+
+    def test_the_search_block_is_the_designs_option_a(self):
+        self.assertTrue(self.run_of([
+            "/* s9 - doctor search (option A) */",
+            ".search-page .tsearch{display:none!important}",
+            ".sx{display:flex;align-items:center;gap:12px;height:52px;border:1.5px solid var(--brand);border-radius:12px;padding:0 8px 0 16px;background:var(--surface);box-shadow:0 0 0 4px var(--brand-tint);font-size:16px;color:var(--ink)}",
+            ".sx input{flex:1;border:0;outline:0;background:none;font:inherit;color:inherit;min-width:0}",
+            ".sx .clr{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--base);color:var(--muted)}",
+            ".cnt{font-size:13px;color:var(--muted);margin:20px 0 10px}",
+            ".search-page mark{background:#D7F0EC;color:inherit;border-radius:3px;padding:0}",
+            ".s-empty{display:block!important;text-align:center;padding:36px 16px;color:var(--muted);font-size:14px}.s-empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}",
+        ]))
+
 
     def test_no_panel_has_a_line_between_its_sections_because_a_second_heading_is_its_own_panel(self):
         self.assertNotIn(".sec + .sec", self.css)

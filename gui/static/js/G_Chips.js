@@ -83,8 +83,19 @@
     wrap.addEventListener('click', function (event) { if (event.target === wrap) { typed.focus(); } });
     if (original.form) { original.form.addEventListener('submit', commit, true); }
 
-    each(splitList(original.value), add);
+    var start = original.value;
+    each(splitList(start), add);
     sync();
+
+    // When the sheet is closed without saving, its form is reset: the chips go back to what the page started with.
+    if (original.form) {
+      original.form.addEventListener('reset', function () {
+        items = [];
+        typed.value = '';
+        each(splitList(start), add);
+        sync();
+      });
+    }
   }
 
   each(document.querySelectorAll('[data-chips]'), setup);

@@ -1,0 +1,40 @@
+{% comment %}
+  The Medical tab, for the patient (My Record) and for a doctor whose access to the record is open. Needs: person (the patient), record,
+  viewer (whoever is looking). Every panel has Add in its header and tapping an item opens its sheet (the sheets are on the page, see
+  G_Edit_Sheet.html). Past surgeries has its own sheet for the patient. Only demo patient 1001 shows the placeholder details of the
+  surgery (the hospital and date are not stored), everyone else reads "Not added".
+{% endcomment %}
+<div class="grid half">
+  <div class="col">
+    <div class="panel">
+      <div class="sec-h"><h2>Allergies</h2><a class="link" href="#" data-sheet="edit-allergy-new">Add</a></div>
+      {% if record.allergies %}<div class="kvs">{% for item in record.allergies %}{% include "G_Health_Item.html" %}{% endfor %}</div>{% else %}<p class="empty">Not added</p>{% endif %}
+    </div>
+  </div>
+  <div class="col">
+    <div class="panel">
+      <div class="sec-h"><h2>Medications</h2><a class="link" href="#" data-sheet="edit-medication-new">Add</a></div>
+      {% if record.medications %}<div class="kvs">{% for item in record.medications %}{% include "G_Health_Item.html" %}{% endfor %}</div>{% else %}<p class="empty">Not added</p>{% endif %}
+    </div>
+  </div>
+</div>
+<div class="grid half">
+  <div class="col">
+    <div class="panel">
+      <div class="sec-h"><h2>Conditions</h2><a class="link" href="#" data-sheet="edit-condition-new">Add</a></div>
+      {% if record.conditions %}<div class="kvs">{% for item in record.conditions %}{% include "G_Health_Item.html" %}{% endfor %}</div>{% else %}<p class="empty">Not added</p>{% endif %}
+    </div>
+    <div class="panel">
+      <div class="sec-h"><h2>Past surgeries</h2>{% if viewer.role == "Patient" %}<a class="link" href="#" data-sheet="edit-surgeries">{% if record.surgeries %}Edit{% else %}Add{% endif %}</a>{% endif %}</div>
+      {% if record.surgeries %}<div class="kvs">
+        {% for s in record.surgeries %}<div class="kv"><span>{{ s }}</span><b>{% if person.user_id == 1001 and s == "Appendectomy" %}Aug 9, 2021{% else %}<span class="faint">Not added</span>{% endif %}</b></div>{% if person.user_id == 1001 and s == "Appendectomy" %}<div class="kv"><span>Hospital</span><b>Northview Medical Center</b></div>{% endif %}{% endfor %}
+      </div>{% else %}<p class="empty">Not added</p>{% endif %}
+    </div>
+  </div>
+  <div class="col">
+    <div class="panel">
+      <div class="sec-h"><h2>Vaccinations</h2><a class="link" href="#" data-sheet="edit-vaccine-new">Add</a></div>
+      {% if record.vaccines %}<div class="kvs">{% for item in record.vaccines %}{% include "G_Health_Item.html" %}{% endfor %}</div>{% else %}<p class="empty">Not added</p>{% endif %}
+    </div>
+  </div>
+</div>

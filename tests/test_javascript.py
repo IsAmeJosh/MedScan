@@ -23,6 +23,9 @@ class RunScripts(unittest.TestCase):
     def test_formatting_and_form_rules(self):
         self.assertIn("checks", self.run_script("format_test.js"))
 
+    def test_every_pop_up_closes_on_an_outside_press_and_escape_and_forgets_what_was_typed(self):
+        self.assertIn("checks", self.run_script("overlay_test.js"))
+
     def test_every_page_script_starts_cleanly(self):
         output = self.run_script("smoke_test.js")
         for script in STATIC_JS.glob("G_*.js"):

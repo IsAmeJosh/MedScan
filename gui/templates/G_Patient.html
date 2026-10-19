@@ -52,11 +52,11 @@
           <section class="sec">
             <div class="sec-h"><h2>At a glance</h2></div>
             <div class="list"><div class="kvs">
-              <div class="kv"><span>Medication</span><b>{{ record.medications|join:", "|default:"None recorded" }}</b></div>
-              <div class="kv"><span>Surgeries</span><b>{{ record.surgeries|join:", "|default:"None recorded" }}</b></div>
+              {% include "G_Detail_Row.html" with label="Medication" value=record.medications|join:", " sheet="edit-medication-new" %}
+              {% include "G_Detail_Row.html" with label="Surgeries" value=record.surgeries|join:", " %}
               {# demo placeholder: the date of a surgery is not stored. Only patient 1001 shows the sample date. #}
-              <div class="kv"><span>Surgery date</span><b>{% if patient.user_id == 1001 %}Aug 9, 2021{% else %}Not recorded{% endif %}</b></div>
-              <div class="kv"><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
+              {% if patient.user_id == 1001 %}<div class="kv"><span>Surgery date</span><b>Aug 9, 2021</b></div>{% else %}{% include "G_Detail_Row.html" with label="Surgery date" value="" %}{% endif %}
+              {% include "G_Detail_Row.html" with label="Blood type" value=record.blood_type %}
             </div></div>
           </section>
         </div>
@@ -69,28 +69,46 @@
     </div>
 
     <div class="pane" data-pane="medical">
-      <div class="stack narrow">
-        <div class="card"><div class="card-h"><h2>{% icon "alert" %}Allergies</h2></div>
-          <div class="card-b tight">{% for a in record.allergies %}<span class="tag red">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div></div>
-        <div class="card"><div class="card-h"><h2>{% icon "pill" %}Medications</h2></div>
-          <div class="card-b tight">{% for m in record.medications %}<span class="tag">{{ m }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div></div>
-        <div class="card"><div class="card-h"><h2>{% icon "pulse" %}Past surgeries</h2></div>
-          <div class="card-b tight">{% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div></div>
-      </div>
+      {% include "G_Medical_Tab.html" with person=patient viewer=user %}
     </div>
 
     <div class="pane" data-pane="info">
-      <div class="card narrow">
-        <div class="card-h"><h2>{% icon "user" %}Basic info</h2></div>
-        <div class="kv"><span>Patient ID</span><b>{{ patient.display_id }}</b></div>
-        <div class="kv"><span>Sex</span><b>{{ patient.sex }}</b></div>
-      <div class="kv"><span>Age</span><b>{{ patient.age }}</b></div>
-        <div class="kv"><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
-        <div class="kv"><span>Contact</span><b>{{ patient.contact_number|mobile|default:"Not set" }}</b></div>
-        <div class="kv"><span>Notes</span><b>{{ record.consultations|length }}</b></div>
+      <div class="grid half">
+        <div class="col">
+          <div class="panel">
+            <div class="sec-h"><h2>Basic info</h2></div>
+            <div class="kvs">
+              <div class="kv"><span>Date of birth</span><b>{{ patient.date_of_birth|date:"M j, Y" }}</b></div>
+              <div class="kv"><span>Age</span><b>{{ patient.age }}</b></div>
+              <div class="kv"><span>Sex</span><b>{{ patient.sex }}</b></div>
+              {% include "G_Detail_Row.html" with label="Blood type" value=record.blood_type %}
+              {% include "G_Detail_Row.html" with label="Height" value=patient.height_cm|measure:"cm" %}
+              {% include "G_Detail_Row.html" with label="Weight" value=patient.weight_kg|measure:"kg" %}
+            </div>
+          </div>
+        </div>
+        <div class="col">
+          <div class="panel">
+            <div class="sec-h"><h2>Contact</h2></div>
+            <div class="kvs"><div class="kv"><span>Mobile</span><b>{{ patient.contact_number|mobile }}</b></div></div>
+          </div>
+          <div class="panel">
+            <div class="sec-h"><h2>Emergency contact</h2></div>
+            {% if patient.has_emergency_contact %}
+            <div class="kvs">
+              {% include "G_Detail_Row.html" with label="Name" value=patient.emergency_name %}
+              {% include "G_Detail_Row.html" with label="Relationship" value=patient.emergency_relationship %}
+              {% include "G_Detail_Row.html" with label="Mobile" value=patient.emergency_mobile|mobile %}
+            </div>
+            {% else %}<p class="empty">No emergency contact yet</p>{% endif %}
+          </div>
+        </div>
       </div>
     </div>
   </div>
+
+  {% url 'record' patient.user_id as here %}
+  {% for sheet in health_sheets %}{% include "G_Edit_Sheet.html" with sheet=sheet next=here|add:"?tab=medical" %}{% endfor %}
 
 {% else %}
   <div class="panel lockrow">

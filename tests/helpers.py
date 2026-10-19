@@ -111,6 +111,7 @@ def build_sample_data(system):
     system.add_consultation(reyes, 1001, "Headache for 3 days. Rest advised. Café intake reduced.")
     system.add_consultation(reyes, 1001, "Follow-up: resolved.")
     system.open_record(reyes, 1001)
+    system.save_health_item(reyes, 1001, "condition", {"name": "Hypertension", "status": "Managed", "date_on": "06/03/2024"})   # a doctor's entry (logged)
     denied = system.request_access(santos, 1001)
     system.respond_to_request(denied.request_id, 1001, False)
     system.request_access(santos, ana.user_id)
@@ -118,3 +119,14 @@ def build_sample_data(system):
     system.revoke_access(approved.request_id, 1001)
     system.mark_inbox_read(1001)
     return santos, ana
+
+
+def add_health_samples(system, patient_id=1001):
+    """Give a patient a few health items to look at (the plain test database only has Penicillin), all added by the patient."""
+    patient = system.get_patient(patient_id)
+    for kind, given in (("allergy", {"name": "Peanuts", "severity": "Moderate", "reaction": "Swelling"}),
+                        ("condition", {"name": "Hypertension", "status": "Managed", "date_on": "06/03/2024"}),
+                        ("medication", {"name": "Amlodipine", "dose": "5 mg", "frequency": "once daily"}),
+                        ("vaccine", {"name": "Flu shot", "date_on": "09/14/2026"}),
+                        ("vaccine", {"name": "Tetanus (Td)", "date_on": "05/20/2021"})):
+        system.save_health_item(patient, patient_id, kind, given)

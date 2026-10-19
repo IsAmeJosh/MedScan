@@ -28,8 +28,7 @@ class MobileNumbers(unittest.TestCase):
     def test_the_message_tells_the_user_what_to_type(self):
         with self.assertRaises(ValueError) as caught:
             MedScanSystem._check_contact("12345")
-        self.assertEqual(str(caught.exception),
-                         "Enter a valid mobile number, like 09171234567 or +63 917 123 4567.")
+        self.assertEqual(str(caught.exception), "Enter an 11-digit mobile number starting with 09, like 0917 123 4567.")
 
     def test_registering_and_editing_normalise_the_number(self):
         s = fresh_system(self)
@@ -138,7 +137,7 @@ class WebsiteMessages(unittest.TestCase):
         self.assertIn("Name is too long", html(r))
         r = client.post("/register/", {"role": "Patient", "name": "Zed", "password": PASSWORD,
                                        "date_of_birth": BORN, "contact_number": "12345"})
-        self.assertIn("Enter a valid mobile number", html(r))
+        self.assertIn("Enter an 11-digit mobile number", html(r))
         self.assertIn('value="Zed"', html(r))
         r = client.post("/register/", {"role": "Patient", "name": "Zed", "password": "abc", "date_of_birth": BORN})
         self.assertIn("Password must be 6 to 25 characters.", html(r))

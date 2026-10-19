@@ -3,6 +3,7 @@ a patient answers, or someone registers. It keeps no data of its own. Every ques
 goes to MySQL through the repositories in data/, so the database is always the source of truth."""
 import re
 from datetime import date, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 
 from data.D_Access_Repository import AccessRepository
 from data.D_Audit_Repository import AuditRepository
@@ -10,11 +11,27 @@ from data.D_Doctor_Repository import DoctorRepository
 from data.D_Notification_Repository import NotificationRepository
 from data.D_Patient_Repository import PatientRepository
 from data.D_QR_Repository import QRRepository
+from models.M_Health_Item import HealthItem
 from models.M_Medical_Record import BLOOD_TYPES, MedicalRecord
 from models.M_Patient_Link import PatientLink
 from models.M_QR_Code import QRCode
 from models.M_QR_Token import QRToken
 from models.M_Scan_Result import ScanResult
+
+
+class FieldErrors(ValueError):
+    """Raised when one or more fields of a form are wrong. errors maps each wrong field's name to a message written for the
+    person to read, so the page can show every message under its own field."""
+
+    def __init__(self, errors):
+        """Keep the messages, {field name: message}."""
+        super().__init__(" ".join(errors.values()))
+        self.errors = errors
+
+
+class NotAllowed(Exception):
+    """Raised when someone tries to change a record they may not change: a doctor with no open access to the patient's record, or a
+    patient editing someone else's. The page answers it with 403."""
 
 
 class MedScanSystem:
@@ -29,9 +46,22 @@ class MedScanSystem:
     PASSWORD_LENGTH = (6, 25)    # The shortest and longest password allowed.
     MAX_AGE_YEARS = 120
     # The longest text allowed per field. The sizes match the MySQL columns, so a save can never overflow.
-    LIMITS = {"Name": 100, "Sex": 20, "Specialty": 100, "Clinic": 150,
+    LIMITS = {"Name": 100, "Sex": 20, "Specialty": 100, "Clinic": 150, "Emergency contact name": 100, "Relationship": 50,
+              "Allergen": 200, "Condition": 200, "Medication": 200, "Vaccine": 200, "Reaction": 200, "Dose": 100, "How often": 100,
               "Each allergy, surgery or medication": 200, "Consultation notes": 5000, "Emergency reason": 500}
     DATE_FORMAT = "%m/%d/%Y"     # How a date of birth is typed in the forms: 04/04/2004 (month/day/year).
+    HEIGHT_CM = (50, 250)        # The range of a height a patient may enter, in centimetres.
+    WEIGHT_KG = (2, 300)         # The range of a weight a patient may enter, in kilograms.
+    SEXES = ("Male", "Female")
+    # The details a patient may edit from the edit sheets (each sheet sends only its own fields).
+    PATIENT_DETAILS = ("date_of_birth", "sex", "blood_type", "height_cm", "weight_kg", "contact_number", "emergency_name",
+                       "emergency_relationship", "emergency_mobile", "surgeries")
+    # The health items: which details each kind has (the first is always the name), and the choices.
+    SEVERITIES = ("Mild", "Moderate", "Severe")
+    STATUSES = ("Active", "Managed", "Resolved")
+    HEALTH_FIELDS = {"allergy": ("name", "severity", "reaction"), "condition": ("name", "status", "date_on"),
+                     "medication": ("name", "dose", "frequency", "date_on"), "vaccine": ("name", "date_on")}
+    HEALTH_LABELS = {"allergy": "Allergen", "condition": "Condition", "medication": "Medication", "vaccine": "Vaccine"}
     # The ways a mobile number may be written: 09171234567, +639171234567 or 639171234567.
     MOBILE_NUMBER = re.compile(r"(?:\+?63|0)(9\d{9})")
 
@@ -88,21 +118,207 @@ class MedScanSystem:
         return self.get_user(user_id, with_record=False)
 
     def update_patient_info(self, patient_id, allergies, surgeries, medications, blood_type, contact_number):
-        """Let a patient edit their own history (allergies, surgeries, medications, blood type) and their mobile
-        number. Everything is checked before anything is changed, so a mistake in one field cannot leave the record
-        half updated. Returns the patient, or None."""
-        contact_number = self._check_contact(contact_number, required=True)
-        self._ensure_mobile_free(contact_number, except_id=patient_id)
-        blood_type = self._check_blood_type(blood_type)
-        # Check everything first, so nothing is changed when one field is wrong.
-        self._check_items(allergies, surgeries, medications)
+        """Set a patient's history from comma-separated names in one go: surgeries, blood type and mobile number as in
+        update_patient_details, and the allergies and medications as health items added by the patient (items with a name that
+        is already there keep their details, the others go). Returns the patient, or None."""
+        self._check_items(allergies, medications)
+        patient = self.update_patient_details(patient_id, {"surgeries": surgeries, "blood_type": blood_type,
+                                                           "contact_number": contact_number})
+        if patient is None:
+            return None
+        for kind, text in (("allergy", allergies), ("medication", medications)):
+            names = []
+            for piece in (text or "").split(","):
+                piece = piece.strip()
+                if piece and piece.lower() not in [name.lower() for name in names]:
+                    names.append(piece)
+            self._patients.replace_health_names(patient_id, kind, names, "patient", patient_id, patient.name)
+        return self._patients.get(patient_id)
+
+    def update_patient_details(self, patient_id, given):
+        """Save the details a patient edited. given is {field: text} and holds only the fields of one edit sheet (see
+        PATIENT_DETAILS); every other detail is left exactly as it was. All the fields are checked first, and if any is
+        wrong a FieldErrors says what is wrong with each, and nothing is saved. Returns the updated patient, or None
+        if there is no such patient."""
+        unknown = set(given) - set(self.PATIENT_DETAILS)
+        if unknown:
+            raise ValueError(f"These details cannot be edited: {', '.join(sorted(unknown))}.")
+        clean, errors = {}, {}
+        for field, raw in given.items():
+            try:
+                clean[field] = self._check_detail(field, raw, patient_id)
+            except ValueError as error:
+                errors[field] = str(error)
+        if errors:
+            raise FieldErrors(errors)
         patient = self._patients.get(patient_id)
         if not patient:
             return None
-        patient.contact_number = contact_number
-        patient.update_history(allergies, surgeries, medications, blood_type)
-        self._patients.update_info(patient_id, contact_number, patient.record)
-        return patient
+        surgeries = clean.pop("surgeries", None)
+        if surgeries is not None:
+            patient.record.replace_surgeries(surgeries)
+        self._patients.update_details(patient_id, clean, patient.record if surgeries is not None else None)
+        return self._patients.get(patient_id)
+
+    def _check_detail(self, field, raw, patient_id):
+        """Check one detail of a patient and return it ready to save, or raise a ValueError with a plain message."""
+        text = (raw if isinstance(raw, str) else str(raw if raw is not None else "")).strip()
+        if field == "date_of_birth":
+            return self._check_birth_date(text)
+        if field == "sex":
+            if text not in self.SEXES:
+                raise ValueError("Choose Male or Female.")
+            return text
+        if field == "blood_type":
+            if text not in BLOOD_TYPES:
+                raise ValueError("Choose a blood type from the list.")
+            return text
+        if field == "height_cm":
+            return self._check_measure(text, self.HEIGHT_CM, "Height", "cm", whole=True)
+        if field == "weight_kg":
+            return self._check_measure(text, self.WEIGHT_KG, "Weight", "kg", whole=False)
+        if field == "contact_number":
+            mobile = self._check_contact(text, required=True)
+            self._ensure_mobile_free(mobile, except_id=patient_id)
+            return mobile
+        if field == "emergency_mobile":
+            return self._check_contact(text)
+        if field == "emergency_name":
+            return self._limit(text, "Emergency contact name")
+        if field == "emergency_relationship":
+            return self._limit(text, "Relationship")
+        self._check_items(text)                      # surgeries: a comma-separated list
+        return text
+
+    @staticmethod
+    def _check_measure(text, limits, label, unit, whole):
+        """A height or a weight: blank means not added (None), otherwise a number inside the limits. Heights are whole
+        centimetres, weights may have one decimal."""
+        if not text:
+            return None
+        low, high = limits
+        try:
+            number = Decimal(re.sub(r"\s*" + unit + "$", "", text, flags=re.I))
+        except InvalidOperation:
+            raise ValueError(f"Enter your {label.lower()} as a number of {'centimetres' if unit == 'cm' else 'kilograms'}, like "
+                             f"{'170' if unit == 'cm' else '68'}.") from None
+        if not low <= number <= high:
+            raise ValueError(f"{label} must be between {low} and {high} {unit}.")
+        if whole and number != number.to_integral_value():
+            raise ValueError(f"Enter your height as a whole number of centimetres, like 170.")
+        return int(number) if whole else number.quantize(Decimal("0.1"))
+
+    # ---- the health items: allergies, conditions, medications and vaccines ----
+    def can_edit_health(self, actor, patient_id):
+        """True when this person may change the patient's health details: the patient always (their own), a doctor only while
+        the patient's record is open to them (the patient allowed them, or an emergency opening is running). A locked
+        record stays read-only."""
+        if actor.role == "Patient":
+            return actor.user_id == patient_id
+        return self.can_view_record(actor.user_id, patient_id)
+
+    def save_health_item(self, actor, patient_id, kind, given, item_id=None):
+        """Add an item (item_id None) or change one, for the patient. given holds the details of that kind (see
+        HEALTH_FIELDS). Everything is checked first: a FieldErrors says what is wrong with each box and nothing is saved. Who
+        added the item and when is kept, and it is not changed by an edit. When a doctor does it, the patient is told and
+        it is logged for their Access history. Raises NotAllowed when the actor may not edit this record, and LookupError for an
+        unknown kind or an item that is not this patient's. Returns the saved HealthItem."""
+        if kind not in self.HEALTH_FIELDS:
+            raise LookupError(f"Unknown kind: {kind}")
+        if not self.can_edit_health(actor, patient_id):
+            raise NotAllowed("This record is not open to you.")
+        values = self._check_health(kind, given)
+        if item_id is None:
+            saved_id = self._patients.add_health_item(patient_id, kind, values, actor.role.lower(), actor.user_id, actor.name)
+            action = "added"
+        else:
+            self._existing_health_item(patient_id, kind, item_id)
+            self._patients.update_health_item(item_id, values)
+            saved_id, action = item_id, "changed"
+        self._tell_about_health_change(actor, patient_id, action, kind, values["name"])
+        return self._patients.get_health_item(saved_id)
+
+    def remove_health_item(self, actor, patient_id, item_id):
+        """Delete one item of the patient. The same rules as save_health_item: only someone who may edit this record, a doctor's
+        removal is logged and the patient is told. Raises NotAllowed or LookupError the same way."""
+        if not self.can_edit_health(actor, patient_id):
+            raise NotAllowed("This record is not open to you.")
+        item = self._existing_health_item(patient_id, None, item_id)
+        self._patients.remove_health_item(item_id)
+        self._tell_about_health_change(actor, patient_id, "removed", item.kind, str(item))
+
+    def _existing_health_item(self, patient_id, kind, item_id):
+        """The item with this ID, if it is this patient's (and of this kind when a kind is given). Otherwise LookupError."""
+        item = self._patients.get_health_item(item_id)
+        if item is None or self._patients.health_owner(item_id) != patient_id or (kind is not None and item.kind != kind):
+            raise LookupError("No such item.")
+        return item
+
+    def _tell_about_health_change(self, actor, patient_id, action, kind, name):
+        """When a doctor changed something, log it and notify the patient ("Dr. Maria Reyes added an allergy: Penicillin"). A
+        patient changing their own details is not logged or announced."""
+        if actor.role != "Doctor":
+            return
+        self._audit.add_health_change(actor.user_id, patient_id, action, kind, name)
+        self._notify(patient_id, f"Dr. {actor.name} {action} {HealthItem.ARTICLES[kind]}: {name}", kind="note")
+
+    def _check_health(self, kind, given):
+        """Check the boxes of one health item and return the values ready to save, or raise FieldErrors with a plain message
+        for each wrong box."""
+        values, errors = {}, {}
+        label = self.HEALTH_LABELS[kind]
+        name = (given.get("name") or "").strip()
+        if not name:
+            errors["name"] = "Enter the allergen." if kind == "allergy" else f"Enter the name of the {kind}."
+        elif len(name) > self.LIMITS[label]:
+            errors["name"] = f"{label} is too long (at most {self.LIMITS[label]} characters)."
+        values["name"] = name
+        for field, text in ((f, (given.get(f) or "").strip()) for f in self.HEALTH_FIELDS[kind] if f != "name"):
+            try:
+                values[field] = self._check_health_box(kind, field, text)
+            except ValueError as error:
+                errors[field] = str(error)
+        if errors:
+            raise FieldErrors(errors)
+        return values
+
+    def _check_health_box(self, kind, field, text):
+        """One box of a health item: severity, reaction, status, dose, how often, or a date."""
+        if field == "severity":
+            if text not in self.SEVERITIES:
+                raise ValueError("Choose Mild, Moderate or Severe.")
+            return text
+        if field == "status":
+            if text not in self.STATUSES:
+                raise ValueError("Choose Active, Managed or Resolved.")
+            return text
+        if field == "reaction":
+            return self._limit(text, "Reaction")
+        if field == "dose":
+            return self._limit(text, "Dose")
+        if field == "frequency":
+            return self._limit(text, "How often")
+        return self._check_past_date(text, required=(kind == "vaccine"))      # date_on: a vaccine must say when it was given
+
+    @classmethod
+    def _check_past_date(cls, text, required):
+        """A date typed as 04/04/2026 (or 2026-04-04) that is not in the future. Blank is allowed unless it is required."""
+        if not text:
+            if required:
+                raise ValueError("Enter the date it was given, like 09/14/2026.")
+            return None
+        found = None
+        for parse in (lambda t: datetime.strptime(t, cls.DATE_FORMAT).date(), date.fromisoformat):
+            try:
+                found = parse(text)
+                break
+            except ValueError:
+                continue
+        if found is None:
+            raise ValueError("Enter a date like 04/04/2026 (month/day/year).")
+        if found > date.today():
+            raise ValueError("The date cannot be in the future.")
+        return found
 
     # ---- checking input ----
     @classmethod
@@ -177,7 +393,7 @@ class MedScanSystem:
             return ""
         mobile = cls.normalize_mobile(number)
         if mobile is None:
-            raise ValueError("Enter a valid mobile number, like 09171234567 or +63 917 123 4567.")
+            raise ValueError("Enter an 11-digit mobile number starting with 09, like 0917 123 4567.")
         return mobile
 
     def _ensure_mobile_free(self, mobile, except_id=None):
@@ -460,11 +676,19 @@ class MedScanSystem:
         doctors = self._doctors.get_many([s.doctor_id for s in scans])
         return [(s, doctors.get(s.doctor_id)) for s in scans]
 
+    def health_rows_for_patient(self, patient_id):
+        """A list of (change, doctor) pairs for everything doctors added, changed or removed in this patient's health details,
+        newest first."""
+        changes = self._audit.health_changes_for_patient(patient_id)
+        doctors = self._doctors.get_many([c.doctor_id for c in changes])
+        return [(c, doctors.get(c.doctor_id)) for c in changes]
+
     def activity_for_patient(self, patient_id):
         """Everything that happened to the patient's record, newest first, for the History tab. Each item is a dict
-        with kind ('view', 'emergency_view', 'override', 'scan' or 'declined'), when, ended (for an override: when the
+        with kind ('view', 'emergency_view', 'override', 'scan', 'declined' or 'health'), when, ended (for an override: when the
         doctor's emergency access stopped, one EMERGENCY_HOURS after it began; otherwise None), doctor, and detail (the
-        reason, for an override). A 'declined' item is a request the patient said no to."""
+        reason, for an override, or the sentence for a 'health' item: a doctor changed an allergy, condition, medication or vaccine). A
+        'declined' item is a request the patient said no to."""
         items = [{"kind": "emergency_view" if v.via == "emergency" else "view", "when": v.timestamp, "ended": None,
                   "doctor": doctor, "detail": ""} for v, doctor in self.view_rows_for_patient(patient_id)]
         items += [{"kind": "override", "when": e.timestamp, "ended": e.timestamp + timedelta(hours=self.EMERGENCY_HOURS),
@@ -473,6 +697,9 @@ class MedScanSystem:
                   for s, doctor in self.scan_rows_for_patient(patient_id)]
         items += [{"kind": "declined", "when": r.decided_at or r.created_at, "ended": None, "doctor": doctor, "detail": ""}
                   for r, doctor in self.request_rows_for_patient(patient_id) if r.status == "Denied"]
+        items += [{"kind": "health", "when": h.timestamp, "ended": None, "doctor": doctor,
+                   "detail": f"{h.action} {HealthItem.ARTICLES[h.kind]}: {h.item_name}"}
+                  for h, doctor in self.health_rows_for_patient(patient_id)]
         return sorted(items, key=lambda item: item["when"], reverse=True)
 
     # Which history kinds each chip on the Access page keeps ('all' keeps everything).
@@ -548,24 +775,41 @@ class MedScanSystem:
         """How many lines each chip would show, as {'all': n, 'access': n, 'waiting': n, 'emergency': n, 'denied': n}."""
         return {show: len(cls.filter_links(links, show)) for show in ("all", *cls.LINK_CHIPS)}
 
+    MIN_SEARCH_LENGTH = 2        # The Search page waits for this many characters before it looks.
+    FULL_ID = re.compile(r"PT-(\d{4})-(\d{5})")
+
     def find_patients(self, doctor_id, text, limit=10):
-        """The Search page. First the patient whose ID or mobile number was typed (anyone, so a doctor can ask a
-        patient who is not theirs yet), then this doctor's own patients whose name or ID matches. Each is a
-        PatientLink, so the page can show 'Locked', 'Access' and so on. A name never finds someone the doctor has
-        no link with, so names cannot be used to browse everyone."""
+        """The Search page, in two parts that are kept apart on purpose.
+        1. Anyone: a patient is found by their whole MedScan ID (PT-2026-01001) typed exactly, ignoring case and spaces,
+           and only that one patient is shown. A half-typed ID, a name, a number or a mobile number never finds a
+           stranger, so nobody can browse the patients a doctor does not already have.
+        2. The doctor's own patients, meaning everyone who has allowed them in before: found by part of their ID or of
+           their name.
+        Each is a PatientLink, so the page can show 'Locked', 'Allowed' and so on. At most `limit` are returned, and a
+        search shorter than MIN_SEARCH_LENGTH finds nothing."""
         needle = (text or "").strip()
-        if not needle:
+        if len(needle) < self.MIN_SEARCH_LENGTH:
             return []
         found = {}
-        exact_id = self.resolve_login(needle)
-        exact = self._patients.get(exact_id, with_record=False) if exact_id is not None else None
-        if exact is not None:
-            found[exact.user_id] = self.patient_link(doctor_id, exact)
+        whole = self._patient_by_whole_id(needle)
+        if whole is not None:
+            found[whole.user_id] = self.patient_link(doctor_id, whole)
+        compact = re.sub(r"\s+", "", needle).upper()
         lowered = needle.lower()
-        for link in self.patient_links_for_doctor(doctor_id):
-            if lowered in link.patient.name.lower():
-                found.setdefault(link.patient.user_id, link)
+        own = self._patients.get_many(self._access.allowed_before_patient_ids(doctor_id), with_record=False)
+        for pid in sorted(own):
+            patient = own[pid]
+            if pid not in found and (compact in patient.display_id or lowered in patient.name.lower()):
+                found[pid] = self.patient_link(doctor_id, patient)
         return list(found.values())[:limit]
+
+    def _patient_by_whole_id(self, text):
+        """The patient whose full MedScan ID is exactly the text (case and spaces ignored), or None."""
+        match = self.FULL_ID.fullmatch(re.sub(r"\s+", "", text).upper())
+        if not match:
+            return None
+        patient = self._patients.get(int(match.group(2)), with_record=False)
+        return patient if patient is not None and patient.display_id == match.group(0) else None
 
     def recent_patient_rows_for_doctor(self, doctor_id, limit=5):
         """A list of (patient, when the doctor last opened them), newest first. Only patients the doctor can still

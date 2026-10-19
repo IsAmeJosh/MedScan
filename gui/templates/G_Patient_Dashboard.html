@@ -3,7 +3,6 @@
 {% block content %}
 {% comment %}
   Row 1: the ID card, and Needs your answer (or "You're all caught up"). Row 2: Your care team and Recent activity, each in its own panel.
-  demo placeholder: MedScan does not store vaccines yet. Only demo patient 1001 shows the sample "Last vaccine", everyone else reads "Not recorded".
 {% endcomment %}
 <div class="head plain-h"><div>
   <div class="hrow"><h1>{% greeting %}, {{ user.name|first_name }}</h1></div>
@@ -20,10 +19,10 @@
         <div class="chiprow">{% for allergy in record.allergies %}<span class="chip">{% icon "alert" "sm" %}{{ allergy }}</span>{% endfor %}</div>
       {% endif %}
       <div class="meta">
-        <span>Taking<b>{{ record.medications|join:", "|default:"None recorded" }}</b></span>
-        <span>Last vaccine<b>{% if user.user_id == 1001 %}Flu shot, Sep 14, 2026{% else %}Not recorded{% endif %}</b></span>
+        <span>Taking<b>{% if record.medications %}{{ record.medications|join:", " }}{% else %}<span class="faint">Not added</span> <a class="add-link" href="#" data-sheet="edit-medication-new">Add</a>{% endif %}</b></span>
+        <span>Last vaccine<b>{% with vaccine=record.latest_vaccine %}{% if vaccine %}{{ vaccine }}{% if vaccine.date_on %}, {{ vaccine.date_on|date:"M j, Y" }}{% endif %}{% else %}<span class="faint">Not added</span> <a class="add-link" href="#" data-sheet="edit-vaccine-new">Add</a>{% endif %}{% endwith %}</b></span>
         <span>Last visit<b>{% with last_note=record.consultations|last %}{% if last_note %}{{ last_note.date|date:"M j, Y" }}{% else %}No visits yet{% endif %}{% endwith %}</b></span>
-        <span>Surgery<b>{{ record.surgeries|join:", "|default:"None recorded" }}</b></span>
+        <span>Surgery<b>{{ record.surgeries|join:", "|default:"Not added" }}</b></span>
       </div>
     </div>
   </div>
@@ -73,4 +72,5 @@
     </div>
   </div>
 </div>
+{% for sheet in health_sheets %}{% include "G_Edit_Sheet.html" with sheet=sheet next="/dashboard/" %}{% endfor %}
 {% endblock %}

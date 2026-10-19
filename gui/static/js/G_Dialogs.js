@@ -28,23 +28,26 @@
   window.MedScanConfirm = { ask: ask };
 
   // ---- confirm before a risky form is sent: <form data-confirm="Revoke access?" data-confirm-button="Revoke"> ----
-  function proceed(form) {
+  // The question can also sit on the button that sends the form (a sheet's Remove button): that button is asked about instead.
+  function proceed(form, button) {
     form.setAttribute('data-confirmed', '1');
-    if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+    if (form.requestSubmit) { form.requestSubmit(button || undefined); } else { form.submit(); }
   }
 
   document.addEventListener('submit', function (event) {
     var form = event.target;
-    if (!form.getAttribute || !form.getAttribute('data-confirm')) { return; }
+    var button = event.submitter && event.submitter.getAttribute && event.submitter.getAttribute('data-confirm') ? event.submitter : null;
+    var source = button || form;
+    if (!source.getAttribute || !source.getAttribute('data-confirm')) { return; }
     if (form.getAttribute('data-confirmed') === '1') { form.removeAttribute('data-confirmed'); return; }
     event.preventDefault();
     event.stopImmediatePropagation();
     ask({
-      title: form.getAttribute('data-confirm-title'),
-      message: form.getAttribute('data-confirm'),
-      button: form.getAttribute('data-confirm-button'),
-      tone: form.getAttribute('data-confirm-tone')
-    }, function () { proceed(form); });
+      title: source.getAttribute('data-confirm-title'),
+      message: source.getAttribute('data-confirm'),
+      button: source.getAttribute('data-confirm-button'),
+      tone: source.getAttribute('data-confirm-tone')
+    }, function () { proceed(form, button); });
   }, true);
 
   // ---- one click is enough: lock the buttons once a form is on its way ----

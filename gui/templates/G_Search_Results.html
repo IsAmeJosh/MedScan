@@ -1,0 +1,16 @@
+{% comment %}
+  What sits under the search box. Needs: q (what was typed) and results (a list of PatientLink). With fewer than 2 characters
+  there is nothing to show. The part of the ID or name that matches is marked.
+{% endcomment %}
+{% if q|length >= 2 %}
+  {% if results %}
+    <div class="cnt">{{ results|length }} patient{{ results|length|pluralize }} found</div>
+    <div class="panel">
+      <div class="list">
+        {% for link in results %}{% include "G_Patient_Row.html" %}{% endfor %}
+      </div>
+    </div>
+  {% else %}
+    <div class="panel"><div class="s-empty"><b>No patient found for "{{ q }}"</b>Check the ID on their MedScan card, or scan their QR code instead.</div></div>
+  {% endif %}
+{% endif %}

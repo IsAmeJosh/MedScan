@@ -355,19 +355,20 @@ class ThePages(unittest.TestCase):
         self.assertIn("Work details", doctor)
         self.assertIn("This month", doctor)
         self.assertIn("0918 111 2222", doctor)
-        for page in (patient, doctor):
-            self.assertIn('data-sheet="contact-sheet"', page)
-            self.assertIn('<dialog id="contact-sheet"', page)
+        self.assertIn('data-sheet="edit-personal"', patient)
+        self.assertIn('<dialog id="edit-personal"', patient)
+        self.assertIn('data-sheet="edit-work"', doctor)
+        self.assertIn('<dialog id="edit-work"', doctor)
 
     def test_editing_the_contact_number_from_the_profile(self):
-        r = self.doc.post("/profile/contact/", {"contact_number": "0918 777 8888"}, follow=True)
-        self.assertIn("Your contact number was updated.", html(r))
+        r = self.doc.post("/details/work/", {"contact_number": "0918 777 8888", "next": "/profile/"}, follow=True)
+        self.assertIn("<span>Saved</span>", html(r))
         self.assertEqual(self.s.get_doctor(2001).contact_number, "09187778888")
-        r = self.pat.post("/profile/contact/", {"contact_number": "12"}, follow=True)
-        self.assertIn("Enter a valid mobile number", html(r))
+        r = self.pat.post("/details/personal/", {"date_of_birth": "03/14/1996", "sex": "Male", "blood_type": "O+", "contact_number": "12", "next": "/profile/"}, follow=True)
+        self.assertIn("Enter an 11-digit mobile number", html(r))
         self.assertEqual(self.s.get_patient(1001).contact_number, "09171234567")
-        self.assertEqual(self.doc.get("/profile/contact/").status_code, 302)       # only a form can change it
-        self.assertEqual(login(0, "x").post("/profile/contact/", {"contact_number": "0917"}).status_code, 302)
+        self.assertEqual(self.doc.get("/details/work/").status_code, 302)          # only a form can change it
+        self.assertEqual(login(0, "x").post("/details/work/", {"contact_number": "0917"}).status_code, 302)
 
 
 class Persisting(unittest.TestCase):

@@ -1,18 +1,18 @@
 {% extends "G_Base.html" %}
 {% block title %}Search{% endblock %}
+{% block body_class %} search-page{% endblock %}
+{% block main_class %} search-page{% endblock %}
 {% block content %}
-<div class="head plain-h"><div><div class="hrow"><h1>Find a patient</h1></div><p>Search by MedScan ID. You'll send them a request to open their record.</p></div></div>
+{% comment %}
+  Find a patient. The box searches as the doctor types (js/G_Search.js asks /search/results/, 2 or more characters), and the
+  same results are drawn here when the page arrives with ?q= (Enter, or the small search in the top bar of the other pages).
+{% endcomment %}
+<div class="head plain-h"><div><div class="hrow"><h1>Find a patient</h1></div><p>Search by MedScan ID or name. You'll send them a request to open their record.</p></div></div>
 
-<form method="get" action="{% url 'search' %}" class="searchbox" role="search" autocomplete="off">
-  <div class="input focus">{% icon "search" "sm" %}<input name="q" value="{{ q }}" placeholder="ID, mobile number or name" aria-label="Find a patient" autofocus></div>
+<form method="get" action="{% url 'search' %}" role="search" autocomplete="off">
+  <div class="sx">{% icon "search" "sm" %}<input id="search-input" name="q" value="{{ q }}" autofocus autocomplete="off" aria-label="Search by MedScan ID or name" data-results-url="{% url 'search_results' %}"><button type="button" class="clr" id="search-clear" aria-label="Clear"{% if not q %} hidden{% endif %}>{% icon "x" "sm" %}</button></div>
 </form>
-
-{% if q %}
-  <div class="panel">
-    <div class="list">
-      {% for link in results %}{% include "G_Patient_Row.html" %}
-      {% empty %}<p class="empty">No patient found for &ldquo;{{ q }}&rdquo;. Check the ID or mobile number and try again.</p>{% endfor %}
-    </div>
-  </div>
-{% endif %}
+<div id="search-results" aria-live="polite">{% include "G_Search_Results.html" %}</div>
 {% endblock %}
+
+{% block scripts %}<script src="{% asset 'js/G_Search.js' %}"></script>{% endblock %}

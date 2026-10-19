@@ -23,7 +23,7 @@ var module = { exports: {} };
 new Function('module', read('G_Format.js'))(module);
 win.MedScanFormat = module.exports;
 
-var files = ['G_Fields.js', 'G_Chips.js', 'G_Dialogs.js', 'G_Sheets.js', 'G_Qr.js', 'G_Idle.js', 'G_Shell.js', 'G_Suggest.js', 'G_Scan.js', 'G_Id.js'];
+var files = ['G_Fields.js', 'G_Chips.js', 'G_Dialogs.js', 'G_Sheets.js', 'G_Qr.js', 'G_Idle.js', 'G_Shell.js', 'G_Suggest.js', 'G_Scan.js', 'G_Id.js', 'G_Search.js', 'G_Overlays.js'];
 for (var i = 0; i < files.length; i++) {
   try {
     new Function('window', 'document', read(files[i]))(win, doc);

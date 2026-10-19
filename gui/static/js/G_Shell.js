@@ -23,9 +23,11 @@
   }
 
   function closePanel() {
+    var wasOpen = drawer.classList.contains('open');
     drawer.classList.remove('open');
     backdrop.classList.remove('show');
     drawer.setAttribute('aria-hidden', 'true');
+    if (wasOpen) { openBtn.focus(); }                    // back to the bell that opened it
   }
 
   // ---- showing a count in the bell, the panel header and the sidebar ----

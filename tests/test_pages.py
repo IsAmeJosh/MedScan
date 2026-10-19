@@ -5,7 +5,7 @@ import unittest
 
 from django.test import Client
 
-from tests.helpers import (BORN, PASSWORD, age_emergencies, approve, count, fresh_system, html, login, rows)
+from tests.helpers import (BORN, PASSWORD, add_health_samples, age_emergencies, approve, count, fresh_system, html, login, rows)
 from tests.helpers import new_patient
 
 DOCTOR_PAGES = ["/dashboard/", "/patients/", "/patients/?show=access", "/patients/?show=waiting", "/patients/?show=denied",
@@ -161,12 +161,14 @@ class DoctorPages(PageTestCase):
         self.assertIn('action="/search/"', page)
         self.assertNotIn('<a class="btn danger-ghost sm" href="/emergency/"', page)   # Emergency is not in the menu or the top bar
 
-    def test_search_by_number_display_id_and_mobile_number(self):
-        for query in ["1001", self.s.get_patient(1001).display_id, "0917 123 4567", "+63 917 123 4567", "09171234567"]:
+    def test_a_stranger_is_found_by_the_whole_id_only_and_never_by_a_number_or_a_mobile_number(self):
+        for query in [self.s.get_patient(1001).display_id, "pt-2026-01001", " PT-2026-0 1001 "]:
             page = html(self.doc.get("/search/", {"q": query}))
             self.assertIn("Juan Dela Cruz", page, query)
             self.assertIn("Locked", page, query)                       # nothing between them yet
             self.assertIn('href="/patient/1001/"', page, query)        # the line opens the patient's page
+        for query in ["1001", "01001", "0917 123 4567", "+63 917 123 4567", "09171234567", "PT-2026", "PT-2026-0100"]:
+            self.assertIn("No patient found", html(self.doc.get("/search/", {"q": query})), query)
 
     def test_search_by_name_only_finds_your_own_patients(self):
         self.assertIn("No patient found", html(self.doc.get("/search/?q=Juan")))   # no link yet: not yours
@@ -408,34 +410,38 @@ class PatientPages(PageTestCase):
         self.assertNotIn("0917", card)                                    # no contact number on Home
         self.assertNotIn("09171234567", page.split('<main class="content">')[1])
 
-    def test_last_vaccine_is_a_sample_for_demo_patient_1001_and_not_recorded_for_everyone_else(self):
+    def test_last_vaccine_is_the_newest_one_given_and_not_added_for_a_new_account(self):
+        self.assertIn('<span>Last vaccine<b><span class="faint">Not added</span> <a class="add-link" href="#" data-sheet="edit-vaccine-new">Add</a></b></span>',
+                      html(self.pat.get("/dashboard/")))
+        add_health_samples(self.s)
         self.assertIn("<span>Last vaccine<b>Flu shot, Sep 14, 2026</b></span>", html(self.pat.get("/dashboard/")))
         client = Client()
         client.post("/register/", {"role": "Patient", "name": "Zed", "password": PASSWORD, "date_of_birth": BORN,
                                    "contact_number": "0917 000 4444"})
-        self.assertIn("<span>Last vaccine<b>Not recorded</b></span>", html(client.get("/dashboard/")))
+        self.assertIn('<span>Last vaccine<b><span class="faint">Not added</span>', html(client.get("/dashboard/")))
 
     def test_my_record_shows_what_a_doctor_sees_and_opens_the_edit_sheet(self):
         page = html(self.pat.get("/record/"))
-        for text in ["0917 123 4567", "O+", "Penicillin", "Appendectomy", "Consultation notes", "Basic info", "Edit my information"]:
+        for text in ["0917 123 4567", "O+", "Penicillin", "Appendectomy", "Consultation notes", "Basic info"]:
             self.assertIn(text, page)
-        self.assertIn('data-sheet="edit-sheet"', page)
-        self.assertIn('<dialog id="edit-sheet"', page)
+        for sheet in ("basic", "contact", "emergency", "allergy-new", "medication-new", "condition-new", "vaccine-new", "surgeries"):
+            self.assertIn(f'data-sheet="edit-{sheet}"', page)
+            self.assertIn(f'<dialog id="edit-{sheet}"', page)
         self.assertIn("PT-2026-01001", html(self.pat.get("/profile/")))
 
     def test_editing_info_replaces_the_lists_and_saves_them(self):
-        r = self.pat.post("/record/edit/", {"allergies": "Peanuts, Latex", "surgeries": "", "medications": "Metformin",
-                                            "blood_type": "A+", "contact_number": "0917 555 1234"}, follow=True)
-        self.assertIn("Your information was updated.", html(r))
+        for sheet, fields in (("surgeries", {"surgeries": ""}), ("basic", {"date_of_birth": "03/14/1996", "sex": "Male", "blood_type": "A+", "height_cm": "170", "weight_kg": "68"}),
+                              ("contact", {"contact_number": "0917 555 1234"})):
+            r = self.pat.post(f"/details/{sheet}/", {**fields, "next": "/record/?tab=info"}, follow=True)
+            self.assertIn("<span>Saved</span>", html(r), sheet)
         juan = self.s.get_patient(1001)
-        self.assertEqual((juan.record.allergies, juan.record.surgeries, juan.record.medications),
-                         (["Peanuts", "Latex"], [], ["Metformin"]))
+        self.assertEqual((juan.record.allergies, juan.record.surgeries), (["Penicillin"], []))
         self.assertEqual((juan.record.blood_type, juan.contact_number), ("A+", "09175551234"))
 
     def test_a_bad_edit_shows_the_reason_and_changes_nothing(self):
-        r = self.pat.post("/record/edit/", {"allergies": "Peanuts", "contact_number": "12"}, follow=True)
-        self.assertIn("Enter a valid mobile number", html(r))
-        self.assertEqual(self.s.get_patient(1001).record.allergies, ["Penicillin"])
+        r = self.pat.post("/details/contact/", {"contact_number": "12", "next": "/record/?tab=info"}, follow=True)
+        self.assertIn("Enter an 11-digit mobile number", html(r))
+        self.assertEqual(self.s.get_patient(1001).contact_number, "09171234567")
 
     def test_home_asks_for_an_answer_first_and_the_buttons_work(self):
         self.assertIn("You're all caught up", html(self.pat.get("/dashboard/")))

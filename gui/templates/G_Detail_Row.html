@@ -1,0 +1,5 @@
+{% comment %}
+  One label and value row. Needs: label and value. With no value it says "Not added" in grey; given sheet (the id of an edit
+  sheet) it also shows an Add link that opens that sheet.
+{% endcomment %}
+<div class="kv"><span>{{ label }}</span><b>{% if value %}{{ value }}{% else %}<span class="faint">Not added</span>{% if sheet %}<a class="add-link" href="#" data-sheet="{{ sheet }}">Add</a>{% endif %}{% endif %}</b></div>

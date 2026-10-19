@@ -1,7 +1,8 @@
-// Sheets: the "Show my QR code", "Review request" and "Edit my information" pop-ups, and the tabs on the record pages.
+// Sheets: the "Show my QR code", "Review request" and edit pop-ups (G_Edit_Sheet.html), and the tabs on the record pages.
 // - Any element with data-sheet="some-id" opens the <dialog id="some-id">. Anything with data-close closes the sheet it is in.
-//   Clicking the dimmed area around a sheet closes it too (Esc works by itself).
-// - A page can open a sheet on arrival: /dashboard/?sheet=qr opens #qr-sheet, and /record/#edit opens #edit-sheet.
+//   Pressing the dimmed area around a sheet, or Esc, closes it too (G_Overlays.js does that for every pop-up).
+// - A page can open a sheet on arrival: /dashboard/?sheet=qr opens #qr-sheet, and /record/?tab=info&sheet=edit-basic opens
+//   #edit-basic (the server sends a person back that way when a box was wrong).
 // - My Record and a doctor's patient page have tabs (Notes, Care history, Medical, Info): a tab link with data-pane-tab shows the
 //   pane with that data-pane. A page can open on a tab: /record/?tab=care opens on Care history.
 (function () {
@@ -36,10 +37,7 @@
     if (closer) {
       var inside = closest(closer, 'dialog');
       if (inside) { inside.close(); }
-      return;
     }
-    var target = event.target;
-    if (target && target.tagName === 'DIALOG' && /\bsheet\b/.test(target.className)) { target.close(); }   // the dimmed area
   });
 
   // ---- open a sheet when the page arrives ----
@@ -47,7 +45,6 @@
   if (place) {
     var wanted = /[?&]sheet=([a-z0-9-]+)/.exec(place.search || '');
     if (wanted) { openSheet(document.getElementById(wanted[1]) ? wanted[1] : wanted[1] + '-sheet'); }   // ?sheet=qr or ?sheet=review-3
-    if (place.hash === '#edit') { openSheet('edit-sheet'); }
   }
 
   // ---- tabs on the record pages ----

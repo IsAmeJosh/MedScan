@@ -15,7 +15,7 @@
   <div class="pane on" data-pane="notes">
     {% comment %}
       demo placeholder: "Prescribed in these notes" needs prescriptions linked to notes, which MedScan does not store yet.
-      Only demo patient 1001 shows the sample rows, everyone else reads "Not recorded".
+      Only demo patient 1001 shows the sample rows, everyone else reads "Not added".
     {% endcomment %}
     <div class="grid">
       <div class="col">
@@ -48,7 +48,7 @@
                 <div class="kv"><span>Hydrocortisone</span><b>Cream, 7 days</b></div>
                 <div class="kv"><span>Prescribed by</span><b>Dr. Lim</b></div>
               </div>
-              {% else %}<p class="empty">Not recorded</p>{% endif %}
+              {% else %}<p class="empty">Not added</p>{% endif %}
             </div>
           </section>
         </div>
@@ -61,109 +61,56 @@
   </div>
 
   <div class="pane" data-pane="medical">
-    {% comment %}
-      demo placeholder: severity and notes on an allergy, conditions, the details of a surgery and vaccinations are not stored yet.
-      Only demo patient 1001 shows the sample values, everyone else reads "Not recorded".
-    {% endcomment %}
-    <div class="grid half">
-      <div class="col">
-        <div class="panel">
-          <div class="sec-h"><h2>Allergies</h2></div>
-          {% if record.allergies %}<div class="kvs">
-            {% for a in record.allergies %}<div class="kv"><span>{{ a }}</span><b>{% if user.user_id == 1001 and a == "Penicillin" %}<span class="atag">Severe</span>Hives, ER visit Jan 12, 2025{% elif user.user_id == 1001 and a == "Peanuts" %}<span class="atag mod">Moderate</span>Swelling{% else %}Not recorded{% endif %}</b></div>{% endfor %}
-          </div>{% else %}<p class="empty">None recorded.</p>{% endif %}
-        </div>
-      </div>
-      <div class="col">
-        <div class="panel">
-          <div class="sec-h"><h2>Medications</h2></div>
-          {% if record.medications %}<div class="kvs">
-            {% for m in record.medications %}<div class="kv"><span>{{ m|drug }}</span><b>{{ m|dose|default:"Not recorded" }}</b></div>{% endfor %}
-          </div>{% else %}<p class="empty">None recorded.</p>{% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="grid half">
-      <div class="col">
-        <div class="panel">
-          <div class="sec-h"><h2>Conditions</h2></div>
-          {% if user.user_id == 1001 %}<div class="kvs"><div class="kv"><span>Hypertension</span><b>Managed</b></div><div class="kv"><span>Diagnosed</span><b>Jun 3, 2024</b></div></div>{% else %}<p class="empty">Not recorded</p>{% endif %}
-        </div>
-        <div class="panel">
-          <div class="sec-h"><h2>Past surgeries</h2></div>
-          {% if record.surgeries %}<div class="kvs">
-            {% for s in record.surgeries %}{% if user.user_id == 1001 and s == "Appendectomy" %}<div class="kv"><span>{{ s }}</span><b>Aug 9, 2021</b></div><div class="kv"><span>Hospital</span><b>Northview Medical Center</b></div>{% else %}<div class="kv"><span>{{ s }}</span><b>Not recorded</b></div>{% endif %}{% endfor %}
-          </div>{% else %}<p class="empty">None recorded.</p>{% endif %}
-        </div>
-      </div>
-      <div class="col">
-        <div class="panel">
-          <div class="sec-h"><h2>Vaccinations</h2></div>
-          {% if user.user_id == 1001 %}<div class="kvs">
-            <div class="kv"><span>Flu shot</span><b>Sep 14, 2026</b></div>
-            <div class="kv"><span>COVID-19 booster</span><b>Jan 12, 2025</b></div>
-            <div class="kv"><span>Tetanus (Td)</span><b>May 20, 2021</b></div>
-          </div>{% else %}<p class="empty">Not recorded</p>{% endif %}
-        </div>
-      </div>
-    </div>
+    {% include "G_Medical_Tab.html" with person=user viewer=user %}
   </div>
 
   <div class="pane" data-pane="info">
     {% comment %}
-      demo placeholder: MedScan does not store height, weight or an emergency contact yet. Only demo patient 1001 shows the
-      sample values, everyone else reads "Not recorded". The Emergency contact Edit link does nothing.
+      Every panel's Edit (or Add) link opens its own edit sheet (G_Edit_Sheet.html) with only that panel's fields.
+      A detail the patient has not added shows "Not added" and an Add link.
     {% endcomment %}
     <div class="grid half">
       <div class="col">
         <div class="panel">
-          <div class="sec-h"><h2>Basic info</h2><a class="link" href="#" data-sheet="edit-sheet">Edit</a></div>
+          <div class="sec-h"><h2>Basic info</h2><a class="link" href="#" data-sheet="edit-basic">Edit</a></div>
           <div class="kvs">
             <div class="kv"><span>Date of birth</span><b>{{ user.date_of_birth|date:"M j, Y" }}</b></div>
             <div class="kv"><span>Age</span><b>{{ user.age }}</b></div>
             <div class="kv"><span>Sex</span><b>{{ user.sex }}</b></div>
-            <div class="kv"><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
-            <div class="kv"><span>Height</span><b>{% if user.user_id == 1001 %}170 cm{% else %}Not recorded{% endif %}</b></div>
-            <div class="kv"><span>Weight</span><b>{% if user.user_id == 1001 %}68 kg{% else %}Not recorded{% endif %}</b></div>
+            {% include "G_Detail_Row.html" with label="Blood type" value=record.blood_type sheet="edit-basic" %}
+            {% include "G_Detail_Row.html" with label="Height" value=user.height_cm|measure:"cm" sheet="edit-basic" %}
+            {% include "G_Detail_Row.html" with label="Weight" value=user.weight_kg|measure:"kg" sheet="edit-basic" %}
           </div>
         </div>
       </div>
       <div class="col">
         <div class="panel">
-          <div class="sec-h"><h2>Contact</h2><a class="link" href="#" data-sheet="edit-sheet">Edit</a></div>
+          <div class="sec-h"><h2>Contact</h2><a class="link" href="#" data-sheet="edit-contact">Edit</a></div>
           <div class="kvs">
-            <div class="kv"><span>Mobile</span><b>{{ user.contact_number|mobile|default:"Not set" }}</b></div>
+            <div class="kv"><span>Mobile</span><b>{{ user.contact_number|mobile }}</b></div>
           </div>
         </div>
         <div class="panel">
-          <div class="sec-h"><h2>Emergency contact</h2><a class="link" href="#">Edit</a></div>
+          <div class="sec-h"><h2>Emergency contact</h2><a class="link" href="#" data-sheet="edit-emergency">{% if user.has_emergency_contact %}Edit{% else %}Add{% endif %}</a></div>
+          {% if user.has_emergency_contact %}
           <div class="kvs">
-            <div class="kv"><span>Name</span><b>{% if user.user_id == 1001 %}Maria Dela Cruz{% else %}Not recorded{% endif %}</b></div>
-            <div class="kv"><span>Relationship</span><b>{% if user.user_id == 1001 %}Mother{% else %}Not recorded{% endif %}</b></div>
-            <div class="kv"><span>Mobile</span><b>{% if user.user_id == 1001 %}0918 765 4321{% else %}Not recorded{% endif %}</b></div>
+            {% include "G_Detail_Row.html" with label="Name" value=user.emergency_name sheet="edit-emergency" %}
+            {% include "G_Detail_Row.html" with label="Relationship" value=user.emergency_relationship sheet="edit-emergency" %}
+            {% include "G_Detail_Row.html" with label="Mobile" value=user.emergency_mobile|mobile sheet="edit-emergency" %}
           </div>
+          {% else %}
+          <p class="empty">No emergency contact yet</p>
+          {% endif %}
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<dialog id="edit-sheet" class="sheet wide">
-  <form method="post" action="{% url 'update_info' %}" class="sheet-in" data-validate-form>{% csrf_token %}
-    <div class="grab"></div>
-    <div class="sheet-h"><h2>Edit my information</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
-    <div class="field"><label for="f-allergies">Allergies</label><input id="f-allergies" name="allergies" data-chips placeholder="Type one, press Enter" value="{{ record.allergies|join:', ' }}"></div>
-    <div class="field"><label for="f-medications">Current medications</label><input id="f-medications" name="medications" data-chips placeholder="Type one, press Enter" value="{{ record.medications|join:', ' }}"></div>
-    <div class="field"><label for="f-surgeries">Past surgeries</label><input id="f-surgeries" name="surgeries" data-chips placeholder="Type one, press Enter" value="{{ record.surgeries|join:', ' }}"></div>
-    <div class="field"><label for="f-blood">Blood type</label>
-      <select id="f-blood" name="blood_type">
-        {% for b in blood_types %}<option value="{{ b }}" {% if b == record.blood_type %}selected{% endif %}>{{ b|default:"Not set" }}</option>{% endfor %}
-      </select></div>
-    <div class="field"><label for="f-mobile">Mobile number</label><input id="f-mobile" name="contact_number" type="tel" inputmode="tel" maxlength="20" placeholder="0917 123 4567" value="{{ user.contact_number|mobile }}" required data-format="mobile" data-validate="mobile-required" data-hint="One number per account. You can log in with it."></div>
-    <div class="sheet-actions">
-      <button type="button" class="btn lg" data-close>Cancel</button>
-      <button type="submit" class="btn primary lg" data-submit>{% icon "check" "sm" %}Save changes</button>
-    </div>
-  </form>
-</dialog>
+{# the edit sheets: one reusable template, opened by the Edit and Add links above #}
+{% include "G_Edit_Sheet.html" with sheet=sheets.basic next="/record/?tab=info" %}
+{% include "G_Edit_Sheet.html" with sheet=sheets.contact next="/record/?tab=info" %}
+{% include "G_Edit_Sheet.html" with sheet=sheets.emergency next="/record/?tab=info" %}
+{% for sheet in health_sheets %}{% include "G_Edit_Sheet.html" with sheet=sheet next="/record/?tab=medical" %}{% endfor %}
+{% include "G_Edit_Sheet.html" with sheet=sheets.surgeries next="/record/?tab=medical" %}
 {% endblock %}

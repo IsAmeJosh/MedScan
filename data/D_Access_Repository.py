@@ -103,6 +103,14 @@ class AccessRepository:
                         (doctor_id,))
             return [row["patient_id"] for row in cur.fetchall()]
 
+    def allowed_before_patient_ids(self, doctor_id):
+        """The IDs of the patients who have ever allowed this doctor in (they approved, even if they took the access back
+        later), in ID order. The Search page looks inside this group only."""
+        with self.db.cursor() as cur:
+            cur.execute("SELECT DISTINCT patient_id FROM tb_access_requests WHERE doctor_id = %s "
+                        "AND status IN ('Approved', 'Revoked') ORDER BY patient_id", (doctor_id,))
+            return [row["patient_id"] for row in cur.fetchall()]
+
     def approved_patient_ids(self, doctor_id):
         """The IDs of the patients who currently approve this doctor, in ID order."""
         with self.db.cursor() as cur:

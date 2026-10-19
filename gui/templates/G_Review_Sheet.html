@@ -2,6 +2,7 @@
 <dialog id="review-{{ r.request_id }}" class="sheet review">
   <div class="sheet-in">
     <div class="grab"></div>
+    <button type="button" class="ibtn flat close-x" data-close aria-label="Close">{% icon "x" "sm" %}</button>
     <div class="who">
       <div class="avatar xl">{{ doctor.name|initials }}</div>
       <div>

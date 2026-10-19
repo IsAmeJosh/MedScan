@@ -13,14 +13,26 @@ class Patient(User):
     ID_PREFIX = "PT"
 
     def __init__(self, user_id, name, password, sex, date_of_birth, contact_number="", created_year=None,
-                 password_changed_at=None):
+                 password_changed_at=None, height_cm=None, weight_kg=None, emergency_name="", emergency_relationship="",
+                 emergency_mobile=""):
         """Set up a patient. The shared fields are passed up to User and the rest belong to the patient.
-        The medical record starts empty and fills in as the patient or a doctor adds to it."""
+        The medical record starts empty and fills in as the patient or a doctor adds to it. Height (cm), weight (kg)
+        and the emergency contact are optional: None or a blank means the patient has not added them."""
         super().__init__(user_id, name, password, "Patient", created_year, password_changed_at)
         self.sex = sex
         self.date_of_birth = date_of_birth
         self.contact_number = contact_number
+        self.height_cm = height_cm
+        self.weight_kg = weight_kg
+        self.emergency_name = emergency_name
+        self.emergency_relationship = emergency_relationship
+        self.emergency_mobile = emergency_mobile
         self.record = MedicalRecord(user_id)
+
+    @property
+    def has_emergency_contact(self):
+        """True when the patient has added any part of an emergency contact (name, relationship or mobile)."""
+        return bool(self.emergency_name or self.emergency_relationship or self.emergency_mobile)
 
     @property
     def age(self):

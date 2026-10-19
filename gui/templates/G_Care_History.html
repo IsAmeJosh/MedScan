@@ -1,7 +1,7 @@
 {% comment %}
   demo placeholder. The care history is hard-coded sample data. MedScan does not store admissions, ER visits or visits to
   other places yet (they need new tables after the exam), so nothing here comes from the database and nothing on this
-  page can be changed. Only demo patient 1001 shows the sample entries, everyone else reads "Not recorded".
+  page can be changed. Only demo patient 1001 shows the sample entries, everyone else reads "Not added".
   Needs: viewer ("patient" or "doctor") and owner (the patient's ID). The patient sees every entry, including one they
   have hidden from doctors. A doctor never sees the hidden entry, only a line saying that one is hidden.
 {% endcomment %}
@@ -69,5 +69,5 @@
   </div>
 </div>
 {% else %}
-<div class="panel"><p class="empty">Not recorded</p></div>
+<div class="panel"><p class="empty">Not added</p></div>
 {% endif %}

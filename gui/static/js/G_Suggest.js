@@ -1,6 +1,7 @@
 // The search box in the top bar (doctors): suggestions from your own patients as you type, and the "/" key
-// that jumps to the box from anywhere. The page is dimmed while the box has the focus. Press Enter on a suggestion to open that record, or Enter with
-// nothing chosen to search by ID or mobile number.
+// that jumps to the box from anywhere. The page is dimmed while the box is in use. Press Enter on a suggestion to open that
+// record, or Enter with nothing chosen to go to the Search page with the text carried over.
+// Like every other pop-up with a dim behind it, pressing outside the box or Escape closes it and throws away what was typed.
 (function () {
   var input = document.getElementById('top-search-input');
   var box = document.getElementById('suggest');
@@ -18,6 +19,15 @@
     active = -1;
   }
 
+  // Close the suggestions, forget the typing and give the page back, as Cancel would.
+  function cancel() {
+    window.clearTimeout(timer);
+    input.value = '';
+    close();
+    dim(false);
+    input.blur();
+  }
+
   function highlight(index) {
     for (var i = 0; i < links.length; i++) { links[i].className = i === index ? 'on' : ''; }
     active = index;
@@ -31,7 +41,7 @@
       var hint = document.createElement('div');
       hint.className = 'hint';
       hint.appendChild(document.createTextNode(
-        text.length > 1 ? 'None of your patients match. Press Enter to search by ID or mobile number.' : ''));
+        text.length > 1 ? 'None of your patients match. Press Enter to search by the whole MedScan ID.' : ''));
       if (text.length > 1) { box.appendChild(hint); }
     }
     for (var i = 0; i < items.length; i++) {
@@ -77,25 +87,28 @@
       event.preventDefault();
       window.location = links[active].href;
     } else if (event.key === 'Escape') {
-      close();
-      input.blur();
+      cancel();
     }
   });
 
   // While the box is in use the rest of the page is dimmed and blurred (the styles are in G_Style.css, keyed on the
-  // class "searching" on the page). Clicking elsewhere or pressing Esc takes the focus away, which closes the
-  // suggestions and brings the page back.
+  // class "searching" on the page).
   function dim(on) {
     var body = document.body;
     if (!body) { return; }
-    body.className = on ? body.className.replace(/\s*searching/, '') + ' searching' : body.className.replace(/\s*searching/g, '');
+    body.className = on ? body.className.replace(/\s*searching/, '') + ' searching' : body.className.replace(/\s*searching/g, '');
   }
 
   input.addEventListener('focus', function () { dim(true); });
-  input.addEventListener('blur', function () {
-    dim(false);
-    window.setTimeout(close, 200);          // late, so a click on a suggestion still lands
-  });
+
+  // Pressing anywhere outside the box (on the dimmed page) closes it. A press on a suggestion is not outside: it opens that record.
+  document.addEventListener('mousedown', function (event) {
+    var form = input.form || box.parentNode;
+    var target = event.target;
+    while (target && target !== form) { target = target.parentNode; }
+    if (target === form) { return; }
+    if (document.body && /\bsearching\b/.test(document.body.className)) { cancel(); }
+  }, true);
 
   // "/" jumps to the search box, unless you are typing somewhere
   document.addEventListener('keydown', function (event) {

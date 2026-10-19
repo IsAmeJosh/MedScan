@@ -1,0 +1,19 @@
+{% comment %}
+  One allergy, condition, medication or vaccine, as a tappable group of rows (it opens that item's sheet, pre-filled) with the small grey
+  line "Added by ..." under it. Needs: item (a HealthItem) and viewer (whoever is looking, for the words of that line).
+{% endcomment %}
+<a class="item" href="#" data-sheet="edit-{{ item.kind }}-{{ item.item_id }}">
+  {% if item.kind == "allergy" %}
+    <div class="kv"><span>{{ item }}</span><b>{% if item.severity %}<span class="atag{% if item.severity == 'Moderate' %} mod{% elif item.severity == 'Mild' %} low{% endif %}">{{ item.severity }}</span>{% endif %}{{ item.reaction }}</b></div>
+  {% elif item.kind == "condition" %}
+    <div class="kv"><span>{{ item }}</span><b>{{ item.status }}</b></div>
+    {% if item.date_on %}<div class="kv"><span>Diagnosed</span><b>{{ item.date_on|date:"M j, Y" }}</b></div>{% endif %}
+  {% elif item.kind == "medication" %}
+    <div class="kv"><span>{{ item }}</span><b>{% if item.dose %}{{ item.dose }}{% else %}<span class="faint">Not added</span>{% endif %}</b></div>
+    {% if item.frequency %}<div class="kv"><span>How often</span><b>{{ item.frequency }}</b></div>{% endif %}
+    {% if item.date_on %}<div class="kv"><span>Started</span><b>{{ item.date_on|date:"M j, Y" }}</b></div>{% endif %}
+  {% else %}
+    <div class="kv"><span>{{ item }}</span><b>{{ item.date_on|date:"M j, Y" }}</b></div>
+  {% endif %}
+  <div class="by">{{ item|added_by:viewer }}</div>
+</a>

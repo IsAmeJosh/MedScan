@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="{% asset 'css/G_Style.css' %}">
 </head>
 {# plain pages (the ID screens) sit on the bare page without the sidebar, even when someone is logged in #}
-<body class="{% if user and not plain %}has-shell{% else %}auth-page{% endif %}"{% if user and not plain %} data-idle-minutes="{{ idle_minutes }}" data-keepalive-url="{% url 'keepalive' %}" data-logout-url="{% url 'logout' %}" data-login-url="{% url 'login' %}"{% endif %}>
+<body class="{% if user and not plain %}has-shell{% else %}auth-page{% endif %}{% block body_class %}{% endblock %}"{% if user and not plain %} data-idle-minutes="{{ idle_minutes }}" data-keepalive-url="{% url 'keepalive' %}" data-logout-url="{% url 'logout' %}" data-login-url="{% url 'login' %}"{% endif %}>
 {% if user and not plain %}
 {% with page=request.resolver_match.url_name %}
 <div class="app">
@@ -60,7 +60,6 @@
       <form class="tsearch d-only" method="get" action="{% url 'search' %}" autocomplete="off" role="search">
         {% icon "search" "sm" %}
         <input id="top-search-input" name="q" placeholder="Find a patient by name or ID" aria-label="Find a patient" data-suggest-url="{% url 'patient_suggest' %}">
-        <kbd title="Press / to search">/</kbd>
         <div class="suggest" id="suggest" hidden></div>
       </form>
     {% endif %}
@@ -159,6 +158,7 @@
 <script src="{% asset 'js/G_Format.js' %}"></script>
 <script src="{% asset 'js/G_Fields.js' %}"></script>
 <script src="{% asset 'js/G_Chips.js' %}"></script>
+<script src="{% asset 'js/G_Overlays.js' %}"></script>
 <script src="{% asset 'js/G_Dialogs.js' %}"></script>
 <script src="{% asset 'js/G_Qr.js' %}"></script>
 <script src="{% asset 'js/G_Sheets.js' %}"></script>

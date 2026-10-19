@@ -81,7 +81,7 @@ class FreshStart(TemporaryDatabase):
         self.db.reset()
         names = self.table_names()
         self.assertTrue(all(name.startswith("tb_") for name in names), names)
-        self.assertEqual(len(names), 11)
+        self.assertEqual(len(names), 13)
 
     def test_every_table_and_every_key_follows_the_naming_rules(self):
         self.db.prepare()
@@ -180,8 +180,8 @@ class SqlFiles(unittest.TestCase):
         self.assertEqual(int(found.group(1)), SCHEMA_VERSION)
 
     def test_every_statement_in_the_sql_files_is_found(self):
-        self.assertEqual(len(Database._statements("schema.sql")), 12)  # tb_schema_version, 10 tables, the version row
-        self.assertEqual(len(Database._statements("seed.sql")), 3)
+        self.assertEqual(len(Database._statements("schema.sql")), 14)  # tb_schema_version, 12 tables, the version row
+        self.assertEqual(len(Database._statements("seed.sql")), 4)
         for name in ("schema.sql", "seed.sql", "demo_data.sql"):
             for statement in Database._statements(name):
                 self.assertNotIn("--", statement)

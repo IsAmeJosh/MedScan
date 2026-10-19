@@ -10,9 +10,9 @@ from pymysql.cursors import DictCursor
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SQL_DIR = os.path.join(ROOT_DIR, "database")
-SCHEMA_VERSION = 1  # Must match the number inserted at the bottom of database/schema.sql.
+SCHEMA_VERSION = 3  # Must match the number inserted at the bottom of database/schema.sql.
 # Children come before their parents, so foreign keys never block a delete.
-TABLES = ["tb_qr_scans", "tb_qr_tokens", "tb_notifications", "tb_record_views", "tb_emergency_logs", "tb_access_requests",
+TABLES = ["tb_health_log", "tb_health_items", "tb_qr_scans", "tb_qr_tokens", "tb_notifications", "tb_record_views", "tb_emergency_logs", "tb_access_requests",
           "tb_consultations", "tb_medical_items", "tb_patients", "tb_doctors", "tb_schema_version"]
 # The table names from before the tb_ naming. Old layouts are not upgraded; reset() just removes these too, so a reset
 # leaves no old tables behind in phpMyAdmin.
@@ -24,6 +24,8 @@ DEMO_MARKER_MOBILE = "09171110001"  # The first sample patient in database/demo_
 # instead of quietly storing something else.
 STRICT_MODE = "STRICT_ALL_TABLES,NO_ZERO_DATE,NO_ZERO_IN_DATE,NO_ENGINE_SUBSTITUTION"
 UNKNOWN_DATABASE = 1049  # MySQL's error number for "that database does not exist"
+MIGRATIONS = {1: "migrate_1_to_2.sql", 2: "migrate_2_to_3.sql"}  # the upgrade that takes each old version one step forward
+ALREADY_THERE = (1060, 1826, 3822)  # "duplicate column" and "duplicate check" errors: the migration skips them
 
 
 class DatabaseError(RuntimeError):
@@ -184,10 +186,13 @@ class Database:
 
     def prepare(self):
         """Make the database ready to use: create any missing tables (database/schema.sql) and, if there are no users yet,
-        add the demo accounts (database/seed.sql). It is safe to run on every start. A database with the tables of an older
-        MedScan is refused with a message, because old layouts are not upgraded: reset_database.py rebuilds them."""
+        add the demo accounts (database/seed.sql). It is safe to run on every start. An older MedScan database
+        (version 1 or 2) is upgraded in place, step by step (database/migrate_*.sql), and keeps its data. Tables from any older MedScan are refused with a
+        message, because those layouts are not upgraded: reset_database.py rebuilds them."""
         with self.unit_of_work():
             with self.cursor() as cur:
+                while self._version(cur) in MIGRATIONS:                    # 1 -> 2 -> 3, each step run once
+                    self._run_migration(cur, MIGRATIONS[self._version(cur)])
                 if self._is_outdated(cur):
                     raise DatabaseError(
                         f"The tables in '{self.name}' come from an older version of MedScan. "
@@ -198,6 +203,35 @@ class Database:
                 if cur.fetchone()["users"] == 0:
                     for statement in self._statements("seed.sql"):
                         cur.execute(statement)
+
+    def _version(self, cur):
+        """The layout version stored in the database, or None when there is no version table (a fresh database, or tables
+        from before MedScan kept a version)."""
+        cur.execute("SELECT COUNT(*) AS n FROM information_schema.TABLES "
+                    "WHERE TABLE_SCHEMA = %s AND TABLE_NAME = 'tb_schema_version'", (self.name,))
+        if cur.fetchone()["n"] == 0:
+            return None
+        cur.execute("SELECT version FROM tb_schema_version")
+        row = cur.fetchone()
+        return row["version"] if row else None
+
+    def _upgrade_1_to_2(self, cur):
+        """Run database/migrate_1_to_2.sql (a patient's height, weight and emergency contact)."""
+        self._run_migration(cur, "migrate_1_to_2.sql")
+
+    def _upgrade_2_to_3(self, cur):
+        """Run database/migrate_2_to_3.sql (the health items: allergies, conditions, medications and vaccines)."""
+        self._run_migration(cur, "migrate_2_to_3.sql")
+
+    def _run_migration(self, cur, filename):
+        """Run one migration file. A column or check that is already there (the migration ran halfway before) is skipped
+        instead of stopping the start-up."""
+        for statement in self._statements(filename):
+            try:
+                cur.execute(statement)
+            except pymysql.err.Error as error:
+                if error.args[0] not in ALREADY_THERE:
+                    raise
 
     def _is_outdated(self, cur):
         """True if the database already has tables but they are not the current layout (they come from an older MedScan)."""

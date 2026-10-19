@@ -4,40 +4,46 @@
 {% if user.role == "Patient" %}
 {% comment %}
   demo placeholder: MedScan does not store an emergency contact, conditions or vaccines yet. Only the demo patient (1001) shows
-  the sample values from the design. Every other account shows "Not recorded" in those rows. Recent care repeats the sample
+  the sample values from the design. Every other account shows "Not added" in those rows. Recent care repeats the sample
   entries of the Care history tab. The Emergency contact Edit link does nothing.
 {% endcomment %}
 <div class="head plain-h"><div><div class="hrow"><h1>{{ user.name }}</h1></div><p><span class="num">{{ user.display_id }}</span> &middot; Patient since {{ user.created_on|date:"M j, Y" }}</p></div></div>
 <div class="grid half">
   <div class="col">
     <div class="panel">
-      <div class="sec-h"><h2>Personal details</h2><a class="link" href="#" data-sheet="contact-sheet">Edit</a></div>
+      <div class="sec-h"><h2>Personal details</h2><a class="link" href="#" data-sheet="edit-personal">Edit</a></div>
       <div class="kvs">
         <div class="kv"><span>Date of birth</span><b>{{ user.date_of_birth|date:"M j, Y" }}</b></div>
         <div class="kv"><span>Age</span><b>{{ user.age }}</b></div>
         <div class="kv"><span>Sex</span><b>{{ user.sex }}</b></div>
-        <div class="kv"><span>Blood type</span><b>{{ user.record.blood_type|default:"Not set" }}</b></div>
-        <div class="kv"><span>Mobile</span><b>{{ user.contact_number|mobile|default:"Not set" }}</b></div>
+        {% include "G_Detail_Row.html" with label="Blood type" value=user.record.blood_type sheet="edit-personal" %}
+        <div class="kv"><span>Mobile</span><b>{{ user.contact_number|mobile }}</b></div>
       </div>
     </div>
     <div class="panel">
-      <div class="sec-h"><h2>Emergency contact</h2><a class="link" href="#">Edit</a></div>
+      <div class="sec-h"><h2>Emergency contact</h2><a class="link" href="#" data-sheet="edit-emergency">{% if user.has_emergency_contact %}Edit{% else %}Add{% endif %}</a></div>
+      {% if user.has_emergency_contact %}
       <div class="kvs">
-        <div class="kv"><span>Name</span><b>{% if user.user_id == 1001 %}Maria Dela Cruz{% else %}Not recorded{% endif %}</b></div>
-        <div class="kv"><span>Relationship</span><b>{% if user.user_id == 1001 %}Mother{% else %}Not recorded{% endif %}</b></div>
-        <div class="kv"><span>Mobile</span><b>{% if user.user_id == 1001 %}0918 765 4321{% else %}Not recorded{% endif %}</b></div>
+        {% include "G_Detail_Row.html" with label="Name" value=user.emergency_name sheet="edit-emergency" %}
+        {% include "G_Detail_Row.html" with label="Relationship" value=user.emergency_relationship sheet="edit-emergency" %}
+        {% include "G_Detail_Row.html" with label="Mobile" value=user.emergency_mobile|mobile sheet="edit-emergency" %}
       </div>
+      {% else %}
+      <p class="empty">No emergency contact yet</p>
+      {% endif %}
     </div>
   </div>
   <div class="col">
     <div class="panel">
       <div class="sec-h"><h2>Health at a glance</h2><a class="link" href="{% url 'my_record' %}">My Record</a></div>
       <div class="kvs">
-        <div class="kv"><span>Allergies</span><b>{% for a in user.record.allergies %}<span class="atag">{{ a }}</span>{% empty %}None recorded{% endfor %}</b></div>
-        <div class="kv"><span>Conditions</span><b>{% if user.user_id == 1001 %}Hypertension{% else %}Not recorded{% endif %}</b></div>
-        <div class="kv"><span>Medication</span><b>{{ user.record.medications|join:", "|default:"None recorded" }}</b></div>
-        <div class="kv"><span>Last vaccine</span><b>{% if user.user_id == 1001 %}Flu shot{% else %}Not recorded{% endif %}</b></div>
-        <div class="kv"><span>Given on</span><b>{% if user.user_id == 1001 %}Sep 14, 2026{% else %}Not recorded{% endif %}</b></div>
+        <div class="kv"><span>Allergies</span><b>{% for a in user.record.allergies %}<span class="atag{% if a.severity == 'Moderate' %} mod{% elif a.severity == 'Mild' %} low{% endif %}">{{ a }}</span>{% empty %}<span class="faint">Not added</span><a class="add-link" href="#" data-sheet="edit-allergy-new">Add</a>{% endfor %}</b></div>
+        {% include "G_Detail_Row.html" with label="Conditions" value=user.record.conditions|join:", " sheet="edit-condition-new" %}
+        {% include "G_Detail_Row.html" with label="Medication" value=user.record.medications|join:", " sheet="edit-medication-new" %}
+        {% with vaccine=user.record.latest_vaccine %}
+        {% include "G_Detail_Row.html" with label="Last vaccine" value=vaccine sheet="edit-vaccine-new" %}
+        {% if vaccine %}<div class="kv"><span>Given on</span><b>{{ vaccine.date_on|date:"M j, Y" }}</b></div>{% endif %}
+        {% endwith %}
       </div>
     </div>
     <div class="panel">
@@ -46,7 +52,7 @@
         {% if user.user_id == 1001 %}
         <div class="row"><div class="ic">{% icon "stethoscope" "sm" %}</div><div class="g"><b>Consultation: Dr. Maria Reyes</b><div class="s">Oct 16, 2026 &middot; Bayanihan Family Clinic</div></div></div>
         <div class="row"><div class="ic">{% icon "stethoscope" "sm" %}</div><div class="g"><b>Consultation: Dr. Jose Lim</b><div class="s">Oct 15, 2026 &middot; Mabini Skin Center</div></div></div>
-        {% else %}<p class="empty">Not recorded</p>{% endif %}
+        {% else %}<p class="empty">Not added</p>{% endif %}
       </div>
     </div>
   </div>
@@ -54,17 +60,17 @@
 {% else %}
 {% comment %}
   demo placeholder: MedScan does not store a licence number yet. Only demo doctor 2001 shows the sample, every other doctor reads
-  "Not recorded". The Edit link opens the mobile number sheet (the only detail that can be changed). "This month" is real counts.
+  "Not added". The Edit link opens the mobile number sheet (the only detail that can be changed). "This month" is real counts.
 {% endcomment %}
 <div class="head plain-h"><div><div class="hrow"><h1>Dr. {{ user.name }}</h1></div><p><span class="num">{{ user.display_id }}</span> &middot; {{ user.specialty }}</p></div></div>
 <div class="grid half">
   <div class="col">
     <div class="panel">
-      <div class="sec-h"><h2>Work details</h2><a class="link" href="#" data-sheet="contact-sheet">Edit</a></div>
+      <div class="sec-h"><h2>Work details</h2><a class="link" href="#" data-sheet="edit-work">Edit</a></div>
       <div class="kvs">
         <div class="kv"><span>Specialty</span><b>{{ user.specialty }}</b></div>
         <div class="kv"><span>Clinic</span><b>{{ user.clinic|default:"Not set" }}</b></div>
-        <div class="kv"><span>License no.</span><b>{% if user.user_id == 2001 %}PRC 0123456{% else %}Not recorded{% endif %}</b></div>
+        <div class="kv"><span>License no.</span><b>{% if user.user_id == 2001 %}PRC 0123456{% else %}Not added{% endif %}</b></div>
         <div class="kv"><span>Mobile</span><b>{{ user.contact_number|mobile|default:"Not set" }}</b></div>
       </div>
     </div>
@@ -83,17 +89,13 @@
 </div>
 {% endif %}
 
-<dialog id="contact-sheet" class="sheet">
-  <form method="post" action="{% url 'profile_contact' %}" class="sheet-in" data-validate-form>{% csrf_token %}
-    <div class="grab"></div>
-    <div class="sheet-h"><h2>Edit contact info</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
-    <div class="field"><label for="f-contact">Mobile number</label>
-      <input id="f-contact" name="contact_number" type="tel" inputmode="tel" maxlength="20" placeholder="0917 123 4567" value="{{ user.contact_number|mobile }}" {% if user.role == "Patient" %}required data-validate="mobile-required" data-hint="One number per account. You can log in with it."{% else %}data-validate="mobile" data-hint="Optional."{% endif %} data-format="mobile"></div>
-    <div class="sheet-actions">
-      <button type="button" class="btn lg" data-close>Cancel</button>
-      <button type="submit" class="btn primary lg" data-submit>{% icon "check" "sm" %}Save</button>
-    </div>
-  </form>
-</dialog>
+{# the edit sheets: one reusable template, opened by the Edit and Add links above #}
+{% if user.role == "Doctor" %}
+{% include "G_Edit_Sheet.html" with sheet=sheets.work next="/profile/" %}
+{% else %}
+{% include "G_Edit_Sheet.html" with sheet=sheets.personal next="/profile/" %}
+{% include "G_Edit_Sheet.html" with sheet=sheets.emergency next="/profile/" %}
+{% for sheet in health_sheets %}{% include "G_Edit_Sheet.html" with sheet=sheet next="/profile/" %}{% endfor %}
+{% endif %}
 {% block overlay %}{% endblock %}
 {% endblock %}

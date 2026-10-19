@@ -1,13 +1,13 @@
 {% comment %} One thing that happened to a patient's record. Needs: a (kind, doctor, when, ended, detail). With bare=True (the panel on Home)
    the row has no status pill and the second line names the kind of event instead. {% endcomment %}
 <div class="row">
-  <div class="ic {% if a.kind == 'scan' %}green{% elif a.kind == 'override' or a.kind == 'emergency_view' %}red{% endif %}">{% if a.kind == "scan" %}{% icon "qr" "sm" %}{% elif a.kind == "override" %}{% icon "shield" "sm" %}{% elif a.kind == "declined" %}{% icon "x" "sm" %}{% else %}{% icon "eye" "sm" %}{% endif %}</div>
+  <div class="ic {% if a.kind == 'scan' %}green{% elif a.kind == 'override' or a.kind == 'emergency_view' %}red{% endif %}">{% if a.kind == "scan" %}{% icon "qr" "sm" %}{% elif a.kind == "override" %}{% icon "shield" "sm" %}{% elif a.kind == "declined" %}{% icon "x" "sm" %}{% elif a.kind == "health" %}{% icon "pencil" "sm" %}{% else %}{% icon "eye" "sm" %}{% endif %}</div>
   <div class="g">
-    <b>{% if a.kind == "declined" %}You declined Dr. {{ a.doctor.name }}{% else %}Dr. {{ a.doctor.name }} {% if a.kind == "scan" %}scanned your QR code{% elif a.kind == "override" %}used emergency access{% elif a.kind == "emergency_view" %}opened your record in an emergency{% else %}opened your record{% endif %}{% endif %}</b>
+    <b>{% if a.kind == "declined" %}You declined Dr. {{ a.doctor.name }}{% elif a.kind == "health" %}Dr. {{ a.doctor.name }} {{ a.detail }}{% else %}Dr. {{ a.doctor.name }} {% if a.kind == "scan" %}scanned your QR code{% elif a.kind == "override" %}used emergency access{% elif a.kind == "emergency_view" %}opened your record in an emergency{% else %}opened your record{% endif %}{% endif %}</b>
     <div class="s" title="{{ a.when|date:'M d, Y H:i' }}">
-      {% if bare %}{% if a.kind == "scan" %}QR scan{% elif a.kind == "view" %}Allowed{% elif a.kind == "declined" %}Declined{% else %}Emergency{% endif %} &middot; {% endif %}{% if bare and a.ended %}{{ a.when|day|capfirst }}, ended {{ a.ended|date:"H:i" }}{% else %}{{ a.when|when }}{% if a.ended %} to {{ a.ended|date:"H:i" }}{% endif %}{% endif %}
-      {% if a.detail %}&middot; Reason: {{ a.detail }}{% elif not bare %}&middot; {{ a.doctor.specialty }}{% if a.doctor.clinic and a.kind != "declined" %}, {{ a.doctor.clinic }}{% endif %}{% endif %}
+      {% if bare %}{% if a.kind == "scan" %}QR scan{% elif a.kind == "view" %}Allowed{% elif a.kind == "declined" %}Declined{% elif a.kind == "health" %}Record updated{% else %}Emergency{% endif %} &middot; {% endif %}{% if bare and a.ended %}{{ a.when|day|capfirst }}, ended {{ a.ended|date:"H:i" }}{% else %}{{ a.when|when }}{% if a.ended %} to {{ a.ended|date:"H:i" }}{% endif %}{% endif %}
+      {% if a.detail and a.kind != "health" %}&middot; Reason: {{ a.detail }}{% elif not bare %}&middot; {{ a.doctor.specialty }}{% if a.doctor.clinic and a.kind != "declined" %}, {{ a.doctor.clinic }}{% endif %}{% endif %}
     </div>
   </div>
-  {% if not bare %}{% if a.kind == "scan" %}<span class="pill green">QR scan</span>{% elif a.kind == "view" %}<span class="pill green">Allowed</span>{% elif a.kind == "declined" %}<span class="pill declined">Declined</span>{% else %}<span class="pill red">Emergency</span>{% endif %}{% endif %}
+  {% if not bare %}{% if a.kind == "scan" %}<span class="pill green">QR scan</span>{% elif a.kind == "view" %}<span class="pill green">Allowed</span>{% elif a.kind == "declined" %}<span class="pill declined">Declined</span>{% elif a.kind == "health" %}<span class="pill teal">Updated</span>{% else %}<span class="pill red">Emergency</span>{% endif %}{% endif %}
 </div>

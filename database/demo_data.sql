@@ -33,12 +33,17 @@ INSERT INTO tb_patients (name, password, sex, date_of_birth, mobile_number, bloo
 SET @luis = LAST_INSERT_ID();
 
 -- ---------------------------------------------------------------- a fuller record for Juan (1001)
-INSERT INTO tb_medical_items (patient_id, item_type, item_name) VALUES
-    (1001, 'allergy', 'Peanuts'),
-    (1001, 'medication', 'Amlodipine 5 mg daily'),
-    (@ana, 'allergy', 'Latex'),
-    (@ana, 'medication', 'Metformin 500 mg'),
-    (@pedro, 'medication', 'Losartan 50 mg');
+INSERT INTO tb_health_items (patient_id, kind, name, severity, reaction, status, dose, frequency, date_on, added_by_role, added_by_id, added_by_name, added_at) VALUES
+    (1001, 'allergy', 'Peanuts', 'Moderate', 'Swelling', NULL, '', '', NULL, 'patient', 1001, 'Juan Dela Cruz', NOW(6) - INTERVAL 20 DAY),
+    (1001, 'condition', 'Hypertension', NULL, '', 'Managed', '', '', '2024-06-03', 'doctor', 2001, 'Reyes', NOW(6) - INTERVAL 8 DAY),
+    (1001, 'medication', 'Amlodipine', NULL, '', NULL, '5 mg', 'once daily', '2024-06-10', 'doctor', 2001, 'Reyes', NOW(6) - INTERVAL 8 DAY),
+    (1001, 'medication', 'Hydrocortisone', NULL, '', NULL, 'Cream', 'twice daily', CURDATE() - INTERVAL 3 DAY, 'doctor', @lim, 'Lim', NOW(6) - INTERVAL 3 DAY),
+    (1001, 'vaccine', 'Flu shot', NULL, '', NULL, '', '', '2026-09-14', 'patient', 1001, 'Juan Dela Cruz', NOW(6) - INTERVAL 20 DAY),
+    (1001, 'vaccine', 'COVID-19 booster', NULL, '', NULL, '', '', '2025-01-12', 'patient', 1001, 'Juan Dela Cruz', NOW(6) - INTERVAL 20 DAY),
+    (1001, 'vaccine', 'Tetanus (Td)', NULL, '', NULL, '', '', '2021-05-20', 'patient', 1001, 'Juan Dela Cruz', NOW(6) - INTERVAL 20 DAY),
+    (@ana, 'allergy', 'Latex', 'Moderate', 'Rash', NULL, '', '', NULL, 'patient', @ana, 'Ana Ramos', NOW(6) - INTERVAL 12 DAY),
+    (@ana, 'medication', 'Metformin', NULL, '', NULL, '500 mg', 'with meals', NULL, 'patient', @ana, 'Ana Ramos', NOW(6) - INTERVAL 12 DAY),
+    (@pedro, 'medication', 'Losartan', NULL, '', NULL, '50 mg', 'once daily', NULL, 'patient', @pedro, 'Pedro Bautista', NOW(6) - INTERVAL 12 DAY);
 
 -- ---------------------------------------------------------------- Dr. Reyes (2001): the doctor's view
 -- Juan: approved this morning by scanning his QR code, record opened, two notes written

@@ -50,10 +50,9 @@ class MobileNumbersOnScreen(PageTestCase):
         tag = input_tag(html(self.pat.get("/record/")), "contact_number")
         self.assertIn('value="0917 123 4567"', tag)
         self.assertIn('data-format="mobile"', tag)
-        self.assertIn('data-validate="mobile-required"', tag)
 
     def test_a_number_typed_in_the_spaced_style_is_saved_without_spaces(self):
-        self.pat.post("/record/edit/", {"contact_number": "0928 111 2222"})
+        self.pat.post("/details/contact/", {"contact_number": "0928 111 2222"})
         self.assertEqual(rows("SELECT mobile_number FROM tb_patients WHERE patient_id = 1001")[0]["mobile_number"],
                          "09281112222")
 
@@ -131,22 +130,19 @@ class RegistrationHelpers(PageTestCase):
         self.assertIn('class="pw-eye"', page)
         self.assertIn("Caps Lock is on", page)
 
-    def test_the_edit_form_has_chips_for_all_three_lists(self):
+    def test_the_edit_form_has_chips_for_the_surgeries_list(self):
         page = html(self.pat.get("/record/"))
-        for name in ["allergies", "medications", "surgeries"]:
-            self.assertIn("data-chips", input_tag(page, name))
+        self.assertIn("data-chips", input_tag(page, "surgeries"))
+        self.assertNotIn('name="allergies"', page)                       # allergies and medications have their own item sheets now
 
     def test_the_chips_start_from_what_is_saved(self):
         page = html(self.pat.get("/record/"))
-        self.assertIn('value="Penicillin"', input_tag(page, "allergies"))
         self.assertIn('value="Appendectomy"', input_tag(page, "surgeries"))
 
     def test_chip_text_is_submitted_the_same_way_as_before(self):
-        self.pat.post("/record/edit/", {"allergies": "Peanuts, Latex, penicillin", "medications": "Metformin, Metformin",
-                                        "surgeries": "", "blood_type": "O+", "contact_number": "09171234567"})
+        self.pat.post("/details/surgeries/", {"surgeries": "Tonsillectomy, Hernia repair, Tonsillectomy"})
         record = self.s.get_patient(1001).record
-        self.assertEqual(record.allergies, ["Peanuts", "Latex", "penicillin"])
-        self.assertEqual(record.medications, ["Metformin"])   # repeats are dropped
+        self.assertEqual(record.surgeries, ["Tonsillectomy", "Hernia repair"])   # repeats are dropped
 
 
 class Counters(PageTestCase):
@@ -159,16 +155,17 @@ class Counters(PageTestCase):
 
 class Messages(PageTestCase):
     def test_success_messages_are_the_teal_toast_without_a_close_button_and_errors_keep_theirs(self):
-        r = self.pat.post("/record/edit/", {"allergies": "Peanuts", "contact_number": "09171234567"}, follow=True)
+        r = self.pat.post("/health/allergy/", {"name": "Peanuts", "severity": "Mild", "next": "/record/?tab=medical"}, follow=True)
         page = html(r)
         self.assertIn('class="toast success"', page)
-        self.assertIn("Your information was updated.", page)
+        self.assertIn("<span>Saved</span>", page)
         self.assertNotIn("toast-x", page)
 
-    def test_errors_are_toasts_too_with_a_close_button(self):
-        r = self.pat.post("/record/edit/", {"contact_number": "12"}, follow=True)
-        self.assertIn('class="toast error"', html(r))
-        self.assertIn("toast-x", html(r))
+    def test_a_mistake_in_a_sheet_is_a_message_under_the_box_not_a_toast(self):
+        r = self.pat.post("/details/contact/", {"contact_number": "12", "next": "/record/?tab=info"}, follow=True)
+        page = html(r)
+        self.assertNotIn('<div class="toast ', page)
+        self.assertIn('<p class="field-error" role="alert">Enter an 11-digit mobile number starting with 09, like 0917 123 4567.</p>', page)
 
     def test_on_the_login_and_register_pages_errors_stay_next_to_the_form(self):
         page = html(Client().post("/", {"user_id": "2001", "password": "wrong"}))
@@ -178,7 +175,7 @@ class Messages(PageTestCase):
         self.assertIn('class="alert red auth-alert"', page)
 
     def test_a_message_shows_once(self):
-        self.pat.post("/record/edit/", {"allergies": "Peanuts", "contact_number": "09171234567"})
+        self.pat.post("/health/allergy/", {"name": "Peanuts", "severity": "Mild"})
         self.assertIn("toast success", html(self.pat.get("/dashboard/")))
         self.assertNotIn("toast success", html(self.pat.get("/dashboard/")))
 

@@ -4,6 +4,8 @@ import re
 from datetime import datetime
 
 from django import template
+from django.utils.html import conditional_escape
+from django.utils.safestring import mark_safe
 from django.contrib.staticfiles import finders
 from django.templatetags.static import static
 
@@ -82,6 +84,42 @@ def dose(item):
     """The dose in a medication such as 'Amlodipine 5 mg daily': from the first number on ('5 mg daily'), or nothing."""
     found = re.match(r"^(.*?)[\s,]+(\d.*)$", str(item))
     return found.group(2) if found else ""
+
+
+@register.filter
+def added_by(item, viewer):
+    """The small grey line under a health item, written for whoever is looking: "Added by you" (or "Added by the patient" when a
+    doctor is looking at what the patient entered), or "Added by Dr. Maria Reyes - Oct 19, 2026" for a doctor's entry."""
+    return item.added_by_text(viewer.role, viewer.user_id)
+
+
+@register.filter
+def highlight(text, query):
+    """The text with every part that matches what was typed wrapped in <mark>, for the Search results. Case does not matter,
+    and the rest of the text is escaped, so a name can never add markup to the page. Fewer than two typed characters
+    mark nothing."""
+    text, query = str(text), str(query or "").strip()
+    if len(query) < 2:
+        return conditional_escape(text)
+    pieces, last = [], 0
+    for match in re.finditer(re.escape(query), text, re.I):
+        pieces.append(conditional_escape(text[last:match.start()]))
+        pieces.append(mark_safe("<mark>") + conditional_escape(match.group(0)) + mark_safe("</mark>"))
+        last = match.end()
+    pieces.append(conditional_escape(text[last:]))
+    return mark_safe("".join(pieces))
+
+
+@register.filter
+def measure(value, unit):
+    """A saved height or weight with its unit: 170 gives '170 cm' and Decimal('68.5') gives '68.5 kg' (a whole weight
+    drops its '.0'). Nothing saved gives an empty text, so the page can show 'Not added'."""
+    if value is None or value == "":
+        return ""
+    text = f"{value:f}"
+    if "." in text:
+        text = text.rstrip("0").rstrip(".")
+    return f"{text} {unit}"
 
 
 @register.filter
