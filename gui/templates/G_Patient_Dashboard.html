@@ -1,9 +1,12 @@
 {% extends "G_Base.html" %}
 {% block title %}Home{% endblock %}
 {% block content %}
-{% include "G_Welcome_Card.html" %}
-<div class="head"><div>
-  <h1>{% greeting %}, {{ user.name|first_name }}</h1>
+{% comment %}
+  Row 1: the ID card, and Needs your answer (or "You're all caught up"). Row 2: Your care team and Recent activity, each in its own panel.
+  demo placeholder: MedScan does not store vaccines yet. Only demo patient 1001 shows the sample "Last vaccine", everyone else reads "Not recorded".
+{% endcomment %}
+<div class="head plain-h"><div>
+  <div class="hrow"><h1>{% greeting %}, {{ user.name|first_name }}</h1></div>
   <p>{% if waiting %}{% if waiting|length == 1 %}One request needs{% else %}{{ waiting|length }} requests need{% endif %} your answer.{% else %}Nothing needs your answer right now.{% endif %}</p>
 </div></div>
 
@@ -12,38 +15,61 @@
     <div class="idcard">
       <span class="idtag num">{% icon "user" "sm" %}{{ user.display_id }}</span>
       <div class="name">{{ user.name }}</div>
-      <div class="sub">{{ user.sex }} &middot; {{ user.age }} years{% if user.contact_number %} &middot; {{ user.contact_number }}{% endif %}</div>
-      <div class="stats">
-        <div><span>Blood type</span><b>{{ record.blood_type|default:"&ndash;" }}</b></div>
-        <div><span>Allergies</span><b>{{ record.allergies|length }}</b></div>
-        <div><span>Medications</span><b>{{ record.medications|length }}</b></div>
-        <div><span>Surgeries</span><b>{{ record.surgeries|length }}</b></div>
-        <div><span>Visits</span><b>{{ record.consultations|length }}</b></div>
+      <div class="sub">{{ user.sex }} &middot; {{ user.age }} years{% if record.blood_type %} &middot; Blood type {{ record.blood_type }}{% endif %}</div>
+      {% if record.allergies %}
+        <div class="chiprow">{% for allergy in record.allergies %}<span class="chip">{% icon "alert" "sm" %}{{ allergy }}</span>{% endfor %}</div>
+      {% endif %}
+      <div class="meta">
+        <span>Taking<b>{{ record.medications|join:", "|default:"None recorded" }}</b></span>
+        <span>Last vaccine<b>{% if user.user_id == 1001 %}Flu shot, Sep 14, 2026{% else %}Not recorded{% endif %}</b></span>
+        <span>Last visit<b>{% with last_note=record.consultations|last %}{% if last_note %}{{ last_note.date|date:"M j, Y" }}{% else %}No visits yet{% endif %}{% endwith %}</b></span>
+        <span>Surgery<b>{{ record.surgeries|join:", "|default:"None recorded" }}</b></span>
       </div>
-      {% for allergy in record.allergies %}<span class="chip">{% icon "alert" "sm" %}{{ allergy }}</span>{% endfor %}
     </div>
-
-    {% if waiting %}
-    <div class="card">
-      <div class="card-h"><h2>{% icon "inbox" %}Needs your answer</h2><span class="pill amber">{{ waiting|length }} waiting</span></div>
+  </div>
+  <div class="col">
+    <div class="card ask side-ask">
+      <div class="card-h"><h2>Needs your answer</h2>{% if waiting %}<span class="when">{{ waiting.0.0.created_at|when }}</span>{% endif %}</div>
       {% for r, doctor, last in waiting %}
         <div class="row">
           <div class="avatar">{{ doctor.name|initials }}</div>
-          <div class="g"><b>Dr. {{ doctor.name }} wants to see your record</b><div class="s">{{ doctor.specialty }}{% if doctor.clinic %} &middot; {{ doctor.clinic }}{% endif %} &middot; {{ r.created_at|when:"inline" }}</div></div>
-          <div class="acts">{% include "G_Request_Actions.html" %}</div>
+          <div class="g"><b>Dr. {{ doctor.name }} wants to see your record</b><div class="s">{{ doctor.specialty }}{% if doctor.clinic %} &middot; {{ doctor.clinic }}{% endif %}</div></div>
         </div>
-        <div class="m-only flex btn-row">{% include "G_Request_Actions.html" %}</div>
+        <div class="ask-btns">{% include "G_Request_Actions.html" %}</div>
         {% include "G_Review_Sheet.html" with next="dashboard" %}
+      {% empty %}
+        <div class="row empty"><div class="ei">{% icon "tick" %}</div><div class="g"><b>You're all caught up</b><small>New requests from doctors will show up here.</small></div></div>
       {% endfor %}
     </div>
-    {% endif %}
   </div>
+</div>
 
+<div class="grid">
   <div class="col">
-    <div class="card">
-      <div class="card-h"><h2>{% icon "history" %}Recent activity</h2><a class="link" href="{% url 'access' %}?tab=history">See all</a></div>
-      {% for a in activity %}{% include "G_Activity_Item.html" %}
-      {% empty %}<p class="empty">Nobody has opened your record yet.</p>{% endfor %}
+    <div class="panel">
+      <section class="sec">
+        <div class="sec-h"><h2>Your care team</h2><a class="link" href="{% url 'my_record' %}?tab=care">Care history</a></div>
+        <div class="list">
+          {% for r, doctor, last in team %}
+            <div class="row">
+              <div class="avatar">{{ doctor.name|initials }}</div>
+              <div class="g"><b>Dr. {{ doctor.name }}</b><div class="s">{{ doctor.specialty }}{% if doctor.clinic %} &middot; {{ doctor.clinic }}{% endif %}</div></div>
+              <span class="when">{% if last %}{{ last.timestamp|date:"M j, Y" }}{% else %}{{ r.decided_at|date:"M j, Y" }}{% endif %}</span>
+            </div>
+          {% empty %}<p class="empty">No doctor can open your record yet. Show your QR code, or give a doctor your ID, <b>{{ user.display_id }}</b>.</p>{% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="col">
+    <div class="panel">
+      <section class="sec">
+        <div class="sec-h"><h2>Recent activity</h2><a class="link" href="{% url 'access' %}?tab=history">See all</a></div>
+        <div class="list">
+          {% for a in activity %}{% include "G_Activity_Item.html" with bare=True %}
+          {% empty %}<p class="empty">Nobody has opened your record yet.</p>{% endfor %}
+        </div>
+      </section>
     </div>
   </div>
 </div>

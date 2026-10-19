@@ -82,7 +82,7 @@ def login_view(request):
 def register_view(request):
     """Create a patient or doctor account. It is one form with a Patient / Doctor switch (?role=patient or
     ?role=doctor, patient when there is none). If the input is bad, the error is shown on the form and what was
-    typed is kept. After a successful sign-up the person is logged in and lands on Home."""
+    typed is kept. After a successful sign-up the person is logged in and sees the save-your-ID screen."""
     if current_user(request):
         return redirect("dashboard")
     if request.method == "POST":
@@ -99,8 +99,7 @@ def register_view(request):
             messages.error(request, str(error))
             return render(request, "G_Register.html", {"form": f, "role": "Doctor" if f.get("role") == "Doctor" else "Patient"})
         request.session["uid"] = user.user_id      # Registering also logs the new person in.
-        request.session["welcome"] = True          # Home shows the welcome card with the new ID, once.
-        return redirect("dashboard")
+        return redirect("id_ready")                # First stop: the "save your ID" screen.
     role = {"patient": "Patient", "doctor": "Doctor"}.get(request.GET.get("role", ""), "Patient")
     return render(request, "G_Register.html", {"role": role})
 
@@ -183,29 +182,56 @@ def dashboard(request):
     user = current_user(request)
     if not user:
         return redirect("login")
-    welcome = request.session.pop("welcome", False)
     if user.role == "Patient":
         groups = system.doctor_groups_for_patient(user.user_id)
         return render(request, "G_Patient_Dashboard.html", {
-            "welcome": welcome,
             "record": user.record,
             "waiting": groups["waiting"],
+            "team": groups["with_access"][:3],
             "activity": system.activity_for_patient(user.user_id)[:3],
         })
     return render(request, "G_Doctor_Dashboard.html", {
-        "welcome": welcome,
         "ready": system.unopened_patients_for_doctor(user.user_id),
         "recent": system.recent_patient_rows_for_doctor(user.user_id),
         "waiting": system.request_rows_for_doctor(user.user_id, "Pending"),
+        "notes": system.recent_notes_for_doctor(user.user_id),
     })
 
 
-def profile(request):
-    """Profile: the account details of whoever is logged in. Log out lives here and nowhere else, so there is one
-    place to find it."""
+def id_ready(request):
+    """The screen right after registering: the new MedScan ID to save, a link to download it, and a button on to Home.
+    The password is never shown here."""
+    user = current_user(request)
+    if not user:
+        return redirect("login")
+    return render(request, "G_Id_Ready.html", {"plain": True})
+
+
+def id_print(request):
+    """The printable ID page. The browser's Print dialog saves it as a PDF, so no PDF library is needed. It shows the
+    ID, name, account type, the day it was made and a masked mobile number. Never the password. Opening it with
+    ?auto=1 starts the Print dialog by itself."""
+    user = current_user(request)
+    if not user:
+        return redirect("login")
+    return render(request, "G_Id_Print.html", {"plain": True, "auto": request.GET.get("auto") == "1"})
+
+
+def settings_page(request):
+    """Settings, for both roles. Log out lives here and nowhere else, so there is one place to find it. Nothing on it is
+    stored yet except what the Account rows lead to, so the view only shows the page."""
     if not current_user(request):
         return redirect("login")
-    return render(request, "G_Profile.html")
+    return render(request, "G_Settings.html")
+
+
+def profile(request):
+    """Profile: the account details of whoever is logged in."""
+    user = current_user(request)
+    if not user:
+        return redirect("login")
+    month = system.month_counts_for_doctor(user.user_id) if user.role == "Doctor" else None
+    return render(request, "G_Profile.html", {"month": month})
 
 
 def profile_contact(request):
@@ -230,7 +256,7 @@ def qr_page(request):
         return redirect("login")
     if user.role == "Patient":
         return redirect("/dashboard/?sheet=qr")        # A patient's code is a sheet on every page (see G_Base.html).
-    return render(request, "G_QR.html")
+    return render(request, "G_QR.html", {"scans": system.recent_scans_for_doctor(user.user_id)})
 
 
 def _qr_reply(patient, token):
@@ -286,7 +312,7 @@ def my_record(request):
     if not patient:
         return redirect("dashboard")
     return render(request, "G_My_Record.html", {
-        "record": patient.record, "blood_types": system.BLOOD_TYPES,
+        "record": patient.record, "blood_types": system.BLOOD_TYPES, "authors": system.note_authors(patient.record),
     })
 
 
@@ -331,8 +357,13 @@ def respond(request, rid, decision):
     patient = _patient(request)
     approve = decision == "approve"
     if patient and request.method == "POST":
+        doctor = system.doctor_of_request(rid)
         if system.respond_to_request(rid, patient.user_id, approve):
-            messages.success(request, "Access approved." if approve else "Access denied.")
+            if approve:
+                # the "undo" tag makes the page show the Undo link (a demo placeholder, it does nothing yet)
+                messages.success(request, f"Allowed. Dr. {doctor.name} can now see your record.", extra_tags="undo")
+            else:
+                messages.success(request, "Request declined.")
     return _back_to(request, ["access"], "dashboard")
 
 

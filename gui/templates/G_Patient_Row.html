@@ -3,8 +3,8 @@
   <div class="avatar">{{ link.patient.name|initials }}</div>
   <div class="g">
     <b>{{ link.patient.name }}</b>
-    <div class="s">{{ link.patient.display_id }} &middot; {{ link.patient.sex }}, {{ link.patient.age }}{% if detail %} &middot; {% if link.kind == "access" %}{% if link.approved_by_qr %}QR scan {{ link.when|day }}{% else %}approved {{ link.when|day }}{% endif %}{% elif link.kind == "waiting" %}requested {{ link.when|day }}{% elif link.kind == "emergency" %}emergency, {{ link.when|day }}{% elif link.kind == "denied" %}denied {{ link.when|day }}{% endif %}{% endif %}</div>
+    <div class="s">{{ link.patient.display_id }} &middot; {{ link.patient.sex }}, {{ link.patient.age }}{% if detail %} &middot; {% if link.kind == "access" %}{% if link.approved_by_qr %}QR scan {{ link.when|day }}{% else %}allowed {{ link.when|day }}{% endif %}{% elif link.kind == "waiting" %}asked {{ link.when|day }}{% elif link.kind == "emergency" %}emergency, ended {{ link.ends|day }}{% elif link.kind == "denied" %}declined {{ link.when|day }}{% endif %}{% endif %}</div>
   </div>
-  <span class="pill {% if link.kind == 'access' %}green{% elif link.kind == 'waiting' %}amber{% elif link.kind == 'emergency' %}red{% else %}grey{% endif %}">{{ link.label }}</span>
+  <span class="pill {% if link.kind == 'access' %}green{% elif link.kind == 'waiting' %}amber{% elif link.kind == 'emergency' %}red{% elif link.kind == 'denied' %}declined{% else %}grey{% endif %}">{{ link.label }}</span>
   <span class="faint">{% icon "chev" "sm" %}</span>
 </a>

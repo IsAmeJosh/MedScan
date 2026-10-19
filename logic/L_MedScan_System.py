@@ -2,7 +2,7 @@
 a patient answers, or someone registers. It keeps no data of its own. Every question and every change
 goes to MySQL through the repositories in data/, so the database is always the source of truth."""
 import re
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from data.D_Access_Repository import AccessRepository
 from data.D_Audit_Repository import AuditRepository
@@ -329,6 +329,12 @@ class MedScanSystem:
             self._notify(request.doctor_id, f"{self._name_of(patient_id)} {word} your access request.", request_id, word)
             return True
 
+    def doctor_of_request(self, request_id):
+        """The doctor who sent one access request, or None. The page uses the name in its message after the patient
+        answers ("Allowed. Dr. Santos can now see your record.")."""
+        request = self._access.get(request_id)
+        return self._doctors.get(request.doctor_id) if request else None
+
     def revoke_access(self, request_id, patient_id):
         """A patient takes back access they had approved. Returns True if it was revoked."""
         with self.db.unit_of_work():
@@ -456,14 +462,17 @@ class MedScanSystem:
 
     def activity_for_patient(self, patient_id):
         """Everything that happened to the patient's record, newest first, for the History tab. Each item is a dict
-        with kind ('view', 'emergency_view', 'override' or 'scan'), when, doctor, and detail (the reason, for an
-        override)."""
-        items = [{"kind": "emergency_view" if v.via == "emergency" else "view", "when": v.timestamp,
+        with kind ('view', 'emergency_view', 'override', 'scan' or 'declined'), when, ended (for an override: when the
+        doctor's emergency access stopped, one EMERGENCY_HOURS after it began; otherwise None), doctor, and detail (the
+        reason, for an override). A 'declined' item is a request the patient said no to."""
+        items = [{"kind": "emergency_view" if v.via == "emergency" else "view", "when": v.timestamp, "ended": None,
                   "doctor": doctor, "detail": ""} for v, doctor in self.view_rows_for_patient(patient_id)]
-        items += [{"kind": "override", "when": e.timestamp, "doctor": doctor, "detail": e.reason}
-                  for e, doctor in self.emergency_rows_for_patient(patient_id)]
-        items += [{"kind": "scan", "when": s.timestamp, "doctor": doctor, "detail": ""}
+        items += [{"kind": "override", "when": e.timestamp, "ended": e.timestamp + timedelta(hours=self.EMERGENCY_HOURS),
+                   "doctor": doctor, "detail": e.reason} for e, doctor in self.emergency_rows_for_patient(patient_id)]
+        items += [{"kind": "scan", "when": s.timestamp, "ended": None, "doctor": doctor, "detail": ""}
                   for s, doctor in self.scan_rows_for_patient(patient_id)]
+        items += [{"kind": "declined", "when": r.decided_at or r.created_at, "ended": None, "doctor": doctor, "detail": ""}
+                  for r, doctor in self.request_rows_for_patient(patient_id) if r.status == "Denied"]
         return sorted(items, key=lambda item: item["when"], reverse=True)
 
     # Which history kinds each chip on the Access page keeps ('all' keeps everything).
@@ -490,8 +499,8 @@ class MedScanSystem:
     # Which link kinds each chip on the Patients page keeps ('all' keeps everything).
     LINK_CHIPS = ("access", "waiting", "emergency", "denied")
 
-    @staticmethod
-    def _link(patient, request, emergency):
+    @classmethod
+    def _link(cls, patient, request, emergency):
         """Work out the PatientLink for one patient from the doctor's newest request with them (or None) and the
         doctor's newest emergency override on them (or None). An approval beats a waiting request, which beats an
         emergency, which beats a denial; with nothing at all the record is simply locked."""
@@ -500,7 +509,7 @@ class MedScanSystem:
         if request is not None and request.status == "Pending":
             return PatientLink(patient, "waiting", request.created_at)
         if emergency is not None:
-            return PatientLink(patient, "emergency", emergency.timestamp)
+            return PatientLink(patient, "emergency", emergency.timestamp, ends=emergency.timestamp + timedelta(hours=cls.EMERGENCY_HOURS))
         if request is not None:
             return PatientLink(patient, "denied", request.decided_at or request.created_at)
         return PatientLink(patient, "locked")
@@ -565,6 +574,37 @@ class MedScanSystem:
         patients = self._patients.get_many([pid for pid, _ in recent], with_record=False)
         rows = [(patients[pid], when) for pid, when in recent if pid in patients and self.can_view_record(doctor_id, pid)]
         return rows[:limit]
+
+    def recent_notes_for_doctor(self, doctor_id, limit=2):
+        """A list of (patient, Consultation) for the notes this doctor wrote most recently, newest first. Home shows
+        them under Recent notes."""
+        rows = self._patients.recent_notes_by_doctor(doctor_id, limit)
+        patients = self._patients.get_many([pid for pid, _ in rows], with_record=False)
+        return [(patients[pid], note) for pid, note in rows if pid in patients]
+
+    def recent_scans_for_doctor(self, doctor_id, limit=3):
+        """A list of (patient, when) for the patients this doctor scanned most recently, newest first. The scan page
+        shows them under Recent scans."""
+        rows = self._audit.scans_for_doctor(doctor_id, limit)
+        patients = self._patients.get_many([pid for pid, _ in rows], with_record=False)
+        return [(patients[pid], when) for pid, when in rows if pid in patients]
+
+    def month_counts_for_doctor(self, doctor_id):
+        """What a doctor did this month, for their Profile: {'patients', 'notes', 'scans', 'emergencies'}."""
+        counts = self._audit.counts_this_month(doctor_id)
+        counts["notes"] = self._patients.notes_written_this_month(doctor_id)
+        return counts
+
+    def note_authors(self, record):
+        """The doctors who wrote notes in a record, as a list of (doctor, how many notes), the one with the newest note
+        first. My Record shows them under Written by."""
+        counts, order = {}, []
+        for note in reversed(record.consultations):          # newest first
+            if note.doctor_id not in counts:
+                order.append(note.doctor_id)
+            counts[note.doctor_id] = counts.get(note.doctor_id, 0) + 1
+        doctors = self._doctors.get_many(order)
+        return [(doctors[did], counts[did]) for did in order if did in doctors]
 
     def unopened_patients_for_doctor(self, doctor_id):
         """Patients who approved this doctor but whose record the doctor has not opened yet, in ID order. Home lists

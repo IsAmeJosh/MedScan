@@ -1,0 +1,29 @@
+{% extends "G_Base.html" %}
+{% block title %}My MedScan ID{% endblock %}
+{# The printable ID. Print it to PDF from the browser. It carries no password, and the mobile number is half hidden. #}
+{% block auth %}
+<div class="print-bar">
+  <button type="button" class="btn primary" id="id-print">{% icon "download" "sm" %}Save as PDF</button>
+  <a class="btn" href="{% url 'profile' %}">Back</a>
+</div>
+<div class="a4"{% if auto %} data-autoprint{% endif %}>
+  <div class="brand"><div class="logo-xl">{% logo %}</div><div>MedScan<div class="brand-sub">Your account details</div></div></div>
+  <hr>
+  <div class="lab">MedScan ID</div>
+  <div class="bigid num">{{ user.display_id }}</div>
+  <div class="pair">
+    <div><div class="lab">Name</div><div class="val">{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</div></div>
+    <div><div class="lab">Account type</div><div class="val">{{ user.role }}</div></div>
+    <div><div class="lab">Created</div><div class="val">{{ user.created_on|date:"F j, Y" }}</div></div>
+    <div><div class="lab">Mobile number</div><div class="val">{{ user.contact_number|mobile_hidden|default:"Not set" }}</div></div>
+  </div>
+  <hr>
+  <div class="note">
+    <b>How to log in:</b> use this MedScan ID, or your mobile number, with your password.<br>
+    <b>Keep this page safe.</b> MedScan staff will never ask for your password, and it is not printed here.<br>
+    {% if user.role == "Patient" %}<b>Doctors</b> find your record with this ID, but they can only open it if you allow them or show them your QR code in person.{% else %}<b>Patients</b> allow you in, or show you their QR code in person. Every time you open a record it is logged.{% endif %}
+  </div>
+  <p class="foot">Printed from MedScan &middot; SDG 3 Good Health and Well-being</p>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% asset 'js/G_Id.js' %}"></script>{% endblock %}

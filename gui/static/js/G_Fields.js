@@ -197,29 +197,7 @@
     window.setTimeout(function () { refresh(form); }, 400);   // browsers fill saved passwords a moment late
   }
 
-  // ---- "Remember my ID on this computer" on the login page (the password is never stored) ----
-  function setupRemember(input) {
-    var key = input.getAttribute('data-remember');
-    var box = document.getElementById(input.getAttribute('data-remember-box') || '');
-    if (!key || !box || !input.form) { return; }
-    try {
-      var saved = window.localStorage.getItem(key);
-      if (saved) {
-        input.value = saved;
-        box.checked = true;
-        var password = document.getElementById('password');
-        if (password) { password.focus(); }          // the ID is already there: go to the password
-      }
-    } catch (ignored) { /* the browser does not allow storing: the box just does nothing */ }
-    input.form.addEventListener('submit', function () {
-      try {
-        if (box.checked) { window.localStorage.setItem(key, input.value); } else { window.localStorage.removeItem(key); }
-      } catch (ignored) { /* see above */ }
-    });
-  }
-
   function start() {
-    each(document.querySelectorAll('[data-remember]'), setupRemember);
     each(document.querySelectorAll('[data-format]'), setupFormat);
     each(document.querySelectorAll('[data-counter]'), setupCounter);
     each(document.querySelectorAll('[data-toggle-password]'), setupPassword);

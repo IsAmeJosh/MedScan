@@ -13,8 +13,8 @@ class ThePatientLinkClass(unittest.TestCase):
 
     def test_each_kind_has_its_own_pill_word(self):
         words = {kind: PatientLink(None, kind).label for kind in PatientLink.ORDER}
-        self.assertEqual(words, {"access": "Access", "waiting": "Waiting", "emergency": "Emergency",
-                                 "denied": "Denied", "locked": "Locked"})
+        self.assertEqual(words, {"access": "Allowed", "waiting": "Waiting", "emergency": "Emergency",
+                                 "denied": "Declined", "locked": "Locked"})
 
     def test_access_is_by_qr_only_when_it_came_from_a_scan(self):
         self.assertTrue(PatientLink(None, "access", via="qr").approved_by_qr)
@@ -137,9 +137,9 @@ class ThePages(unittest.TestCase):
         self.doc.post(f"/patient/{em.user_id}/emergency/", {"reason": "Collapsed"})
         page = self.main(self.doc.get("/patients/"))
         self.assertIn("QR scan today", page)
-        self.assertIn("emergency, today", page)
-        self.assertEqual([m for m in re.findall(r'class="pill (green|red)">(Access|Emergency)<', page)],
-                         [("green", "Access"), ("red", "Emergency")])
+        self.assertIn("emergency, ended today", page)
+        self.assertEqual([m for m in re.findall(r'class="pill (green|red)">(Allowed|Emergency)<', page)],
+                         [("green", "Allowed"), ("red", "Emergency")])
         self.assertIn("Em Patient", self.main(self.doc.get("/patients/?show=emergency")))
         self.assertNotIn("Em Patient", self.main(self.doc.get("/patients/?show=access")))
 
@@ -150,8 +150,8 @@ class ThePages(unittest.TestCase):
             self.assertIn(f'data-pane-tab="{tab}"', page)
             self.assertIn(f'data-pane="{tab}"', page)
         self.assertIn('action="/patient/1001/consult/"', page)
-        self.assertIn("Access approved", page)
-        self.assertNotIn("Approved by QR scan", page)
+        self.assertIn("Allowed</span>", page)
+        self.assertNotIn("Allowed by QR scan", page)
         self.assertNotIn('id="emergency-sheet"', page)
 
     def test_a_live_scan_lands_on_the_open_page_that_says_how_the_doctor_got_in(self):
@@ -159,9 +159,10 @@ class ThePages(unittest.TestCase):
         r = self.doc.get(f"/qr/scan/?code={text}", follow=True)
         page = html(r)
         self.assertEqual(r.redirect_chain[-1][0], "/patient/1001/")
-        self.assertIn("Approved by QR scan", page)
+        self.assertIn("Allowed by QR scan", page)
         self.assertIn("Scan successful. Access approved and logged.", page)
-        self.assertIn("Check before prescribing", page)                               # the allergy alert
+        self.assertIn('<div class="allergy">', page)                                   # the allergy alert
+        self.assertIn("<b>Allergies</b>", page)
         self.assertEqual(count("tb_record_views"), 1)
 
     def test_the_emergency_open_page_says_so_and_warns_that_it_was_logged(self):
@@ -174,7 +175,7 @@ class ThePages(unittest.TestCase):
     def test_the_locked_page_changes_with_the_state_of_the_request(self):
         page = html(self.doc.get("/patient/1001/"))
         self.assertIn("Send access request", page)
-        self.assertIn("Scan Juan&#x27;s QR code".replace("&#x27;", "'"), page.replace("&#x27;", "'"))
+        self.assertIn("Scan his QR code", page)                                 # the word comes from the sex on file
         self.doc.post("/request/1001/")
         waiting = html(self.doc.get("/patient/1001/"))
         self.assertIn("Request sent", waiting)
@@ -199,7 +200,7 @@ class ThePages(unittest.TestCase):
         page = html(self.doc.get("/qr/"))
         self.assertIn("Starting the camera", page)
         self.assertIn('id="qr-retry" hidden', page)
-        self.assertIn("Ask the patient to tap", page)
+        self.assertIn("Recent scans", page)
 
 
 if __name__ == "__main__":

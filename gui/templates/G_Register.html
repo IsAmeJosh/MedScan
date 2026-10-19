@@ -6,7 +6,7 @@
   <div class="auth-form">
     <div class="box">
       <h2>Create your account</h2>
-      <p class="sub">You will get a MedScan ID when you finish.</p>
+      <p class="sub">You'll get your MedScan ID when you finish.</p>
       {% include "G_Auth_Messages.html" %}
       <div class="field">
         <label>I am a</label>
@@ -20,22 +20,22 @@
         <div class="field">
           <label for="name">Full name</label>
           <input id="name" name="name" maxlength="100" placeholder="{% if role == 'Doctor' %}Maria Reyes{% else %}Juan Dela Cruz{% endif %}" autocomplete="name"
-                 value="{{ form.name|default:'' }}" required data-counter data-validate="name">
+                 value="{{ form.name|default:'' }}" required data-validate="name">
         </div>
 
         {% if role == "Doctor" %}
         <div class="two-col">
           <div class="field">
             <label for="specialty">Specialty</label>
-            <input id="specialty" name="specialty" maxlength="100" placeholder="e.g. Cardiology" value="{{ form.specialty|default:'' }}" data-counter>
+            <input id="specialty" name="specialty" maxlength="100" placeholder="e.g. Cardiology" value="{{ form.specialty|default:'' }}">
           </div>
           <div class="field">
             <label for="clinic">Hospital or clinic</label>
-            <input id="clinic" name="clinic" maxlength="150" placeholder="e.g. Bayanihan Family Clinic" value="{{ form.clinic|default:'' }}" data-counter>
+            <input id="clinic" name="clinic" maxlength="150" placeholder="e.g. Bayanihan Family Clinic" value="{{ form.clinic|default:'' }}">
           </div>
         </div>
         <div class="field">
-          <label for="contact_number">Contact number <span class="faint">(optional)</span></label>
+          <label for="contact_number">Mobile number <span class="faint">(optional)</span></label>
           <input id="contact_number" name="contact_number" type="tel" inputmode="tel" maxlength="20" autocomplete="tel-national"
                  placeholder="0917 123 4567" value="{{ form.contact_number|default:'' }}" data-format="mobile" data-validate="mobile">
         </div>
@@ -64,7 +64,7 @@
           </div>
         </div>
         <div class="field">
-          <label for="contact_number">Contact number</label>
+          <label for="contact_number">Mobile number</label>
           <input id="contact_number" name="contact_number" type="tel" inputmode="tel" maxlength="20" autocomplete="tel-national"
                  placeholder="0917 123 4567" value="{{ form.contact_number|default:'' }}"
                  required data-format="mobile" data-validate="mobile-required" data-hint="One per account. Works for logging in.">

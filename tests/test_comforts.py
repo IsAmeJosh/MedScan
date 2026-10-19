@@ -66,7 +66,7 @@ class DateOfBirthTyping(PageTestCase):
     def test_the_server_accepts_what_the_form_produces(self):
         for typed in ["04/04/2004", "4/4/2004", "2004-04-04"]:
             r = self.register(typed)
-            self.assertIn("Welcome to MedScan, Zed", html(r), typed)
+            self.assertIn("Your MedScan ID is ready", html(r), typed)
         saved = rows("SELECT date_of_birth FROM tb_patients ORDER BY patient_id DESC LIMIT 3")
         self.assertEqual({row["date_of_birth"] for row in saved}, {date(2004, 4, 4)})
 
@@ -100,20 +100,22 @@ class RegistrationHelpers(PageTestCase):
         self.assertIn("data-submit", self.page)
         self.assertIn("data-submit-hint", self.page)
 
-    def test_password_has_a_counter_the_limits_an_eye_and_a_caps_warning(self):
+    def test_password_has_the_limits_a_show_word_and_a_caps_warning_and_no_counter(self):
         tag = input_tag(self.page, "password")
-        for hook in ['data-counter', 'data-min="6"', 'minlength="6"', 'maxlength="25"', 'data-toggle-password',
+        self.assertNotIn("data-counter", tag)                            # the design has no counter under the box
+        for hook in ['data-min="6"', 'minlength="6"', 'maxlength="25"', 'data-toggle-password',
                      'data-validate="password"', 'autocomplete="new-password"']:
             self.assertIn(hook, tag)
         self.assertIn('class="pw-eye"', self.page)
+        self.assertIn('<span class="eye-on">Show</span><span class="eye-off">Hide</span>', self.page)
         self.assertIn("Caps Lock is on", self.page)
 
-    def test_the_other_fields_have_their_counters_and_rules(self):
-        self.assertIn("data-counter", input_tag(self.page, "name"))
+    def test_the_other_fields_have_their_rules_and_no_counters(self):
+        self.assertNotIn("data-counter", input_tag(self.page, "name"))
         self.assertIn('data-validate="name"', input_tag(self.page, "name"))
         doctor = html(Client().get("/register/?role=doctor"))
-        self.assertIn("data-counter", input_tag(doctor, "specialty"))
-        self.assertIn("data-counter", input_tag(doctor, "clinic"))
+        self.assertNotIn("data-counter", input_tag(doctor, "specialty"))
+        self.assertNotIn("data-counter", input_tag(doctor, "clinic"))
 
     def test_medical_history_uses_chips(self):
         self.assertIn("data-chips", input_tag(self.page, "allergies"))
@@ -148,24 +150,25 @@ class RegistrationHelpers(PageTestCase):
 
 
 class Counters(PageTestCase):
-    def test_notes_and_emergency_reason_have_counters(self):
+    def test_the_emergency_reason_has_a_counter_and_the_note_box_has_none_as_in_the_design(self):
         approve(self.s)
-        self.assertIn("data-counter", html(self.doc.get("/patient/1001/")))
+        self.assertNotIn("data-counter", html(self.doc.get("/patient/1001/")))
         page = html(self.doc.get("/emergency/"))
         self.assertIn("data-counter", re.search(r"<textarea[^>]*name=\"reason\"[^>]*>", page).group(0))
 
 
 class Messages(PageTestCase):
-    def test_messages_on_logged_in_pages_are_toasts_with_a_close_button(self):
+    def test_success_messages_are_the_teal_toast_without_a_close_button_and_errors_keep_theirs(self):
         r = self.pat.post("/record/edit/", {"allergies": "Peanuts", "contact_number": "09171234567"}, follow=True)
         page = html(r)
         self.assertIn('class="toast success"', page)
         self.assertIn("Your information was updated.", page)
-        self.assertIn("toast-x", page)
+        self.assertNotIn("toast-x", page)
 
-    def test_errors_are_toasts_too(self):
+    def test_errors_are_toasts_too_with_a_close_button(self):
         r = self.pat.post("/record/edit/", {"contact_number": "12"}, follow=True)
         self.assertIn('class="toast error"', html(r))
+        self.assertIn("toast-x", html(r))
 
     def test_on_the_login_and_register_pages_errors_stay_next_to_the_form(self):
         page = html(Client().post("/", {"user_id": "2001", "password": "wrong"}))
@@ -335,13 +338,18 @@ class AnsweringRequests(PageTestCase):
         r = self.pat.post(f"/respond/{self.request.request_id}/approve/")
         self.assertEqual((r.status_code, r["Location"]), (302, "/dashboard/"))
         self.assertEqual(self.s.access_status(2001, 1001), "approved")
-        self.assertIn("Access approved.", html(self.pat.get("/dashboard/")))
+        page = html(self.pat.get("/dashboard/"))
+        self.assertIn("Allowed. Dr. Reyes can now see your record.", page)
+        self.assertIn('class="toast undo success"', page)
+        self.assertIn('<a href="#">Undo</a>', page)                    # a demo placeholder, it only looks like a link
 
     def test_denying_goes_back_with_a_message_and_keeps_the_doctor_out(self):
         r = self.pat.post(f"/respond/{self.request.request_id}/deny/")
         self.assertEqual(r.status_code, 302)
         self.assertEqual(self.s.access_status(2001, 1001), "denied")
-        self.assertIn("Access denied.", html(self.pat.get("/dashboard/")))
+        page = html(self.pat.get("/dashboard/"))
+        self.assertIn("Request declined.", page)
+        self.assertNotIn("Undo", page)
 
     def test_answering_marks_that_notification_read_and_tells_the_doctor(self):
         self.pat.post(f"/respond/{self.request.request_id}/approve/")

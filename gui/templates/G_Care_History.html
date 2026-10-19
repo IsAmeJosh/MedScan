@@ -1,0 +1,73 @@
+{% comment %}
+  demo placeholder. The care history is hard-coded sample data. MedScan does not store admissions, ER visits or visits to
+  other places yet (they need new tables after the exam), so nothing here comes from the database and nothing on this
+  page can be changed. Only demo patient 1001 shows the sample entries, everyone else reads "Not recorded".
+  Needs: viewer ("patient" or "doctor") and owner (the patient's ID). The patient sees every entry, including one they
+  have hidden from doctors. A doctor never sees the hidden entry, only a line saying that one is hidden.
+{% endcomment %}
+{% if owner == 1001 %}
+<div class="chips">
+  <span class="on">All <em>{% if viewer == "doctor" %}5{% else %}6{% endif %}</em></span>
+  <span>Consultations <em>{% if viewer == "doctor" %}2{% else %}3{% endif %}</em></span>
+  <span>Admissions <em>1</em></span>
+  <span>ER visits <em>1</em></span>
+  <span>Surgeries <em>1</em></span>
+</div>
+
+<div class="grid">
+  <div class="col">
+    <div class="panel">
+      <div class="list ch">
+        <div class="row">
+          <div class="ic">{% icon "stethoscope" "sm" %}</div>
+          <div class="g"><b>Consultation: Dr. Maria Reyes</b><div class="s">Oct 16, 2026 &middot; Bayanihan Family Clinic</div><div class="s">Hypertension follow-up</div></div>
+          {% if viewer != "doctor" %}<span class="more" title="Hide from doctors (not connected yet)">&bull;&bull;&bull;</span>{% endif %}
+        </div>
+        <div class="row">
+          <div class="ic">{% icon "stethoscope" "sm" %}</div>
+          <div class="g"><b>Consultation: Dr. Jose Lim</b><div class="s">Oct 15, 2026 &middot; Mabini Skin Center</div><div class="s">Contact dermatitis</div></div>
+          {% if viewer != "doctor" %}<span class="more" title="Hide from doctors (not connected yet)">&bull;&bull;&bull;</span>{% endif %}
+        </div>
+        <div class="row">
+          <div class="ic bed">{% icon "bed" "sm" %}</div>
+          <div class="g"><b>Admitted: Pneumonia</b><div class="s">Mar 3 to 7, 2025 &middot; Northview Medical Center</div><div class="s">4 nights, Dr. Antonio Santos</div></div>
+          <span class="pill teal">Admission</span>
+        </div>
+        <div class="row">
+          <div class="ic red">{% icon "alert" "sm" %}</div>
+          <div class="g"><b>ER visit: Penicillin reaction</b><div class="s">Jan 12, 2025 &middot; Mabini General Hospital</div><div class="s">Sent home</div></div>
+          <span class="pill red">ER</span>
+        </div>
+        {% if viewer != "doctor" %}
+        {# The one entry the patient has hidden. Only the patient sees it; doctors only see that one entry is hidden. #}
+        <div class="row hidden-row">
+          <div class="ic">{% icon "hidden" "sm" %}</div>
+          <div class="g"><b>Consultation: Private clinic</b><div class="s">Nov 8, 2024</div><div class="s">Only you can see this</div></div>
+          <span class="pill grey">Hidden from doctors</span>
+        </div>
+        {% endif %}
+        <div class="row">
+          <div class="ic amber">{% icon "pulse" "sm" %}</div>
+          <div class="g"><b>Surgery: Appendectomy</b><div class="s">Aug 9, 2021 &middot; Northview Medical Center</div></div>
+          {% if viewer != "doctor" %}<span class="more" title="Hide from doctors (not connected yet)">&bull;&bull;&bull;</span>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="panel">
+      <section class="sec">
+        <div class="sec-h"><h2>Places you've been treated</h2></div>
+        <div class="list">
+          <div class="row"><div class="ic">{% icon "hospital" "sm" %}</div><div class="g"><b>Northview Medical Center</b><div class="s">Admission, surgery &middot; last Mar 7, 2025</div></div></div>
+          <div class="row"><div class="ic">{% icon "hospital" "sm" %}</div><div class="g"><b>Bayanihan Family Clinic</b><div class="s">Consultations &middot; last Oct 16, 2026</div></div></div>
+          <div class="row"><div class="ic">{% icon "hospital" "sm" %}</div><div class="g"><b>Mabini Skin Center</b><div class="s">Consultation &middot; last Oct 15, 2026</div></div></div>
+          <div class="row"><div class="ic">{% icon "hospital" "sm" %}</div><div class="g"><b>Mabini General Hospital</b><div class="s">ER visit &middot; Jan 12, 2025</div></div></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="panel"><p class="empty">Not recorded</p></div>
+{% endif %}

@@ -1,0 +1,22 @@
+{% extends "G_Base.html" %}
+{% block title %}Save your ID{% endblock %}
+{# Shown once, right after registering. The ID is the only thing on it: the password is never shown. #}
+{% block auth %}
+<div class="auth">
+  {% include "G_Auth_Art.html" %}
+  <div class="auth-form">
+    <div class="box">
+      <div class="done-ic">{% icon "check" "lg" %}</div>
+      <h2>Your MedScan ID is ready</h2>
+      <p class="sub">Save it now. You'll use it to log in, and doctors use it to find your record.</p>
+      <div class="idbig num">{{ user.display_id }}</div>
+      <p class="faint small id-who">{{ user.name }} &middot; created {{ user.created_on|date:"M j, Y" }}</p>
+      <a class="btn lg block" href="{% url 'id_print' %}?auto=1" target="_blank" rel="noopener">{% icon "download" "sm" %}Download as PDF</a>
+      <label class="check"><input type="checkbox" id="id-saved"><span class="tick">{% icon "check" "sm" %}</span>I saved my MedScan ID somewhere safe</label>
+      <a class="btn primary lg block" id="id-continue" href="{% url 'dashboard' %}">Continue to MedScan</a>
+      <p class="faint small id-who">You can download it again any time from Settings.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script src="{% asset 'js/G_Id.js' %}"></script>{% endblock %}

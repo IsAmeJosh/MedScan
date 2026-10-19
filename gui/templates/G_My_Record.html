@@ -1,49 +1,148 @@
 {% extends "G_Base.html" %}
 {% block title %}My Record{% endblock %}
 {% block content %}
-<div class="head">
-  <div><h1>My Record</h1><p>This is exactly what a doctor sees once you give them access.</p></div>
-  <div class="acts"><button type="button" class="btn" data-sheet="edit-sheet">{% icon "edit" "sm" %}Edit my information</button></div>
+<div class="head plain-h"><div><h1>My Record</h1><p>This is exactly what a doctor sees once you give them access.</p></div></div>
+
+{# Four underline tabs on every screen size (G_Sheets.js). /record/?tab=care opens on Care history. #}
+<div class="utabs">
+  <a href="?tab=notes" class="on" data-pane-tab="notes">Notes</a>
+  <a href="?tab=care" data-pane-tab="care">Care history</a>
+  <a href="?tab=medical" data-pane-tab="medical">Medical</a>
+  <a href="?tab=info" data-pane-tab="info">Info</a>
 </div>
 
-{# on a phone the three groups become tabs (G_Sheets.js); on a desktop everything is visible #}
-<div class="ptabs m-only flex" role="tablist">
-  <button type="button" class="on" data-pane-tab="notes">Notes</button>
-  <button type="button" data-pane-tab="medical">Medical</button>
-  <button type="button" data-pane-tab="info">Info</button>
-</div>
-
-<div class="grid">
-  <div class="col">
-    <div class="card pane on" data-pane="notes">
-      <div class="card-h"><h2>{% icon "file" %}Consultation notes</h2><span class="pill grey nodot">{{ record.consultations|length }}</span></div>
-      <div class="card-b">
-        {% include "G_Notes_Timeline.html" %}
+<div class="tabbed">
+  <div class="pane on" data-pane="notes">
+    {% comment %}
+      demo placeholder: "Prescribed in these notes" needs prescriptions linked to notes, which MedScan does not store yet.
+      Only demo patient 1001 shows the sample rows, everyone else reads "Not recorded".
+    {% endcomment %}
+    <div class="grid">
+      <div class="col">
+        <div class="panel">
+          <section class="sec">
+            <div class="sec-h"><h2>Consultation notes</h2><span class="pill grey">{{ record.consultations|length }}</span></div>
+            <div class="list"><div class="tl-list">{% include "G_Notes_Timeline.html" %}</div></div>
+          </section>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <section class="sec">
+            <div class="sec-h"><h2>Written by</h2></div>
+            <div class="list">
+              {% for doctor, notes in authors %}
+                <div class="row"><div class="avatar">{{ doctor.name|initials }}</div><div class="g"><b>Dr. {{ doctor.name }}</b><div class="s">{{ doctor.specialty }} &middot; {{ notes }} note{{ notes|pluralize }}</div></div></div>
+              {% empty %}<p class="empty">No notes yet.</p>{% endfor %}
+            </div>
+          </section>
+        </div>
+        <div class="panel">
+          <section class="sec">
+            <div class="sec-h"><h2>Prescribed in these notes</h2></div>
+            <div class="list">
+              {% if user.user_id == 1001 %}
+              <div class="kvs">
+                <div class="kv"><span>Amlodipine</span><b>5 mg daily</b></div>
+                <div class="kv"><span>Prescribed by</span><b>Dr. Reyes</b></div>
+                <div class="kv"><span>Hydrocortisone</span><b>Cream, 7 days</b></div>
+                <div class="kv"><span>Prescribed by</span><b>Dr. Lim</b></div>
+              </div>
+              {% else %}<p class="empty">Not recorded</p>{% endif %}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="col">
-    <div class="col pane" data-pane="medical">
-      <div class="card">
-        <div class="card-h"><h2>{% icon "alert" %}Allergies</h2></div>
-        <div class="card-b tight">{% for a in record.allergies %}<span class="tag red">{% icon "alert" "sm" %}{{ a }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div>
+  <div class="pane" data-pane="care" id="care">
+    {% include "G_Care_History.html" with viewer="patient" owner=user.user_id %}
+  </div>
+
+  <div class="pane" data-pane="medical">
+    {% comment %}
+      demo placeholder: severity and notes on an allergy, conditions, the details of a surgery and vaccinations are not stored yet.
+      Only demo patient 1001 shows the sample values, everyone else reads "Not recorded".
+    {% endcomment %}
+    <div class="grid half">
+      <div class="col">
+        <div class="panel">
+          <div class="sec-h"><h2>Allergies</h2></div>
+          {% if record.allergies %}<div class="kvs">
+            {% for a in record.allergies %}<div class="kv"><span>{{ a }}</span><b>{% if user.user_id == 1001 and a == "Penicillin" %}<span class="atag">Severe</span>Hives, ER visit Jan 12, 2025{% elif user.user_id == 1001 and a == "Peanuts" %}<span class="atag mod">Moderate</span>Swelling{% else %}Not recorded{% endif %}</b></div>{% endfor %}
+          </div>{% else %}<p class="empty">None recorded.</p>{% endif %}
+        </div>
       </div>
-      <div class="card">
-        <div class="card-h"><h2>{% icon "pill" %}Medications</h2></div>
-        <div class="card-b tight">{% for m in record.medications %}<span class="tag">{{ m }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div>
-      </div>
-      <div class="card">
-        <div class="card-h"><h2>{% icon "pulse" %}Past surgeries</h2></div>
-        <div class="card-b tight">{% for s in record.surgeries %}<span class="tag">{{ s }}</span>{% empty %}<span class="faint">None recorded.</span>{% endfor %}</div>
+      <div class="col">
+        <div class="panel">
+          <div class="sec-h"><h2>Medications</h2></div>
+          {% if record.medications %}<div class="kvs">
+            {% for m in record.medications %}<div class="kv"><span>{{ m|drug }}</span><b>{{ m|dose|default:"Not recorded" }}</b></div>{% endfor %}
+          </div>{% else %}<p class="empty">None recorded.</p>{% endif %}
+        </div>
       </div>
     </div>
-    <div class="col pane" data-pane="info">
-      <div class="card">
-        <div class="card-h"><h2>{% icon "user" %}Basic info</h2></div>
-        <div class="kv"><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
-        <div class="kv"><span>Sex &middot; Age</span><b>{{ user.sex }} &middot; {{ user.age }}</b></div>
-        <div class="kv"><span>Mobile number</span><b>{{ user.contact_number|mobile|default:"Not set" }}</b></div>
+    <div class="grid half">
+      <div class="col">
+        <div class="panel">
+          <div class="sec-h"><h2>Conditions</h2></div>
+          {% if user.user_id == 1001 %}<div class="kvs"><div class="kv"><span>Hypertension</span><b>Managed</b></div><div class="kv"><span>Diagnosed</span><b>Jun 3, 2024</b></div></div>{% else %}<p class="empty">Not recorded</p>{% endif %}
+        </div>
+        <div class="panel">
+          <div class="sec-h"><h2>Past surgeries</h2></div>
+          {% if record.surgeries %}<div class="kvs">
+            {% for s in record.surgeries %}{% if user.user_id == 1001 and s == "Appendectomy" %}<div class="kv"><span>{{ s }}</span><b>Aug 9, 2021</b></div><div class="kv"><span>Hospital</span><b>Northview Medical Center</b></div>{% else %}<div class="kv"><span>{{ s }}</span><b>Not recorded</b></div>{% endif %}{% endfor %}
+          </div>{% else %}<p class="empty">None recorded.</p>{% endif %}
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <div class="sec-h"><h2>Vaccinations</h2></div>
+          {% if user.user_id == 1001 %}<div class="kvs">
+            <div class="kv"><span>Flu shot</span><b>Sep 14, 2026</b></div>
+            <div class="kv"><span>COVID-19 booster</span><b>Jan 12, 2025</b></div>
+            <div class="kv"><span>Tetanus (Td)</span><b>May 20, 2021</b></div>
+          </div>{% else %}<p class="empty">Not recorded</p>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pane" data-pane="info">
+    {% comment %}
+      demo placeholder: MedScan does not store height, weight or an emergency contact yet. Only demo patient 1001 shows the
+      sample values, everyone else reads "Not recorded". The Emergency contact Edit link does nothing.
+    {% endcomment %}
+    <div class="grid half">
+      <div class="col">
+        <div class="panel">
+          <div class="sec-h"><h2>Basic info</h2><a class="link" href="#" data-sheet="edit-sheet">Edit</a></div>
+          <div class="kvs">
+            <div class="kv"><span>Date of birth</span><b>{{ user.date_of_birth|date:"M j, Y" }}</b></div>
+            <div class="kv"><span>Age</span><b>{{ user.age }}</b></div>
+            <div class="kv"><span>Sex</span><b>{{ user.sex }}</b></div>
+            <div class="kv"><span>Blood type</span><b>{{ record.blood_type|default:"Not set" }}</b></div>
+            <div class="kv"><span>Height</span><b>{% if user.user_id == 1001 %}170 cm{% else %}Not recorded{% endif %}</b></div>
+            <div class="kv"><span>Weight</span><b>{% if user.user_id == 1001 %}68 kg{% else %}Not recorded{% endif %}</b></div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <div class="sec-h"><h2>Contact</h2><a class="link" href="#" data-sheet="edit-sheet">Edit</a></div>
+          <div class="kvs">
+            <div class="kv"><span>Mobile</span><b>{{ user.contact_number|mobile|default:"Not set" }}</b></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="sec-h"><h2>Emergency contact</h2><a class="link" href="#">Edit</a></div>
+          <div class="kvs">
+            <div class="kv"><span>Name</span><b>{% if user.user_id == 1001 %}Maria Dela Cruz{% else %}Not recorded{% endif %}</b></div>
+            <div class="kv"><span>Relationship</span><b>{% if user.user_id == 1001 %}Mother{% else %}Not recorded{% endif %}</b></div>
+            <div class="kv"><span>Mobile</span><b>{% if user.user_id == 1001 %}0918 765 4321{% else %}Not recorded{% endif %}</b></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

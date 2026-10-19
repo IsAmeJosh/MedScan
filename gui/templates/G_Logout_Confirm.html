@@ -1,6 +1,6 @@
-{% extends "G_Profile.html" %}
+{% extends "G_Settings.html" %}
 {% block title %}Log out{% endblock %}
-{# The Profile page stays behind, dimmed; the question is a modal on top (a bottom sheet on a phone). No script needed. #}
+{# The Settings page stays behind, dimmed; the question is a modal on top (a bottom sheet on a phone). No script needed. #}
 {% block overlay %}
 <div class="scrim" role="dialog" aria-modal="true" aria-labelledby="logout-title">
   <div class="modal">
@@ -9,7 +9,7 @@
     <h2 id="logout-title">Log out of MedScan?</h2>
     <p class="muted logout-text">You will need your ID and password to log in again.</p>
     <div class="sheet-actions">
-      <a class="btn lg" href="{% url 'profile' %}">Stay</a>
+      <a class="btn lg" href="{% url 'settings' %}">Stay</a>
       <form method="post" action="{% url 'logout' %}">{% csrf_token %}
         <button type="submit" class="btn primary lg">Log out</button>
       </form>

@@ -1,7 +1,7 @@
 {% extends "G_Base.html" %}
 {% block title %}Access{% endblock %}
 {% block content %}
-<div class="head"><div><h1>Access</h1><p>Who can see your record, who is asking, and who has looked.</p></div></div>
+<div class="head plain-h"><div><div class="hrow"><h1>Access</h1></div><p>Who can see your record, who is asking, and who has looked.{% if tab == "history" %} History can't be edited or cleared.{% endif %}</p></div></div>
 
 <div class="utabs">
   <a href="{% url 'access' %}?tab=requests" class="{% if tab == 'requests' %}on{% endif %}">Requests{% if waiting %}<span class="badge">{{ waiting|length }}</span>{% endif %}</a>
@@ -10,48 +10,81 @@
 </div>
 
 {% if tab == "requests" %}
-  <div class="stack narrow">
-    <div class="card">
-      <div class="card-h"><h2>{% icon "inbox" %}Waiting for your answer</h2></div>
+  {# demo placeholder: "If you allow, the doctor can see" is the same static text for everyone, by design #}
+  <div class="stack24">
+    <div class="card ask">
+      <div class="card-h"><h2>Waiting for your answer</h2>{% if waiting %}<span class="when">{{ waiting.0.0.created_at|when }}</span>{% endif %}</div>
       {% for r, doctor, last in waiting %}
         <div class="row">
           <div class="avatar">{{ doctor.name|initials }}</div>
-          <div class="g"><b>Dr. {{ doctor.name }} wants to see your record</b><div class="s">{{ doctor.specialty }}{% if doctor.clinic %} &middot; {{ doctor.clinic }}{% endif %} &middot; {{ r.created_at|when:"inline" }}</div></div>
+          <div class="g"><b>Dr. {{ doctor.name }} wants to see your record</b><div class="s">{{ doctor.specialty }}{% if doctor.clinic %} &middot; {{ doctor.clinic }}{% endif %}</div></div>
           <div class="acts">{% include "G_Request_Actions.html" with next="access" %}</div>
         </div>
         <div class="m-only flex btn-row">{% include "G_Request_Actions.html" with next="access" %}</div>
         {% include "G_Review_Sheet.html" with next="access" %}
       {% empty %}<p class="empty">Nothing is waiting for you. When a doctor asks to see your record, it shows up here.</p>{% endfor %}
     </div>
-    <p class="faint small">Answered requests move to Doctors (if you approved) or disappear (if you denied). Every view shows up in History.</p>
+    <div class="panel">
+      <div class="sec-h"><h2>If you allow, the doctor can see</h2></div>
+      <div class="kvs two">
+        <div class="kv"><span>Basic info</span><b>Name, age, sex, blood type</b></div>
+        <div class="kv"><span>Medical</span><b>Allergies, conditions, medications, vaccines</b></div>
+        <div class="kv"><span>Care history</span><b>Everything except entries you've hidden</b></div>
+        <div class="kv"><span>Notes</span><b>They can read notes and add new ones</b></div>
+      </div>
+    </div>
   </div>
 
 {% elif tab == "doctors" %}
-  <div class="card narrow">
-    {% for r, doctor, last in with_access %}
-      <div class="row">
-        <div class="avatar">{{ doctor.name|initials }}</div>
-        <div class="g"><b>Dr. {{ doctor.name }}</b><div class="s">{{ doctor.specialty }} &middot; {% if r.approved_by_qr %}approved by QR scan, {% else %}approved {% endif %}{{ r.decided_at|date:"M j" }}</div></div>
-        <form method="post" action="{% url 'revoke' r.request_id %}" class="inline-form" data-confirm="Dr. {{ doctor.name }} will lose access to your record right away. They can ask again later." data-confirm-title="Remove access?" data-confirm-button="Remove access" data-confirm-tone="danger">{% csrf_token %}
-          <input type="hidden" name="next" value="access">
-          <button type="submit" class="btn danger">Remove access</button>
-        </form>
+  {# demo placeholder: the Emergency access panel is the same static text for everyone, by design #}
+  <div class="grid">
+    <div class="col">
+      <div class="panel">
+        <section class="sec">
+          <div class="sec-h"><h2>Doctors who can see your record</h2><span class="pill grey">{{ with_access|length }}</span></div>
+          <div class="list">
+            {% for r, doctor, last in with_access %}
+              <div class="row">
+                <div class="avatar">{{ doctor.name|initials }}</div>
+                <div class="g"><b>Dr. {{ doctor.name }}</b><div class="s">{{ doctor.specialty }} &middot; {% if r.approved_by_qr %}allowed by QR scan, {% else %}allowed {% endif %}{{ r.decided_at|date:"M j, Y" }}</div></div>
+                <form method="post" action="{% url 'revoke' r.request_id %}" class="inline-form" data-confirm="Dr. {{ doctor.name }} will lose access to your record right away. They can ask again later." data-confirm-title="Remove access?" data-confirm-button="Remove access" data-confirm-tone="danger">{% csrf_token %}
+                  <input type="hidden" name="next" value="access">
+                  <button type="submit" class="btn equal">Remove</button>
+                </form>
+              </div>
+            {% empty %}<p class="empty">No doctor can open your record yet. Show your QR code, or give a doctor your ID, <b>{{ user.display_id }}</b>.</p>{% endfor %}
+          </div>
+        </section>
       </div>
-    {% empty %}<p class="empty">No doctor can open your record yet. Show your QR code, or give a doctor your ID, <b>{{ user.display_id }}</b>.</p>{% endfor %}
+    </div>
+    <div class="col">
+      <div class="panel">
+        <section class="sec">
+          <div class="sec-h"><h2>Emergency access</h2></div>
+          <div class="list"><div class="kvs">
+            <div class="kv"><span>Who</span><b>Any MedScan doctor</b></div>
+            <div class="kv"><span>When</span><b>If you can't answer</b></div>
+            <div class="kv"><span>Lasts</span><b>1 hour</b></div>
+            <div class="kv"><span>You're told</span><b>Every time</b></div>
+          </div></div>
+        </section>
+      </div>
+    </div>
   </div>
 
 {% else %}
   <div class="chips">
     <a href="?tab=history" class="{% if show == 'all' %}on{% endif %}">All <em>{{ counts.all }}</em></a>
     <a href="?tab=history&amp;show=scan" class="{% if show == 'scan' %}on{% endif %}">QR scan <em>{{ counts.scan }}</em></a>
-    <a href="?tab=history&amp;show=approved" class="{% if show == 'approved' %}on{% endif %}">Approved <em>{{ counts.approved }}</em></a>
+    <a href="?tab=history&amp;show=approved" class="{% if show == 'approved' %}on{% endif %}">Allowed <em>{{ counts.approved }}</em></a>
     <a href="?tab=history&amp;show=emergency" class="{% if show == 'emergency' %}on{% endif %}">Emergency <em>{{ counts.emergency }}</em></a>
   </div>
-  <div class="card narrow">
-    {% for a in activity %}{% include "G_Activity_Item.html" %}
-    {% empty %}<p class="empty">Nothing here yet. Every time a doctor opens your record it is listed here.</p>{% endfor %}
+  <div class="panel">
+    <div class="list">
+      {% for a in activity %}{% include "G_Activity_Item.html" %}
+      {% empty %}<p class="empty">Nothing here yet. Every time a doctor opens your record it is listed here.</p>{% endfor %}
+    </div>
   </div>
   {% include "G_Pager.html" with page=activity %}
-  <p class="faint small foot-note">This history is permanent. It can't be cleared or edited, by you or by any doctor.</p>
 {% endif %}
 {% endblock %}

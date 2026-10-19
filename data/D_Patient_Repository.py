@@ -78,6 +78,21 @@ class PatientRepository:
                         (patient_id, consultation.doctor_id, consultation.doctor_name, consultation.notes))
             return cur.lastrowid
 
+    def recent_notes_by_doctor(self, doctor_id, limit):
+        """A list of (patient ID, Consultation) for the notes this doctor wrote most recently, newest first."""
+        with self.db.cursor() as cur:
+            cur.execute("SELECT consultation_id, patient_id, doctor_id, doctor_name, notes, created_at FROM tb_consultations "
+                        "WHERE doctor_id = %s ORDER BY consultation_id DESC LIMIT %s", (doctor_id, int(limit)))
+            return [(row["patient_id"], Consultation(row["consultation_id"], row["doctor_id"], row["doctor_name"],
+                                                     row["notes"], row["created_at"])) for row in cur.fetchall()]
+
+    def notes_written_this_month(self, doctor_id):
+        """How many consultation notes this doctor wrote since the first day of this month."""
+        with self.db.cursor() as cur:
+            cur.execute("SELECT COUNT(*) AS n FROM tb_consultations WHERE doctor_id = %s "
+                        "AND created_at >= DATE_SUB(CURDATE(), INTERVAL DAYOFMONTH(CURDATE()) - 1 DAY)", (doctor_id,))
+            return cur.fetchone()["n"]
+
     # ---- reading ----
     def exists(self, patient_id, lock=False):
         """True if a patient with this ID exists. With lock=True the row is also held until the transaction ends, so

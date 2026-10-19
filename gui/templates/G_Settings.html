@@ -1,0 +1,56 @@
+{% extends "G_Base.html" %}
+{% block title %}Settings{% endblock %}
+{% block main_class %} settings-page{% endblock %}
+{% block content %}
+{% comment %}
+  Settings for both roles. Only "Download my MedScan ID" and "Log out" do something. Log out lives here and nowhere else.
+  demo placeholder: the switches, "Hidden care history", "Change password", Text size and Language only look real.
+  MedScan has no settings table yet, so nothing on this page saves. The switches are plain spans, not buttons, so they
+  cannot pretend to be saved.
+  Layout: Notifications and Display side by side, then Account on the left and Privacy with Log out (its own panel) on the right.
+{% endcomment %}
+<div class="head plain-h"><div><div class="hrow"><h1>Settings</h1></div><p>Choose how MedScan works for you.</p></div></div>
+
+<div class="grid half">
+    <div class="panel">
+      <div class="sec-h"><h2>Notifications</h2></div>
+      {% if user.role == "Doctor" %}
+      <div class="set-row"><div class="g"><b>Patient answered</b><small>When a patient allows or declines your request</small></div><span class="tog on"><i></i></span></div>
+      <div class="set-row"><div class="g"><b>Access ending</b><small>10 minutes before emergency access ends</small></div><span class="tog on"><i></i></span></div>
+      {% else %}
+      <div class="set-row"><div class="g"><b>Access requests</b><small>When a doctor asks to see your record</small></div><span class="tog on"><i></i></span></div>
+      <div class="set-row"><div class="g"><b>Record opened</b><small>When a doctor opens or scans your record</small></div><span class="tog on"><i></i></span></div>
+      {% endif %}
+    </div>
+    <div class="panel">
+      <div class="sec-h"><h2>Display</h2></div>
+      <div class="set-row"><div class="g"><b>Text size</b></div><span class="segc"><em class="on">Normal</em><em>Large</em></span></div>
+      <div class="set-row"><div class="g"><b>Language</b></div><span class="segc"><em class="on">English</em><em>Filipino</em></span></div>
+    </div>
+</div>
+
+<div class="grid half">
+  <div class="col">
+    <div class="panel">
+      <div class="sec-h"><h2>Account</h2></div>
+      {# the same printable ID page for patients and doctors #}
+      <a class="set-row link" href="{% url 'id_print' %}?auto=1" target="_blank" rel="noopener"><span class="sic">{% icon "download" "sm" %}</span><div class="g"><b>Download my MedScan ID</b></div><span class="chev">{% icon "chev" "sm" %}</span></a>
+      <a class="set-row link" href="#"><span class="sic">{% icon "lock" "sm" %}</span><div class="g"><b>Change password</b></div><span class="chev">{% icon "chev" "sm" %}</span></a>
+    </div>
+  </div>
+  <div class="col">
+    <div class="panel">
+      <div class="sec-h"><h2>Privacy</h2></div>
+      {% if user.role == "Doctor" %}
+      <div class="set-row"><div class="g"><b>Show my clinic to patients</b><small>Patients see it when you ask for access</small></div><span class="tog on"><i></i></span></div>
+      {% else %}
+      <a class="set-row link" href="#"><span class="sic">{% icon "hidden" "sm" %}</span><div class="g"><b>Hidden care history</b><small>1 entry hidden from doctors</small></div><span class="chev">{% icon "chev" "sm" %}</span></a>
+      {% endif %}
+    </div>
+    <div class="panel logout-panel">
+      <a class="act-row danger" href="{% url 'logout' %}">{% icon "logout" "sm" %}Log out</a>
+    </div>
+  </div>
+</div>
+{% block overlay %}{% endblock %}
+{% endblock %}

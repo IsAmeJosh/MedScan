@@ -4,17 +4,36 @@
 {% comment %}The doctor's scanner. It starts the camera by itself and reads the code in the browser (js/G_Scan.js), then sends what it
 read to /qr/scan/. A live one-time code is the patient's approval in person; a plain ID code only finds the patient.
 (A patient's code is a sheet on every patient page, see G_Base.html.){% endcomment %}
-<div class="head d-only"><div><h1>Scan a patient's QR code</h1><p>Their record opens right away. The scan counts as their approval.</p></div></div>
-<div class="card narrow-720"><div class="card-b">
-  <div class="cam" id="qr-camera">
-    <video id="qr-video" muted playsinline></video>
-    <div class="frame"><i></i><i></i><i></i><i></i><div class="line"></div></div>
-    <div class="hint" id="qr-status" role="status" aria-live="polite">Starting the camera&hellip;</div>
+<div class="head plain-h"><div><div class="hrow"><h1>Scan a patient's QR code</h1></div><p>Their record opens right away. Showing you the code counts as their OK.</p></div></div>
+<div class="grid">
+  <div class="col">
+    <div class="panel camp">
+      <div class="cam" id="qr-camera">
+        <video id="qr-video" muted playsinline></video>
+        <div class="frame"><i></i><i></i><i></i><i></i><div class="line"></div></div>
+        <div class="hint" id="qr-status" role="status" aria-live="polite">Starting the camera&hellip;</div>
+      </div>
+      <div class="cam-retry"><button type="button" class="btn" id="qr-retry" hidden>{% icon "camera" "sm" %}Try the camera again</button></div>
+      <canvas id="qr-canvas" hidden></canvas>
+    </div>
   </div>
-  <div class="cam-retry"><button type="button" class="btn" id="qr-retry" hidden>{% icon "camera" "sm" %}Try the camera again</button></div>
-  <p class="muted small cam-note">Ask the patient to tap <b>Show my QR code</b> on their phone.</p>
-  <canvas id="qr-canvas" hidden></canvas>
-</div></div>
+  <div class="col">
+    <div class="panel">
+      <section class="sec">
+        <div class="sec-h"><h2>Recent scans</h2></div>
+        <div class="list">
+          {% for p, when in scans %}
+            <a class="row" href="{% url 'record' p.user_id %}">
+              <div class="avatar">{{ p.name|initials }}</div>
+              <div class="g"><b>{{ p.name }}</b><div class="s">{{ when|when }}</div></div>
+              <span class="faint">{% icon "chev" "sm" %}</span>
+            </a>
+          {% empty %}<p class="empty">You have not scanned anyone yet.</p>{% endfor %}
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}

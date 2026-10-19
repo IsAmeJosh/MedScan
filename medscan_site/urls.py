@@ -16,6 +16,9 @@ urlpatterns = [
     path("keepalive/", views.keepalive, name="keepalive"),
     # Both roles.
     path("dashboard/", views.dashboard, name="dashboard"),
+    path("settings/", views.settings_page, name="settings"),
+    path("id/ready/", views.id_ready, name="id_ready"),
+    path("id/print/", views.id_print, name="id_print"),
     path("profile/", views.profile, name="profile"),
     path("profile/contact/", views.profile_contact, name="profile_contact"),
     path("qr/", views.qr_page, name="qr"),

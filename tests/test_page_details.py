@@ -56,7 +56,7 @@ class GuiV2(unittest.TestCase):
         self.assertIn("Cardiology &middot; Northview Medical Center", requests)
         self.assertIn("Waiting for your answer", requests)
         doctors = pat.get("/access/?tab=doctors").content.decode()
-        self.assertIn("General Medicine &middot; approved ", doctors)
+        self.assertIn("General Medicine &middot; allowed ", doctors)
         self.assertIn("Remove access", doctors)
         self.assertNotIn("Northview", doctors)                      # still waiting: not in Doctors yet
         r = pat.post(f"/respond/{r2.request_id}/approve/", {"next": "access"})
@@ -83,7 +83,7 @@ class GuiV2(unittest.TestCase):
         r1 = s.request_access(self.reyes, 1001); s.respond_to_request(r1.request_id, 1001, True)
         s.add_consultation(self.reyes, 1001, "Checkup")
         self.assertIn("Juan Dela Cruz", doc.get("/patients/").content.decode())
-        self.assertIn("approved your request", doc.get("/dashboard/").content.decode())
+        self.assertIn("Allowed your request", doc.get("/dashboard/").content.decode())
         self.assertEqual(login(1001, "pat123").get("/patients/").status_code, 302)  # patients cannot open it
 
     def test_every_page_renders_without_leaks(self):

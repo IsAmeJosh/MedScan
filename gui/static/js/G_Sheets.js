@@ -1,8 +1,9 @@
-// Sheets: the "Show my QR code", "Review request" and "Edit my information" pop-ups, and the phone tabs on My Record.
+// Sheets: the "Show my QR code", "Review request" and "Edit my information" pop-ups, and the tabs on the record pages.
 // - Any element with data-sheet="some-id" opens the <dialog id="some-id">. Anything with data-close closes the sheet it is in.
 //   Clicking the dimmed area around a sheet closes it too (Esc works by itself).
 // - A page can open a sheet on arrival: /dashboard/?sheet=qr opens #qr-sheet, and /record/#edit opens #edit-sheet.
-// - My Record has Notes / Medical / Info tabs on a phone: buttons with data-pane-tab show the cards with that data-pane.
+// - My Record and a doctor's patient page have tabs (Notes, Care history, Medical, Info): a tab link with data-pane-tab shows the
+//   pane with that data-pane. A page can open on a tab: /record/?tab=care opens on Care history.
 (function () {
   function closest(element, selector) {
     while (element && element.nodeType === 1) {
@@ -49,7 +50,7 @@
     if (place.hash === '#edit') { openSheet('edit-sheet'); }
   }
 
-  // ---- phone tabs on My Record ----
+  // ---- tabs on the record pages ----
   var tabs = document.querySelectorAll('[data-pane-tab]');
   var panes = document.querySelectorAll('[data-pane]');
   if (tabs.length) {
@@ -64,8 +65,18 @@
       }
     };
     for (var k = 0; k < tabs.length; k++) {
-      tabs[k].addEventListener('click', function () { show(this.getAttribute('data-pane-tab')); });
+      tabs[k].addEventListener('click', function (event) {
+        event.preventDefault();     // the tabs are links (they work without this script too), so stay on the page
+        show(this.getAttribute('data-pane-tab'));
+      });
     }
-    show('notes');
+    var wantedTab = /[?&]tab=([a-z]+)/.exec(place ? place.search || '' : '');
+    var start = 'notes';
+    if (wantedTab) {
+      for (var m = 0; m < tabs.length; m++) {
+        if (tabs[m].getAttribute('data-pane-tab') === wantedTab[1]) { start = wantedTab[1]; }
+      }
+    }
+    show(start);
   }
 })();

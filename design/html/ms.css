@@ -137,7 +137,7 @@ textarea.input{display:block;width:100%;height:120px;padding:14px;font:inherit;r
 .tabs{display:none}
 
 /* ================= PHONE ================= */
-@media (max-width:760px){
+@media (max-width:599px){
   :root{--pad:20px;--gap:16px;--radius:20px}
   body{font-size:15px;background:var(--bg)}
   .d-only{display:none!important} .m-only{display:revert!important} .btn.m-only{display:flex!important} .m-only.flex{display:flex!important}
@@ -192,7 +192,7 @@ textarea.input{display:block;width:100%;height:120px;padding:14px;font:inherit;r
 .cam{background:radial-gradient(circle at 50% 42%,#14666C,#082F33)}
 .qr svg path{stroke:#12333A}
 
-/* ---- navigation, tabs, chips, drawer and sheets ---- */
+/* ---- v5 additions: structure pass ---- */
 .side .cta{margin:0 4px 18px} .side .cta .btn{width:100%;height:46px}
 .utabs{display:flex;gap:28px;border-bottom:1px solid var(--line);margin-bottom:24px}
 .utabs span{padding:0 2px 14px;font-weight:600;color:var(--muted);display:flex;align-items:center;gap:8px;border-bottom:2px solid transparent;margin-bottom:-1px}
@@ -212,7 +212,7 @@ textarea.input{display:block;width:100%;height:120px;padding:14px;font:inherit;r
 .ptabs{display:flex;gap:4px;background:var(--line-soft);border-radius:12px;padding:4px;margin-bottom:20px;max-width:420px}
 .ptabs span{flex:1;text-align:center;padding:9px 0;font-weight:600;font-size:14px;color:var(--muted);border-radius:9px} .ptabs span.on{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
 .top .me-av{display:none}
-@media (max-width:760px){
+@media (max-width:599px){
   .utabs{gap:0;margin:0 -20px 18px;padding:0 20px} .utabs span{flex:1;justify-content:center;font-size:14px}
   .chips{flex-wrap:nowrap;overflow:hidden} .chips span{white-space:nowrap;padding:7px 12px}
   .drawer{left:0;width:auto;top:auto;height:82vh;border-radius:28px 28px 0 0}
@@ -220,3 +220,93 @@ textarea.input{display:block;width:100%;height:120px;padding:14px;font:inherit;r
   .sheet{width:auto}
   .lockcard{padding:36px 22px}
 }
+
+/* ===================== v7 tweaks ===================== */
+/* 1. Logo: bigger, bolder mark */
+.logo-mark{width:40px;height:40px;border-radius:12px}
+.logo-mark svg.i{width:26px;height:26px;stroke-width:2.4}
+.logo b{font-size:19px;letter-spacing:-.01em}
+.logo-xl{width:64px;height:64px;border-radius:18px;background:var(--brand);color:#fff;display:grid;place-items:center}
+.logo-xl svg.i{width:42px;height:42px;stroke-width:2.4}
+
+/* 2. Fewer boxes: lists sit on the page */
+.sec{margin-bottom:var(--gap)}
+.sec-h{display:flex;align-items:center;gap:10px;margin:0 0 6px;padding:0 2px}
+.sec-h h2{font-size:15px;font-weight:650} .sec-h .link{margin-left:auto;color:var(--brand);font-weight:600;font-size:13.5px}
+.list .row{padding:14px 2px;border-bottom:1px solid var(--line)} .list .row:last-child{border-bottom:0}
+.list .row .ic,.list .row .avatar{background:var(--surface)}
+.kvs .kv{padding:12px 2px;border-color:var(--line)}
+.plain-h{margin-bottom:22px}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 4px}
+.allergy{display:flex;gap:12px;align-items:flex-start;background:var(--red-tint);border:1px solid var(--red-line);border-radius:14px;padding:14px 18px;color:#8E2A21}
+.allergy b{color:var(--red)} .allergy small{display:block;color:#A0453C;margin-top:2px}
+
+/* consent: equal weight */
+.btn.equal{background:var(--surface);border:1.5px solid var(--line);color:var(--ink);min-width:120px}
+.pill.declined{background:var(--line-soft);color:var(--muted)}
+
+/* 3. Content width + columns per screen size */
+.content{margin:0 auto}
+@media (min-width:1280px){ .content{max-width:1200px} .grid{grid-template-columns:minmax(0,1fr) 360px} }
+@media (min-width:1024px) and (max-width:1279px){ .app{grid-template-columns:240px 1fr} .content{max-width:760px;padding:36px 32px 56px} .grid,.grid.half{grid-template-columns:1fr} .top{padding:0 32px} .tsearch{width:240px} }
+/* tablet: icon-only rail */
+@media (min-width:600px) and (max-width:1023px){
+  .app{grid-template-columns:72px 1fr}
+  .side{padding:20px 12px;align-items:center}
+  .side .logo{padding:0 0 18px} .side .logo>div:last-child,.side .nav-label,.side .lbl,.side .cta .txt,.side .nav a .count{display:none}
+  .side .cta{margin:0 0 14px} .side .cta .btn{width:48px;height:48px;padding:0}
+  .side .nav a{width:48px;height:48px;justify-content:center;padding:0;position:relative}
+  .content{max-width:680px;padding:28px 28px 48px} .grid,.grid.half{grid-template-columns:1fr}
+  .top{padding:0 28px} .date{display:none}
+  .head h1{font-size:24px}
+}
+/* phone */
+@media (max-width:599px){
+  :root{--pad:16px;--gap:20px}
+  .content{padding:4px 16px 24px} .top{padding:0 16px}
+  .head h1,h1{font-size:22px} .head p{font-size:14px}
+  .idcard{padding:20px} .idcard .name{font-size:19px;margin-top:10px}
+  .btn{height:48px}
+  .sec-h h2{font-size:15px}
+  .allergy{padding:12px 14px}
+}
+h1{font-size:clamp(22px,1.2vw + 14px,28px)}
+
+/* save-your-ID screen + PDF */
+.idbig{font:700 30px/1.2 Inter,sans-serif;letter-spacing:.04em;color:var(--ink);background:var(--brand-tint);border:1.5px dashed #9FD3CE;border-radius:14px;padding:18px;text-align:center;margin:18px 0 8px;font-variant-numeric:tabular-nums}
+.check{display:flex;gap:12px;align-items:center;margin:22px 0 18px;font-weight:500}
+.check .box{width:22px;height:22px;border-radius:6px;background:var(--brand);color:#fff;display:grid;place-items:center;flex:none}
+.done-ic{width:52px;height:52px;border-radius:16px;background:var(--green-tint);color:var(--green);display:grid;place-items:center;margin-bottom:18px}
+.a4{width:794px;min-height:1123px;background:#fff;padding:72px 80px;box-sizing:border-box;font-family:Inter,sans-serif;color:#12333A}
+.a4 .brand{display:flex;align-items:center;gap:16px;font-weight:700;font-size:26px}
+.a4 hr{border:0;border-top:1px solid #DCE8E6;margin:36px 0}
+.a4 .lab{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#5B7479;font-weight:600}
+.a4 .val{font-size:20px;font-weight:600;margin:4px 0 22px}
+.a4 .bigid{font-size:44px;font-weight:700;letter-spacing:.05em;margin:6px 0 30px;color:#0B4A50}
+.a4 .note{background:#EDF4F3;border-radius:12px;padding:18px 22px;line-height:1.7;font-size:15px}
+@media(min-width:600px) and (max-width:1023px){.side-foot{justify-content:center;padding-left:0;padding-right:0}.side-foot>*:not(.avatar){display:none!important}.crumbs{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}}
+.idbig{white-space:nowrap;font-size:clamp(22px,3.2vw,30px)!important}
+/* ===== v8: logo B (no box) + purposeful panels ===== */
+.logo-mark,.side .logo-mark,.top .logo-m .logo-mark{background:none!important;border-radius:0;width:auto!important;height:auto!important}
+.logo-mark svg.i{width:34px!important;height:34px!important;stroke-width:2.3!important}
+.side .logo-mark{color:#fff!important} .side .logo-mark svg path:nth-child(2){stroke:#5FD3C4}
+.top .logo-m .logo-mark{color:var(--shell)!important} .top .logo-m .logo-mark svg path:nth-child(2){stroke:#12A383}
+.top .logo-m .logo-mark svg.i{width:30px!important;height:30px!important}
+.top .logo-m{font-size:19px!important}
+/* one panel per region; rows inside are divided, never boxed */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:4px 20px 16px}
+.panel>.sec{margin:0;padding-bottom:4px}.panel>.sec+.sec{border-top:1px solid var(--line);margin-top:8px;padding-top:6px}
+.panel .sec-h{border-bottom:none;padding-top:16px}
+.panel .list .row:last-child,.panel .kvs .kv:last-child{border-bottom:none}
+@media(max-width:599px){.panel{padding:2px 16px 12px;border-radius:14px}}
+/* v8.1 badge centring */
+.nav a .count{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 6px;line-height:1;font-size:11.5px;box-sizing:border-box}
+.tabs a .n{display:grid;place-items:center;min-width:17px;height:17px;padding:0 4px;line-height:1;box-sizing:border-box}
+.utabs .badge{display:inline-grid;place-items:center;min-width:18px;height:18px;padding:0 6px;line-height:1;box-sizing:border-box}
+/* care history */
+.idcard .meta{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,.18);font-size:13.5px;color:rgba(255,255,255,.78)} .idcard .meta b{color:#fff;font-weight:600}
+.ic.bed{background:#E8EEF8;color:#3B5B9A} .ic.amber{background:var(--amber-tint,#FBF1DD);color:var(--amber,#A86A0B)}
+.hidden-row .g b{color:var(--muted)} .hidden-row{opacity:.8}
+.more{color:var(--faint);padding:4px 6px;font-weight:700;letter-spacing:1px}
+.ptabs.wide{max-width:560px}
+@media(max-width:599px){.list.ch .pill{display:none}}

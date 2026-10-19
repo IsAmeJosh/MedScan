@@ -6,23 +6,22 @@
   <div class="auth-form">
     <div class="box">
       <h2>Welcome back</h2>
-      <p class="sub">Log in with your MedScan ID. Patients and doctors use the same form.</p>
+      <p class="sub">Log in with your MedScan ID or mobile number. Patients and doctors use the same form.</p>
       {% include "G_Auth_Messages.html" %}
       <form method="post" data-validate-form novalidate>{% csrf_token %}
         <div class="field">
-          <label for="user_id">ID or mobile number</label>
-          <div class="input">{% icon "user" "sm" %}<input id="user_id" name="user_id" autocomplete="username" autofocus data-quiet="1" data-validate="login-id" data-remember="medscan_login_id" data-remember-box="remember"></div>
+          <label for="user_id">MedScan ID or mobile number</label>
+          <div class="input">{% icon "user" "sm" %}<input id="user_id" name="user_id" autocomplete="username" autofocus data-quiet="1" data-validate="login-id"></div>
         </div>
         <div class="field">
           <label for="password">Password</label>
-          <div class="input pw-wrap">{% icon "key" "sm" %}<input id="password" name="password" type="password" autocomplete="current-password" data-quiet="1" data-validate="login-password" data-toggle-password><button type="button" class="pw-eye" aria-label="Show password" aria-pressed="false"><span class="eye-on">{% icon "eye" "sm" %}</span><span class="eye-off">{% icon "eyeoff" "sm" %}</span></button></div>
+          <div class="input pw-wrap">{% icon "key" "sm" %}<input id="password" name="password" type="password" autocomplete="current-password" data-quiet="1" data-validate="login-password" data-toggle-password><button type="button" class="pw-eye" aria-label="Show password" aria-pressed="false"><span class="eye-on">Show</span><span class="eye-off">Hide</span></button></div>
           <p class="caps-note" hidden>Caps Lock is on</p>
         </div>
-        <label class="check-line"><input type="checkbox" id="remember"> Remember me</label>
         <button type="submit" class="btn primary lg block">Log in</button>
       </form>
       <p class="muted auth-switch">New to MedScan? <a href="{% url 'register' %}"><b>Create an account</b></a></p>
-      <div class="demo"><b>Demo accounts</b><br>Patient 1001 / pat123 &nbsp;&middot;&nbsp; Doctor 2001 / doc123</div>
+      <div class="demo"><b>Demo accounts</b><br>Patient PT-2026-01001 / pat123<br>Doctor DR-2026-02001 / doc123</div>
     </div>
   </div>
 </div>

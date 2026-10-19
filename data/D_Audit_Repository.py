@@ -101,6 +101,27 @@ class AuditRepository:
                         "WHERE patient_id = %s ORDER BY view_id DESC", (patient_id,))
             return [self._view(row) for row in cur.fetchall()]
 
+    def scans_for_doctor(self, doctor_id, limit):
+        """A list of (patient ID, when) for the patients this doctor scanned most recently, one line per patient (the
+        latest scan), newest first."""
+        with self.db.cursor() as cur:
+            cur.execute("SELECT patient_id, MAX(scan_id) AS latest, MAX(created_at) AS last_scanned FROM tb_qr_scans "
+                        "WHERE doctor_id = %s GROUP BY patient_id ORDER BY latest DESC LIMIT %s", (doctor_id, int(limit)))
+            return [(row["patient_id"], row["last_scanned"]) for row in cur.fetchall()]
+
+    def counts_this_month(self, doctor_id):
+        """What this doctor did since the first day of this month, as {'patients': how many different records they
+        opened, 'scans': QR scans, 'emergencies': emergency overrides}."""
+        since = "created_at >= DATE_SUB(CURDATE(), INTERVAL DAYOFMONTH(CURDATE()) - 1 DAY)"
+        with self.db.cursor() as cur:
+            cur.execute(f"SELECT COUNT(DISTINCT patient_id) AS n FROM tb_record_views WHERE doctor_id = %s AND {since}", (doctor_id,))
+            patients = cur.fetchone()["n"]
+            cur.execute(f"SELECT COUNT(*) AS n FROM tb_qr_scans WHERE doctor_id = %s AND {since}", (doctor_id,))
+            scans = cur.fetchone()["n"]
+            cur.execute(f"SELECT COUNT(*) AS n FROM tb_emergency_logs WHERE doctor_id = %s AND {since}", (doctor_id,))
+            emergencies = cur.fetchone()["n"]
+        return {"patients": patients, "scans": scans, "emergencies": emergencies}
+
     def last_views_by_doctor(self, patient_id):
         """A dictionary {doctor_id: newest RecordView} for everyone who has opened this patient's record."""
         with self.db.cursor() as cur:

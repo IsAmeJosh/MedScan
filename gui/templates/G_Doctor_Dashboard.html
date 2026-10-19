@@ -1,44 +1,54 @@
 {% extends "G_Base.html" %}
 {% block title %}Home{% endblock %}
 {% block content %}
-{% include "G_Welcome_Card.html" %}
-<div class="head"><div>
+{# Today: the requests still waiting, the patients who allowed you but are not opened yet, and the records you opened lately. #}
+<div class="head plain-h"><div>
   <h1>{% greeting %}, Dr. {{ user.name }}</h1>
   <p>Scan a patient's code to open their record, or search by ID.</p>
 </div></div>
 
 <div class="grid">
   <div class="col">
-    <div class="card">
-      <div class="card-h"><h2>{% icon "users" %}Recent patients</h2><a class="link" href="{% url 'patients' %}">All patients</a></div>
-      {% for p in ready %}
-        <a class="row" href="{% url 'record' p.user_id %}">
-          <div class="avatar">{{ p.name|initials }}</div>
-          <div class="g"><b>{{ p.name }}</b><div class="s">{{ p.display_id }} &middot; approved your request</div></div>
-          <span class="pill green">Access</span><span class="faint">{% icon "chev" "sm" %}</span>
-        </a>
-      {% endfor %}
-      {% for p, when in recent %}
-        <a class="row" href="{% url 'record' p.user_id %}">
-          <div class="avatar">{{ p.name|initials }}</div>
-          <div class="g"><b>{{ p.name }}</b><div class="s">{{ p.display_id }} &middot; seen {{ when|day }}</div></div>
-          <span class="pill green">Access</span><span class="faint">{% icon "chev" "sm" %}</span>
-        </a>
-      {% endfor %}
-      {% if not ready and not recent %}<p class="empty">Nobody yet. Scan a patient's code, or search for them, and they show up here.</p>{% endif %}
+    <div class="panel">
+      <section class="sec">
+        <div class="sec-h"><h2>Today</h2><a class="link" href="{% url 'patients' %}">All patients</a></div>
+        <div class="list">
+          {% for r, p in waiting %}
+            <a class="row" href="{% url 'record' p.user_id %}">
+              <div class="avatar">{{ p.name|initials }}</div>
+              <div class="g"><b>{{ p.name }}</b><div class="s">Waiting for {{ p|pronoun:"him" }} to allow your request &middot; sent {{ r.created_at|when:"inline" }}</div></div>
+              <span class="pill amber">Waiting</span>
+            </a>
+          {% endfor %}
+          {% for p in ready %}
+            <a class="row" href="{% url 'record' p.user_id %}">
+              <div class="avatar">{{ p.name|initials }}</div>
+              <div class="g"><b>{{ p.name }}</b><div class="s">Allowed your request &middot; not opened yet</div></div>
+              <span class="pill green">Allowed</span><span class="faint">{% icon "chev" "sm" %}</span>
+            </a>
+          {% endfor %}
+          {% for p, when in recent %}
+            <a class="row" href="{% url 'record' p.user_id %}">
+              <div class="avatar">{{ p.name|initials }}</div>
+              <div class="g"><b>{{ p.name }}</b><div class="s">{% if when|day == "today" or when|day == "yesterday" %}Opened {{ when|when:"inline" }}{% else %}Opened {{ when|when:"date" }}{% endif %}</div></div>
+              <span class="faint">{% icon "chev" "sm" %}</span>
+            </a>
+          {% endfor %}
+          {% if not waiting and not ready and not recent %}<p class="empty">Nobody yet. Scan a patient's code, or search for them, and they show up here.</p>{% endif %}
+        </div>
+      </section>
     </div>
   </div>
-
   <div class="col">
-    <div class="card">
-      <div class="card-h"><h2>{% icon "send" %}Waiting on patients</h2>{% if waiting %}<span class="pill amber">{{ waiting|length }}</span>{% endif %}</div>
-      {% for r, p in waiting %}
-        <a class="row" href="{% url 'record' p.user_id %}">
-          <div class="avatar">{{ p.name|initials }}</div>
-          <div class="g"><b>{{ p.name }}</b><div class="s">{{ p.display_id }} &middot; requested {{ r.created_at|day }}</div></div>
-          <span class="pill amber">Waiting</span>
-        </a>
-      {% empty %}<p class="empty">No requests are waiting. Answers to the requests you send show up here.</p>{% endfor %}
+    <div class="panel">
+      <section class="sec">
+        <div class="sec-h"><h2>Recent notes</h2></div>
+        <div class="list">
+          {% for p, note in notes %}
+            <div class="row"><div class="g"><b>{{ p.name }}</b><div class="s">{{ note.date|date:"M j, Y" }} &middot; {{ note.notes|truncatechars:70 }}</div></div></div>
+          {% empty %}<p class="empty">You have not written any notes yet.</p>{% endfor %}
+        </div>
+      </section>
     </div>
   </div>
 </div>

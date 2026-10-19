@@ -1,5 +1,6 @@
 """Template filters, loaded on every page through settings.py (TEMPLATES -> OPTIONS -> builtins)."""
 import os
+import re
 from datetime import datetime
 
 from django import template
@@ -26,6 +27,15 @@ def mobile(value):
     text = str(value or "")
     if len(text) == 11 and text.isdigit():
         return f"{text[:4]} {text[4:7]} {text[7:]}"
+    return value
+
+
+@register.filter
+def mobile_hidden(value):
+    """A mobile number with the middle hidden, for the printed ID: '09171234567' becomes '0917 ••• 4567'."""
+    text = str(value or "")
+    if len(text) == 11 and text.isdigit():
+        return f"{text[:4]} \u2022\u2022\u2022 {text[7:]}"
     return value
 
 
@@ -61,20 +71,51 @@ def first_name(name):
 
 
 @register.filter
+def drug(item):
+    """The drug in a medication such as 'Amlodipine 5 mg daily': everything before the first number ('Amlodipine')."""
+    found = re.match(r"^(.*?)[\s,]+(\d.*)$", str(item))
+    return found.group(1) if found else str(item)
+
+
+@register.filter
+def dose(item):
+    """The dose in a medication such as 'Amlodipine 5 mg daily': from the first number on ('5 mg daily'), or nothing."""
+    found = re.match(r"^(.*?)[\s,]+(\d.*)$", str(item))
+    return found.group(2) if found else ""
+
+
+@register.filter
+def pronoun(patient, form):
+    """The right small word for a patient, from the sex on their record: pronoun:"he" gives he or she, "his" gives his or
+    her, "him" gives him or her. Anything else on file gives the neutral they, their, them."""
+    sex = str(getattr(patient, "sex", "")).lower()
+    words = {"he": ("he", "she", "they"), "his": ("his", "her", "their"), "him": ("him", "her", "them")}[form]
+    return words[0] if sex == "male" else words[1] if sex == "female" else words[2]
+
+
+@register.filter
+def last_name(name):
+    """The last word of a name, for the pop-up that asks about a doctor: 'Antonio Santos' becomes 'Santos'."""
+    words = str(name).split()
+    return words[-1] if words else ""
+
+
+@register.filter
 def day(moment):
-    """Only the day, for a list line: 'today', 'yesterday' or 'Oct 15'."""
+    """Only the day, for a list line: 'today', 'yesterday' or the full date, 'Oct 15, 2026'."""
     if not isinstance(moment, datetime):
         return moment
     days = (datetime.now().date() - moment.date()).days
     if days in (0, 1):
         return "today" if days == 0 else "yesterday"
-    return f"{moment.strftime('%b')} {moment.day}"
+    return f"{moment.strftime('%b')} {moment.day}, {moment.year}"
 
 
 @register.filter
 def when(moment, style=""):
-    """A moment for a list row: 'Today, 09:12', 'Yesterday, 14:40' or 'Oct 15, 14:40'.
-    With style "inline" (for the middle of a sentence) the day words are lower case: 'today, 09:12'."""
+    """A moment for a list row: 'Today, 09:12', 'Yesterday, 14:40' or the full date and time, 'Oct 15, 2026, 14:40'.
+    With style "inline" (for the middle of a sentence) the day words are lower case: 'today, 09:12'.
+    With style "date" an older moment is only the full date, 'Oct 15, 2026'."""
     if not isinstance(moment, datetime):
         return moment
     days = (datetime.now().date() - moment.date()).days
@@ -82,4 +123,5 @@ def when(moment, style=""):
     if days in (0, 1):
         word = "Today" if days == 0 else "Yesterday"
         return f"{word.lower() if style == 'inline' else word}, {clock}"
-    return f"{moment.strftime('%b')} {moment.day}, {clock}"
+    full = f"{moment.strftime('%b')} {moment.day}, {moment.year}"
+    return full if style == "date" else f"{full}, {clock}"

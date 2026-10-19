@@ -10,14 +10,16 @@ class PatientLink:
 
     # The order of the list, and of the filter chips above it.
     ORDER = ("access", "waiting", "emergency", "denied", "locked")
-    LABELS = {"access": "Access", "waiting": "Waiting", "emergency": "Emergency", "denied": "Denied", "locked": "Locked"}
+    LABELS = {"access": "Allowed", "waiting": "Waiting", "emergency": "Emergency", "denied": "Declined", "locked": "Locked"}
 
-    def __init__(self, patient, kind, when=None, via="request"):
-        """Keep the patient, the kind of line this is, and when it happened. The fields are private (encapsulation)."""
+    def __init__(self, patient, kind, when=None, via="request", ends=None):
+        """Keep the patient, the kind of line this is, and when it happened. For an emergency line, ends is when the
+        doctor's access stopped. The fields are private (encapsulation)."""
         self._patient = patient
         self._kind = kind
         self._when = when or datetime.now()
         self._via = via
+        self._ends = ends
 
     @property
     def patient(self):
@@ -33,13 +35,18 @@ class PatientLink:
 
     @property
     def label(self):
-        """The word shown on the status pill: Access, Waiting, Emergency, Denied or Locked."""
+        """The word shown on the status pill: Allowed, Waiting, Emergency, Declined or Locked."""
         return self.LABELS[self._kind]
 
     @property
     def when(self):
         """When it happened: the approval, the request, the emergency or the denial."""
         return self._when
+
+    @property
+    def ends(self):
+        """For an emergency line: when the doctor's emergency access stopped. None for every other kind."""
+        return self._ends
 
     @property
     def approved_by_qr(self):

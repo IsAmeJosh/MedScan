@@ -327,7 +327,7 @@ class ThePages(unittest.TestCase):
         self.assertRegex(history, r"QR scan <em>1</em>")
         self.assertIn("scanned your QR code", self.main(self.pat.get("/access/?tab=history&show=scan")))
         self.assertNotIn("scanned your QR code", self.main(self.pat.get("/access/?tab=history&show=emergency")))
-        self.assertIn("approved by QR scan, ", self.main(self.pat.get("/access/?tab=doctors")))
+        self.assertIn("allowed by QR scan, ", self.main(self.pat.get("/access/?tab=doctors")))
         self.assertIn("scanned your QR code", self.main(self.pat.get("/dashboard/")))
         panel = re.search(r'<div id="notification-list">(.*?)<div class="dfoot">', html(self.pat.get("/dashboard/")), re.S).group(1)
         self.assertIn("Dr. Reyes scanned your QR code.", panel)
@@ -335,8 +335,8 @@ class ThePages(unittest.TestCase):
 
     def test_a_request_shows_when_it_was_asked(self):
         self.s.request_access(self.s.get_doctor(2001), 1001)
-        for url in ("/dashboard/", "/access/?tab=requests"):
-            self.assertRegex(html(self.pat.get(url)), r"Bayanihan Family Clinic &middot; today, \d\d:\d\d")
+        self.assertRegex(html(self.pat.get("/dashboard/")), r'class="when">Today, \d\d:\d\d')      # the time sits in the card's corner
+        self.assertRegex(html(self.pat.get("/access/?tab=requests")), r'class="when">Today, \d\d:\d\d')
 
     def test_a_note_tells_the_patient_and_leads_to_my_record(self):
         approve(self.s)
@@ -348,12 +348,12 @@ class ThePages(unittest.TestCase):
         r = self.pat.get(f"/notifications/{note.notification_id}/open/")
         self.assertEqual((r.status_code, r["Location"]), (302, "/record/"))
 
-    def test_the_profile_shows_the_password_date_and_the_contact_number_for_both_roles(self):
+    def test_the_profile_shows_the_contact_number_for_both_roles(self):
         patient = html(self.pat.get("/profile/"))
-        self.assertIn("Security", patient)
-        self.assertRegex(patient, r"Set [A-Z][a-z]{2} \d{1,2}")
         self.assertIn("0917 123 4567", patient)
         doctor = html(self.doc.get("/profile/"))
+        self.assertIn("Work details", doctor)
+        self.assertIn("This month", doctor)
         self.assertIn("0918 111 2222", doctor)
         for page in (patient, doctor):
             self.assertIn('data-sheet="contact-sheet"', page)

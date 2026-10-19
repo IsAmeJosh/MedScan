@@ -28,6 +28,12 @@ class User:
         return self._password_changed_at
 
     @property
+    def created_on(self):
+        """The day the account was made, for the ID page. Passwords cannot be changed yet, so the day the password
+        was set is the day the account was made."""
+        return self._password_changed_at.date()
+
+    @property
     def user_id(self):
         """The account's ID number. It is read-only on purpose (encapsulation): there is a getter but no setter, so an
         ID can never be changed once the account exists."""

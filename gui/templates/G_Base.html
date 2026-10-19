@@ -7,8 +7,9 @@
 <title>{% block title %}MedScan{% endblock %} &middot; MedScan</title>
 <link rel="stylesheet" href="{% asset 'css/G_Style.css' %}">
 </head>
-<body class="{% if user %}has-shell{% else %}auth-page{% endif %}"{% if user %} data-idle-minutes="{{ idle_minutes }}" data-keepalive-url="{% url 'keepalive' %}" data-logout-url="{% url 'logout' %}" data-login-url="{% url 'login' %}"{% endif %}>
-{% if user %}
+{# plain pages (the ID screens) sit on the bare page without the sidebar, even when someone is logged in #}
+<body class="{% if user and not plain %}has-shell{% else %}auth-page{% endif %}"{% if user and not plain %} data-idle-minutes="{{ idle_minutes }}" data-keepalive-url="{% url 'keepalive' %}" data-logout-url="{% url 'logout' %}" data-login-url="{% url 'login' %}"{% endif %}>
+{% if user and not plain %}
 {% with page=request.resolver_match.url_name %}
 <div class="app">
 <aside class="side">
@@ -36,24 +37,25 @@
       <a href="{% url 'access' %}" class="{% if page == 'access' %}on{% endif %}">{% icon "shieldok" %}Access<span class="count" id="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
     {% endif %}
   </nav>
-  <div class="nav-label">Account</div>
   <nav class="nav">
-    <a href="{% url 'profile' %}" class="{% if page == 'profile' or page == 'logout' %}on{% endif %}">{% icon "user" %}Profile</a>
+    <a href="{% url 'profile' %}" class="{% if page == 'profile' %}on{% endif %}">{% icon "user" %}Profile</a>
+    <a href="{% url 'settings' %}" class="{% if page == 'settings' or page == 'logout' %}on{% endif %}">{% icon "gear" %}Settings</a>
   </nav>
 
-  {# the name and ID are a link to Profile: log out lives only there #}
+  {# the name and ID are a link to Profile #}
   <a class="side-foot" href="{% url 'profile' %}" title="Open my profile">
     <div class="avatar">{{ user.name|initials }}</div>
     <div><b>{% if user.role == "Doctor" %}Dr. {% endif %}{{ user.name }}</b><span>{{ user.display_id }}</span></div>
-    <span class="out">{% icon "chev" "sm" %}</span>
   </a>
 </aside>
 
 <div class="main">
   <header class="top">
-    <div class="crumbs d-only">{{ user.role }}<i>/</i><b>{% if page == 'dashboard' %}Home{% elif page == 'my_record' %}My Record{% elif page == 'access' %}Access</b><i>/</i><b>{{ tab|capfirst }}{% elif page == 'qr' %}{% if user.role == "Doctor" %}Scan QR code{% else %}My QR code{% endif %}{% elif page == 'patients' %}Patients{% elif page == 'search' %}Search{% elif page == 'record' %}Patient{% elif page == 'profile' or page == 'logout' %}Profile{% else %}MedScan{% endif %}</b></div>
+    <div class="crumbs d-only">{{ user.role }}<i>/</i><b>{% if page == 'dashboard' %}Home{% elif page == 'my_record' %}My Record{% elif page == 'access' %}Access</b><i>/</i><b>{{ tab|capfirst }}{% elif page == 'qr' %}{% if user.role == "Doctor" %}Scan QR code{% else %}My QR code{% endif %}{% elif page == 'patients' %}Patients{% elif page == 'search' %}Search{% elif page == 'record' %}Patient{% elif page == 'profile' %}Profile{% elif page == 'settings' or page == 'logout' %}Settings{% else %}MedScan{% endif %}</b></div>
     <a class="logo-m" href="{% url 'dashboard' %}"><span class="logo-mark">{% logo "sm" %}</span>MedScan</a>
     <span class="push"></span>
+    {# phone only (the sidebar has Settings on a PC) #}
+    <a class="ibtn gear{% if page == 'settings' or page == 'logout' %} on{% endif %}" href="{% url 'settings' %}" aria-label="Settings">{% icon "gear" %}</a>
     {% if user.role == "Doctor" %}
       <form class="tsearch d-only" method="get" action="{% url 'search' %}" autocomplete="off" role="search">
         {% icon "search" "sm" %}
@@ -69,7 +71,7 @@
     <div class="date d-only">{% icon "cal" "sm" %}{% now "D, M j, Y" %}</div>
   </header>
 
-  <main class="content">
+  <main class="content{% block main_class %}{% endblock %}">
     {% block content %}{% endblock %}
   </main>
 </div>
@@ -81,13 +83,13 @@
     <a href="{% url 'patients' %}" class="{% if page == 'patients' or page == 'record' %}on{% endif %}">{% icon "users" %}Patients<span class="n" data-mirror="count-ready" {% if not ready_count %}hidden{% endif %}>{{ ready_count }}</span></a>
     <a href="{% url 'qr' %}" class="mid {% if page == 'qr' %}on{% endif %}"><span class="bub">{% icon "qr" %}</span>Scan</a>
     <a href="{% url 'search' %}" class="{% if page == 'search' %}on{% endif %}">{% icon "search" %}Search</a>
-    <a href="{% url 'profile' %}" class="{% if page == 'profile' or page == 'logout' %}on{% endif %}">{% icon "user" %}Profile</a>
+    <a href="{% url 'profile' %}" class="{% if page == 'profile' %}on{% endif %}">{% icon "user" %}Profile</a>
   {% else %}
     <a href="{% url 'dashboard' %}" class="{% if page == 'dashboard' %}on{% endif %}">{% icon "home" %}Home</a>
     <a href="{% url 'my_record' %}" class="{% if page == 'my_record' %}on{% endif %}">{% icon "file" %}Record</a>
     <a href="{% url 'qr' %}" class="mid" data-sheet="qr-sheet"><span class="bub">{% icon "qr" %}</span>My QR</a>
     <a href="{% url 'access' %}" class="{% if page == 'access' %}on{% endif %}">{% icon "shieldok" %}Access<span class="n" data-mirror="count-waiting" {% if not waiting_count %}hidden{% endif %}>{{ waiting_count }}</span></a>
-    <a href="{% url 'profile' %}" class="{% if page == 'profile' or page == 'logout' %}on{% endif %}">{% icon "user" %}Profile</a>
+    <a href="{% url 'profile' %}" class="{% if page == 'profile' %}on{% endif %}">{% icon "user" %}Profile</a>
   {% endif %}
 </nav>
 </div>
@@ -96,9 +98,10 @@
 <div class="toasts" aria-live="polite">
   {% for m in messages %}
     <div class="toast {{ m.tags }}" role="status">
-      {% if m.tags == "error" %}{% icon "alert" "sm" %}{% else %}{% icon "check" "sm" %}{% endif %}
+      {% if "error" in m.tags %}{% icon "alert" "sm" %}{% else %}{% icon "tick" "sm" %}{% endif %}
       <span>{{ m }}</span>
-      <button type="button" class="toast-x" aria-label="Dismiss">&times;</button>
+      {% if "undo" in m.tags %}{# demo placeholder: Undo needs a short undo window, so for now it only looks like a link #}<a href="#">Undo</a>
+      {% elif "error" in m.tags or "warning" in m.tags %}<button type="button" class="toast-x" aria-label="Dismiss">&times;</button>{% endif %}
     </div>
   {% endfor %}
 </div>
@@ -120,12 +123,12 @@
 <dialog id="qr-sheet" class="sheet center" data-code-url="{% url 'qr_code' %}" data-new-url="{% url 'qr_new' %}">
   <div class="sheet-in">
     <div class="grab"></div>
-    <div class="sheet-h"><h2>My QR code</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
+    <div class="sheet-h"><h2 id="qr-title">My QR code</h2><button type="button" class="ibtn flat" data-close aria-label="Close">{% icon "x" "sm" %}</button></div>
     <div class="qrbox" id="qr-picture" aria-live="polite"><p class="muted small qr-wait">Making your code&hellip;</p></div>
     <div class="qr-name">{{ user.name }}</div>
     <div class="muted num">{{ user.display_id }}</div>
     <div class="timer-row"><span class="timer">{% icon "clock" "sm" %}<span id="qr-timer-text">Works once</span></span></div>
-    <p class="muted small qr-note">Show this to your doctor in person. When they scan it, they can open your record right away and it is logged.</p>
+    <p class="muted small qr-note" id="qr-note">Show this to your doctor in person. When they scan it, they can open your record right away and it is logged.</p>
     <button type="button" class="btn block" id="qr-new">{% icon "refresh" "sm" %}Make a new code</button>
   </div>
 </dialog>
@@ -159,7 +162,7 @@
 <script src="{% asset 'js/G_Dialogs.js' %}"></script>
 <script src="{% asset 'js/G_Qr.js' %}"></script>
 <script src="{% asset 'js/G_Sheets.js' %}"></script>
-{% if user %}
+{% if user and not plain %}
 <script src="{% asset 'js/G_Shell.js' %}"></script>
 <script src="{% asset 'js/G_Idle.js' %}"></script>
 {% if user.role == "Doctor" %}

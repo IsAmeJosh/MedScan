@@ -2,12 +2,13 @@
 and the small helpers (relative times, remembering the ID on the login page)."""
 import re
 import unittest
+from pathlib import Path
 from datetime import datetime, timedelta
 
 from django.test import Client
 
 from gui.G_Filters import ago
-from tests.helpers import (BORN, PASSWORD, approve, execute, fresh_system, html, login, new_patient, rows)
+from tests.helpers import (BORN, PASSWORD, approve, count, execute, fresh_system, html, login, new_patient, rows)
 
 
 class Doctors(unittest.TestCase):
@@ -241,13 +242,13 @@ class RelativeTimes(unittest.TestCase):
         self.assertRegex(page, r'<div class="s" title="[A-Z][a-z]{2} \d\d, \d{4} \d\d:\d\d">Today, \d\d:\d\d &middot; Opens Access')
 
 
-class LoginRemembersTheId(unittest.TestCase):
-    def test_the_box_and_the_hooks(self):
+class LoginPage(unittest.TestCase):
+    def test_there_is_no_remember_me_box(self):
         page = html(Client().get("/"))
         field = re.search(r'<input[^>]*name="user_id"[^>]*>', page).group(0)
-        self.assertIn('data-remember="medscan_login_id"', field)
-        self.assertIn('data-remember-box="remember"', field)
-        self.assertRegex(page, r'<input type="checkbox" id="remember"> Remember me')
+        self.assertNotIn("data-remember", field)
+        self.assertNotIn("Remember me", page)
+        self.assertNotIn('id="remember"', page)
 
     def test_the_boxes_start_empty_with_no_hints_and_errors_come_only_after_pressing_log_in(self):
         page = html(Client().get("/"))
@@ -260,15 +261,15 @@ class LoginRemembersTheId(unittest.TestCase):
         self.assertIn('data-validate="login-password"', page)
         self.assertIn("data-validate-form", page)
 
-    def test_the_logout_question_is_a_modal_over_the_profile_page(self):
+    def test_the_logout_question_is_a_modal_over_the_settings_page(self):
         page = html(login(1001, "pat123").get("/logout/"))
         self.assertIn('<div class="scrim"', page)
         self.assertIn('<div class="modal">', page)
         self.assertIn("Log out of MedScan?", page)
         self.assertIn("You will need your ID and password to log in again.", page)
-        self.assertIn("Juan Dela Cruz", page.split('<div class="scrim"')[0])          # the Profile page is behind it
+        self.assertIn("Choose how MedScan works for you.", page.split('<div class="scrim"')[0])   # the Settings page is behind it
         self.assertRegex(page, r'(?s)<form method="post" action="/logout/">.*Log out</button>')
-        self.assertIn('href="/profile/">Stay</a>', page)
+        self.assertIn('href="/settings/">Stay</a>', page)
 
     def test_logging_out_ends_the_session(self):
         client = login(1001, "pat123")
@@ -385,8 +386,8 @@ class SignUpAndHomeScreens(unittest.TestCase):
 
     def test_the_doctor_home_has_the_two_panels_of_the_design(self):
         page = html(self.doc.get("/dashboard/"))
-        for heading in ("Recent patients", "Waiting on patients"):
-            self.assertIn(f"</svg>{heading}</h2>", page)
+        for heading in ("Today", "Recent notes"):
+            self.assertIn(f"<h2>{heading}</h2>", page)
         self.assertNotIn("stat2", page)
 
     def test_the_patients_page_is_one_list_with_a_pill_and_a_chevron_on_every_line(self):
@@ -395,9 +396,9 @@ class SignUpAndHomeScreens(unittest.TestCase):
         line = re.search(r'<a class="row" href="/patient/1001/">.*?</a>', page, re.S).group(0)
         self.assertIn("Juan Dela Cruz", line)
         self.assertIn("PT-2026-01001 &middot; Male", line)
-        self.assertIn('<span class="pill green">Access</span>', line)
-        self.assertIn("approved today", line)
-        for chip in ("All", "With access", "Waiting", "Emergency", "Denied"):
+        self.assertIn('<span class="pill green">Allowed</span>', line)
+        self.assertIn("allowed today", line)
+        for chip in ("All", "Can see", "Waiting", "Emergency", "Declined"):
             self.assertIn(f"{chip} <em>", page)
 
     def test_the_locked_page_offers_scan_request_and_emergency_in_that_order(self):
@@ -479,8 +480,7 @@ class QrCodePage(unittest.TestCase):
             for jargon in ("will work", "Preview", "Coming soon", "not a real", "laceholder"):
                 self.assertNotIn(jargon, page)
         self.assertIn("When they scan it, they can open your record right away and it is logged.", html(self.pat.get("/dashboard/")))
-        self.assertIn("Ask the patient to tap", html(self.doc.get("/qr/")))
-        self.assertIn("Their record opens right away. The scan counts as their approval.", html(self.doc.get("/qr/")))
+        self.assertIn("Their record opens right away. Showing you the code counts as their OK.", html(self.doc.get("/qr/")))
 
     def test_the_old_tab_address_still_works(self):
         self.assertEqual(self.pat.get("/qr/?tab=scan").status_code, 302)      # a patient's code is a sheet now
@@ -510,17 +510,21 @@ class FrameAndBubbles(unittest.TestCase):
         from pathlib import Path
         return (Path(__file__).resolve().parent.parent / "gui" / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
 
-    def test_the_menu_has_an_account_section_for_each_role(self):
+    def test_the_menu_has_profile_then_settings_and_no_account_label_for_each_role(self):
         for client in (self.doc, self.pat):
-            self.assertEqual(re.findall(r'class="nav-label">([A-Za-z]+)<', html(client.get("/dashboard/"))), ["Account"])
+            page = html(client.get("/dashboard/"))
+            self.assertNotIn("nav-label", page)
+            self.assertRegex(page, r'(?s)href="/profile/" class="">.*?Profile</a>\s*<a href="/settings/" class="">.*?Settings</a>')
+            self.assertIn('class="ibtn gear"', page)                      # the gear, shown on a phone only (the style decides)
 
-    def test_the_name_and_id_at_the_bottom_of_the_sidebar_open_the_profile_where_log_out_lives(self):
+    def test_the_name_and_id_at_the_bottom_of_the_sidebar_open_the_profile_and_log_out_lives_in_settings(self):
         page = html(self.pat.get("/dashboard/"))
         foot = page.split('class="side-foot"')[1].split("</aside>")[0]
         self.assertIn('href="/profile/"', page.split('class="side-foot"')[0][-40:] + foot)
         self.assertIn("PT-2026-01001", foot)
         self.assertNotRegex(page, r"Log out\s*</a>")                      # no log out button on the other pages
-        self.assertRegex(html(self.pat.get("/profile/")), r'href="/logout/">.*Log out\s*</a>')
+        self.assertNotIn("/logout/", html(self.pat.get("/profile/")).split('<main class="content">')[1].split("</main>")[0])   # nor on Profile
+        self.assertRegex(html(self.pat.get("/settings/")), r'class="act-row danger" href="/logout/">.*Log out')
 
     def test_the_sidebar_numbers_and_the_bell_are_red_bubbles(self):
         css = self.css()
@@ -545,8 +549,7 @@ class FrameAndBubbles(unittest.TestCase):
         self.assertNotIn("Penicillin", page)                                   # locked: nothing leaks
         approve(self.s)
         page = html(self.doc.get("/patient/1001/"))
-        self.assertIn("Check before prescribing", page)                        # the red alert under the name
-        self.assertIn('class="alert red top-gap"', page)
+        self.assertRegex(page, r'<div class="allergy">.*<b>Allergies</b><small>Penicillin')   # the red banner under the header
         self.assertIn('data-pane="medical"', page)                             # and the Medical tab lists them
 
     def test_the_page_sits_in_the_middle_of_the_screen(self):
@@ -556,7 +559,7 @@ class FrameAndBubbles(unittest.TestCase):
         approve(self.s)
         patients = html(self.doc.get("/patients/"))
         self.assertRegex(patients, r"All <em>1</em>")
-        self.assertRegex(patients, r"With access <em>1</em>")
+        self.assertRegex(patients, r"Can see <em>1</em>")
         self.assertNotIn('class="badge">', html(self.pat.get("/access/?tab=doctors")))          # nothing is waiting
         self.s.request_access(self.s.register_doctor("Antonio Santos", PASSWORD, "Cardiology", "Northview"), 1001)
         self.assertIn('Requests<span class="badge">1</span>', html(self.pat.get("/access/?tab=doctors")))
@@ -584,6 +587,759 @@ class AssetAddresses(unittest.TestCase):
         finally:
             os.utime(path, (original, original))
         self.assertEqual(before, asset("css/G_Style.css"))
+
+
+class PatientHomeRefinement(unittest.TestCase):
+    """Patient Home: equal Decline and Allow, a care team, recent activity, and emergency access that shows when it ended."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.pat = login(1001, "pat123")
+        self.doc = login(2001, "doc123")
+
+    def test_decline_and_allow_look_identical_and_neither_has_an_icon_or_a_colour_of_its_own(self):
+        self.s.request_access(self.s.get_doctor(2001), 1001)
+        page = html(self.pat.get("/dashboard/"))
+        card = page.split('class="card ask side-ask"')[1]
+        self.assertIn('class="btn equal">Decline</button>', card)
+        self.assertIn('class="btn equal" data-sheet="review-', card)
+        self.assertNotIn("btn danger", card)                              # Decline is not styled as a warning
+        self.assertNotIn("btn primary", card.split("<dialog")[0])         # and Allow is not the highlighted choice
+
+    def test_the_review_sheet_has_the_same_two_equal_buttons(self):
+        self.s.request_access(self.s.get_doctor(2001), 1001)
+        sheet = html(self.pat.get("/dashboard/")).split("<dialog")[1].split("</dialog>")[0]
+        self.assertEqual(sheet.count("btn equal lg"), 2)
+        self.assertIn("Dr. Reyes is asking to see your record. If you allow, they can see:", sheet)
+        for row in ("Basic info", "Medical", "Care history", "Notes"):
+            self.assertIn(f"<span>{row}</span>", sheet)
+
+    def test_the_request_card_has_the_request_time_in_the_corner_and_no_count_pill(self):
+        self.s.request_access(self.s.get_doctor(2001), 1001)
+        card = html(self.pat.get("/dashboard/")).split('class="card ask side-ask"')[1]
+        self.assertRegex(card, r'<span class="when">Today, \d\d:\d\d</span>')
+        self.assertNotIn("waiting</span>", card.split("</div>")[0])
+
+    def test_row_two_has_your_care_team_and_recent_activity_each_in_its_own_panel(self):
+        approve(self.s)
+        page = html(self.pat.get("/dashboard/"))
+        main = page.split('<main class="content">')[1]
+        second_row = main.split('<div class="grid">')[2]
+        team, activity = second_row.split('<div class="panel">')[1:3]
+        self.assertIn("Your care team", team)
+        self.assertIn("Recent activity", activity)
+        self.assertIn("Dr. Reyes", team)
+        self.assertIn("General Medicine", team)
+        self.assertIn("Bayanihan Family Clinic", team)
+        self.assertIn('href="/record/?tab=care"', team)                   # "Care history" leads to the care history tab
+        self.assertEqual(second_row.count('class="panel"'), 2)
+        self.assertLess(main.index("Needs your answer"), main.index("Your care team"))   # row one comes before row two
+
+    def test_with_nothing_waiting_the_request_card_says_you_are_all_caught_up(self):
+        card = html(self.pat.get("/dashboard/")).split('class="card ask side-ask"')[1].split("</section>")[0]
+        self.assertIn('<div class="row empty">', card)
+        self.assertIn("<b>You're all caught up</b>", card)
+        self.assertIn("New requests from doctors will show up here.", card)
+        self.assertNotIn("ask-btns", card)
+        self.assertNotIn('class="when"', card)
+
+    def test_the_id_card_comes_first_and_the_request_card_beside_it(self):
+        main = html(self.pat.get("/dashboard/")).split('<main class="content">')[1]
+        self.assertLess(main.index('class="idcard"'), main.index('class="card ask side-ask"'))
+        self.assertEqual(main.split('<div class="grid">')[1].count('<div class="col">'), 2)
+
+    def test_with_no_doctor_yet_the_care_team_says_how_to_get_one(self):
+        self.assertIn("No doctor can open your record yet", html(self.pat.get("/dashboard/")))
+
+    def test_an_emergency_opening_shows_when_it_ended(self):
+        from datetime import timedelta
+        self.s.emergency_access(self.s.get_doctor(2001), 1001, "Unconscious on arrival")
+        item = [i for i in self.s.activity_for_patient(1001) if i["kind"] == "override"][0]
+        self.assertEqual(item["ended"] - item["when"], timedelta(hours=self.s.EMERGENCY_HOURS))
+        page = html(self.pat.get("/access/?tab=history"))
+        self.assertRegex(page, r"to \d\d:\d\d")
+        self.assertIn("Reason: Unconscious on arrival", page)
+
+    def test_other_history_items_have_no_end_time(self):
+        approve(self.s)
+        self.s.open_record(self.s.get_doctor(2001), 1001)
+        self.assertTrue(all(i["ended"] is None for i in self.s.activity_for_patient(1001)))
+
+    def test_a_declined_request_is_a_quiet_grey_declined_pill_for_the_doctor(self):
+        request = self.s.request_access(self.s.get_doctor(2001), 1001)
+        self.s.respond_to_request(request.request_id, 1001, False)
+        page = html(self.doc.get("/patients/"))
+        self.assertIn('<span class="pill declined">Declined</span>', page)
+        self.assertNotIn("Denied", page)
+
+
+class CareHistoryPlaceholders(unittest.TestCase):
+    """The care history is hard-coded sample data for the demo: no tables, no saving, clearly marked."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.pat = login(1001, "pat123")
+        self.doc = login(2001, "doc123")
+        approve(self.s)
+
+    def test_my_record_has_four_tabs_with_care_history_second(self):
+        page = html(self.pat.get("/record/"))
+        tabs = re.findall(r'data-pane-tab="(\w+)">([A-Za-z ]+)</a>', page)
+        self.assertEqual(tabs, [("notes", "Notes"), ("care", "Care history"), ("medical", "Medical"), ("info", "Info")])
+        self.assertIn('<div class="utabs">', page)                        # underline tabs, shown on every screen size, not only on a phone
+
+    def test_the_patient_sees_all_six_entries_including_the_one_hidden_from_doctors(self):
+        pane = html(self.pat.get("/record/")).split('data-pane="care"')[1].split('data-pane="medical"')[0]
+        self.assertIn("<b>Consultation: Dr. Maria Reyes</b>", pane)
+        self.assertIn("<b>Admitted: Pneumonia</b>", pane)
+        self.assertIn("<b>ER visit: Penicillin reaction</b>", pane)
+        self.assertIn("<b>Surgery: Appendectomy</b>", pane)
+        self.assertIn("Hidden from doctors", pane)
+        self.assertIn("Only you can see this", pane)
+        self.assertIn("Places you've been treated", pane)
+        self.assertEqual(re.findall(r'<span class="more"', pane).__len__(), 3)   # the hide menu is on the three entries that can be hidden
+
+    def test_the_samples_belong_to_demo_patient_1001_and_everyone_else_reads_not_recorded(self):
+        client = Client()
+        client.post("/register/", {"role": "Patient", "name": "Zed", "password": PASSWORD, "date_of_birth": BORN,
+                                   "contact_number": "0917 000 5555"})
+        page = html(client.get("/record/"))
+        care = page.split('data-pane="care"')[1].split('data-pane="medical"')[0]
+        self.assertIn("Not recorded", care)
+        for sample in ("Northview", "Maria Reyes", "Hidden from doctors"):
+            self.assertNotIn(sample, care)
+        medical = page.split('data-pane="medical"')[1].split('data-pane="info"')[0]
+        for sample in ("Hypertension", "Flu shot", "COVID-19 booster", "Since 2024"):
+            self.assertNotIn(sample, medical)
+        self.assertNotIn("Amlodipine", page.split('data-pane="notes"')[1].split('data-pane="care"')[0])
+        self.assertNotIn("Sample data", html(self.pat.get("/record/")))      # the design has no such tag
+
+    def test_the_doctor_never_sees_the_hidden_entry_only_that_one_is_hidden(self):
+        page = html(self.doc.get("/patient/1001/"))
+        pane = page.split('data-pane="care"')[1].split('data-pane="medical"')[0]
+        self.assertNotIn("Private clinic", page)
+        self.assertNotIn("Only you can see this", page)
+        self.assertNotIn("Hide from doctors", pane)                       # no hide menu for a doctor
+        self.assertIn("<b>Admitted: Pneumonia</b>", pane)
+        self.assertIn("1 entry hidden by the patient", page)             # the doctor only learns that one entry is hidden
+
+    def test_the_doctors_page_has_a_care_history_tab_and_seen_elsewhere_under_at_a_glance(self):
+        page = html(self.doc.get("/patient/1001/"))
+        tabs = re.findall(r'data-pane-tab="(\w+)">', page)
+        self.assertEqual(tabs, ["notes", "care", "medical", "info"])
+        glance = page.split("At a glance")[1]
+        self.assertLess(glance.index("Seen elsewhere"), glance.index("1 entry hidden by the patient"))
+        self.assertIn("Mabini General Hospital", glance)
+
+    def test_both_placeholder_files_say_so_in_a_comment_and_nothing_is_saved(self):
+        from pathlib import Path
+        folder = Path(__file__).resolve().parent.parent / "gui" / "templates"
+        for name in ("G_Care_History.html", "G_Seen_Elsewhere.html"):
+            self.assertIn("demo placeholder", (folder / name).read_text(encoding="utf-8"), name)
+        before = count("tb_consultations")
+        self.pat.get("/record/")
+        self.doc.get("/patient/1001/")
+        self.assertEqual(count("tb_consultations"), before)               # looking at it writes nothing
+
+    def test_the_record_pages_open_on_the_tab_named_in_the_address(self):
+        from pathlib import Path
+        script = (Path(__file__).resolve().parent.parent / "gui" / "static" / "js" / "G_Sheets.js").read_text(encoding="utf-8")
+        self.assertIn("[?&]tab=", script)
+        self.assertEqual(self.pat.get("/record/?tab=care").status_code, 200)
+        self.assertEqual(self.doc.get("/patient/1001/?tab=care").status_code, 200)
+
+    def test_the_new_icons_are_the_designs_own(self):
+        from gui.G_Icons import ICONS
+        for name in ("stethoscope", "bed", "hidden", "hospital", "download"):
+            self.assertIn(name, ICONS)
+            self.assertTrue(ICONS[name].startswith("<"))
+
+
+class ShellAndSettings(unittest.TestCase):
+    """Settings for both roles, the shared page header, underline tabs, and the doctor's patient page as the design draws it."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.pat = login(1001, "pat123")
+        self.doc = login(2001, "doc123")
+
+    def test_settings_needs_a_login(self):
+        self.assertEqual(Client().get("/settings/")["Location"], "/")
+
+    def test_the_patient_settings_have_the_designs_sections_and_rows_in_order(self):
+        page = html(self.pat.get("/settings/"))
+        self.assertIn("<h1>Settings</h1>", page)
+        self.assertIn("Choose how MedScan works for you.", page)
+        heads = re.findall(r'class="sec-h"><h2>([A-Za-z ]+)</h2>', page)
+        self.assertEqual(heads, ["Notifications", "Display", "Account", "Privacy"])   # Notifications + Display, then Account + Privacy
+        for row in ("Access requests", "Record opened", "Hidden care history",
+                    "Download my MedScan ID", "Change password", "Text size", "Language"):
+            self.assertIn(f"<b>{row}</b>", page, row)
+        self.assertNotIn("Let doctors find me by ID", page)
+        self.assertEqual(page.count('class="set-row'), 7)                  # 2 + 2 + 2 + 1 rows, and nothing else
+        self.assertLess(page.index("<h2>Privacy</h2>"), page.index('class="act-row danger"'))   # Log out comes under Privacy, in its own panel
+        self.assertRegex(page, r'<div class="panel logout-panel">\s*<a class="act-row danger"')
+        self.assertNotIn("<b>Emergency access</b>", page)                 # not in the design
+        self.assertNotIn("tog on locked", page)
+
+    def test_the_doctor_settings_have_their_own_rows(self):
+        page = html(self.doc.get("/settings/"))
+        for row in ("Patient answered", "Access ending", "Show my clinic to patients", "Download my MedScan ID", "Change password",
+                    "Text size", "Language"):
+            self.assertIn(f"<b>{row}</b>", page, row)
+        for gone in ("Access requests", "Hidden care history", "Let doctors find me by ID"):
+            self.assertNotIn(gone, page)
+
+    def test_the_main_element_of_settings_has_the_settings_page_class_and_no_other_page_does(self):
+        self.assertIn('<main class="content settings-page">', html(self.pat.get("/settings/")))
+        self.assertIn('<main class="content settings-page">', html(self.doc.get("/settings/")))
+        self.assertIn('<main class="content">', html(self.pat.get("/dashboard/")))
+
+    def test_both_roles_can_download_their_id_from_settings(self):
+        for client, prefix in ((self.pat, "PT-"), (self.doc, "DR-")):
+            self.assertIn('href="/id/print/?auto=1"', html(client.get("/settings/")))
+            printed = html(client.get("/id/print/?auto=1"))
+            self.assertIn(prefix, printed)
+            self.assertNotIn("pat123", printed + "")
+            self.assertNotIn("doc123", printed)
+
+    def test_the_switches_are_not_buttons_so_they_cannot_pretend_to_save(self):
+        page = html(self.pat.get("/settings/")).split('<main class="content settings-page">')[1]
+        self.assertNotRegex(page, r"<(button|input)[^>]*class=\"tog")
+        self.assertIn("<span class=\"tog on\"><i></i></span>", page)
+
+    def test_log_out_is_only_in_settings_and_leads_to_the_question(self):
+        for client in (self.pat, self.doc):
+            self.assertRegex(html(client.get("/settings/")), r'<a class="act-row danger" href="/logout/">')
+            for url in ("/dashboard/", "/profile/"):
+                self.assertNotIn("act-row danger", html(client.get(url)), url)
+            self.assertIn("Log out of MedScan?", html(client.get("/logout/")))
+
+    def test_every_page_header_is_the_same_shape(self):
+        for client, urls in ((self.pat, ["/dashboard/", "/record/", "/access/"]), (self.doc, ["/dashboard/", "/patients/", "/search/", "/qr/"])):
+            for url in urls:
+                self.assertIn('<div class="head plain-h"><div>', html(client.get(url)), url)
+
+    def test_the_header_lines_are_the_designs_words(self):
+        self.assertIn("Everyone you can see, or have asked to see.", html(self.doc.get("/patients/")))
+        self.assertIn("Search by MedScan ID. You'll send them a request to open their record.", html(self.doc.get("/search/")))
+        self.assertIn("History can't be edited or cleared.", html(self.pat.get("/access/?tab=history")))
+        self.assertNotIn("History can't be edited or cleared.", html(self.pat.get("/access/?tab=doctors")))
+
+    def test_my_record_has_no_edit_button_in_the_header_and_the_info_tab_edit_link_opens_the_sheet(self):
+        page = html(self.pat.get("/record/"))
+        header = page.split('<main class="content">')[1].split('<div class="utabs">')[0]
+        self.assertNotIn("Edit my information", header)
+        self.assertNotIn("data-sheet", header)
+        self.assertIn('<h2>Basic info</h2><a class="link" href="#" data-sheet="edit-sheet">Edit</a>', page)
+        self.assertIn('<dialog id="edit-sheet"', page)
+        info = page.split('data-pane="info"')[1]
+        self.assertEqual(re.findall(r"<span>([A-Za-z &;]+)</span><b>", info),
+                         ["Date of birth", "Age", "Sex", "Blood type", "Height", "Weight", "Mobile", "Name", "Relationship", "Mobile"])
+        self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', info), ["Basic info", "Contact", "Emergency contact"])
+        self.assertIn("Sex</span><b>Male</b>", info)
+
+    def test_the_doctors_patient_page_has_the_designs_header_banner_tabs_and_columns(self):
+        approve(self.s)
+        page = html(self.doc.get("/patient/1001/"))
+        main = page.split('<main class="content">')[1]
+        self.assertIn('<h1>Juan Dela Cruz</h1>', main)
+        self.assertRegex(main, r'<span class="pill green">Allowed</span>')
+        self.assertRegex(main, r'<p><span class="num">PT-2026-01001</span> &middot; Male &middot; \d+ &middot; O\+</p>')
+        self.assertLess(main.index('class="head plain-h"'), main.index('class="allergy"'))
+        self.assertLess(main.index('class="allergy"'), main.index('class="utabs"'))
+        tabs = re.findall(r'data-pane-tab="\w+">([A-Za-z ]+)</a>', main)
+        self.assertEqual(tabs, ["Notes", "Care history", "Medical", "Info"])
+        notes = main.split('data-pane="notes"')[1].split('data-pane="care"')[0]
+        self.assertLess(notes.index("New consultation note"), notes.index("Consultation notes"))
+        self.assertIn("Save to record", notes)
+        self.assertNotIn("phrase", notes)                                  # the quick phrases are not in the design
+        self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', notes), ["Consultation notes", "At a glance", "Seen elsewhere"])
+        self.assertIn("1 entry hidden by the patient", notes)
+        self.assertIn("You can't see what it is", notes)
+        self.assertNotIn("Sample data", notes)
+
+    def test_an_emergency_opening_keeps_its_banner_in_the_same_red_box_as_the_allergies(self):
+        self.s.emergency_access(self.s.get_doctor(2001), 1001, "Unconscious on arrival")
+        main = html(self.doc.get("/patient/1001/")).split('<main class="content">')[1]
+        self.assertIn('<span class="pill red">Emergency access</span>', main)
+        self.assertIn("<b>Emergency access</b><small>This was logged and Juan was notified.", main)
+
+    def test_a_note_in_the_timeline_shows_the_date_and_the_doctor_only(self):
+        approve(self.s)
+        self.doc.post("/patient/1001/consult/", {"notes": "BP 130/85."})
+        notes = html(self.pat.get("/record/"))
+        self.assertRegex(notes, r'<div class="tl"><b>[A-Z][a-z]{2} \d+, \d{4}</b> <span class="faint small tl-meta">Dr\. Reyes</span>')
+
+    def test_the_tabs_are_links_so_they_still_work_without_the_script(self):
+        page = html(self.pat.get("/record/?tab=care"))
+        self.assertIn('<a href="?tab=care" data-pane-tab="care">Care history</a>', page)
+
+
+class PatientProfile(unittest.TestCase):
+    """The patient's Profile page as the design draws it (reference 30)."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.pat = login(1001, "pat123")
+
+    def main(self, client):
+        return html(client.get("/profile/")).split('<main class="content">')[1].split("</main>")[0]
+
+    def test_the_header_is_the_name_and_the_id_with_the_month_the_account_began(self):
+        main = self.main(self.pat)
+        self.assertIn("<h1>Juan Dela Cruz</h1>", main)
+        self.assertRegex(main, r'<p><span class="num">PT-2026-01001</span> &middot; Patient since [A-Z][a-z]{2} \d+, \d{4}</p>')
+
+    def test_the_panels_and_their_rows_follow_the_design_in_order(self):
+        main = self.main(self.pat)
+        self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', main),
+                         ["Personal details", "Emergency contact", "Health at a glance", "Recent care"])
+        self.assertEqual(re.findall(r"<span>([A-Za-z ]+)</span><b>", main),
+                         ["Date of birth", "Age", "Sex", "Blood type", "Mobile", "Name", "Relationship", "Mobile",
+                          "Allergies", "Conditions", "Medication", "Last vaccine", "Given on"])
+        self.assertEqual(re.findall(r'class="link"[^>]*>([A-Za-z ]+)</a>', main), ["Edit", "Edit", "My Record", "Care history"])
+        self.assertNotIn("Security", main)
+        self.assertNotIn('class="btn" data-sheet="contact-sheet"', main)   # the old button under the details is gone
+
+    def test_the_real_rows_come_from_the_account(self):
+        main = self.main(self.pat)
+        self.assertRegex(main, r"Date of birth</span><b>[A-Z][a-z]{2} \d+, \d{4}</b>")
+        self.assertRegex(main, r"Age</span><b>\d+</b>")                                   # worked out from the date of birth
+        self.assertIn("Blood type</span><b>O+</b>", main)
+        self.assertIn("Mobile</span><b>0917 123 4567</b>", main)
+        self.assertIn('<span class="atag">Penicillin</span>', main)
+
+    def test_personal_details_edit_opens_the_mobile_sheet_and_emergency_contact_edit_does_nothing(self):
+        page = html(self.pat.get("/profile/"))
+        self.assertIn('<h2>Personal details</h2><a class="link" href="#" data-sheet="contact-sheet">Edit</a>', page)
+        self.assertIn('<h2>Emergency contact</h2><a class="link" href="#">Edit</a>', page)
+        self.assertIn('<dialog id="contact-sheet"', page)
+
+    def test_the_demo_patient_shows_the_sample_values(self):
+        main = self.main(self.pat)
+        for sample in ("Maria Dela Cruz", "Mother", "0918 765 4321", "Hypertension", "Last vaccine</span><b>Flu shot</b>", "Given on</span><b>Sep 14, 2026</b>"):
+            self.assertIn(sample, main)
+        self.assertNotIn("Not recorded", main)
+
+    def test_every_other_account_says_not_recorded_instead_of_borrowing_the_samples(self):
+        client = Client()
+        client.post("/register/", {"role": "Patient", "name": "Zed", "password": PASSWORD, "date_of_birth": BORN,
+                                   "contact_number": "0917 000 3333"})
+        main = self.main(client)
+        self.assertEqual(main.count("Not recorded"), 7)                   # 3 emergency contact rows, conditions, last vaccine, given on, recent care
+        for sample in ("Maria Dela Cruz", "Hypertension", "Flu shot", "0918 765 4321"):
+            self.assertNotIn(sample, main)
+        record = html(client.get("/record/")).split('data-pane="info"')[1]
+        self.assertEqual(record.count("Not recorded"), 5)                 # height, weight, and the three emergency contact rows
+
+    def test_recent_care_repeats_the_sample_entries_of_the_care_history_tab(self):
+        main = self.main(self.pat)
+        recent = main.split("<h2>Recent care</h2>")[1]
+        self.assertIn("<b>Consultation: Dr. Maria Reyes</b>", recent)
+        self.assertIn("Oct 15, 2026 &middot; Mabini Skin Center", recent)
+        self.assertIn('href="/record/?tab=care"', recent)
+
+    def test_the_doctors_profile_keeps_its_own_page_until_the_doctor_pages_are_done(self):
+        page = html(login(2001, "doc123").get("/profile/"))
+        self.assertIn("Edit contact info", page)
+        self.assertIn("Specialty", page)
+
+
+class MyRecordAsTheDesignDrawsIt(unittest.TestCase):
+    """My Record, references 15 (notes), 16 (medical) and 17 (info)."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.pat = login(1001, "pat123")
+        self.doc = login(2001, "doc123")
+
+    def pane(self, name):
+        page = html(self.pat.get("/record/"))
+        return page.split(f'data-pane="{name}"')[1].split('<div class="pane"')[0]
+
+    def test_notes_has_the_consultation_notes_then_written_by_then_prescribed(self):
+        approve(self.s)
+        self.doc.post("/patient/1001/consult/", {"notes": "BP 130/85."})
+        notes = self.pane("notes")
+        self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', notes), ["Consultation notes", "Written by", "Prescribed in these notes"])
+        self.assertRegex(notes, r'<h2>Consultation notes</h2><span class="pill grey">1</span>')
+        self.assertIn("<b>Dr. Reyes</b>", notes)
+        self.assertIn("General Medicine &middot; 1 note</div>", notes)
+        self.assertIn("<span>Amlodipine</span>", notes)
+
+    def test_written_by_counts_notes_per_doctor(self):
+        approve(self.s)
+        for text in ("one", "two"):
+            self.doc.post("/patient/1001/consult/", {"notes": text})
+        self.assertIn("General Medicine &middot; 2 notes</div>", self.pane("notes"))
+
+    def test_medical_has_allergies_medications_conditions_surgeries_and_vaccinations_in_order(self):
+        self.s.update_patient_info(1001, "Penicillin, Peanuts", "Appendectomy", "Amlodipine 5 mg daily", "O+", "09171234567")
+        medical = self.pane("medical")
+        self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', medical),
+                         ["Allergies", "Medications", "Conditions", "Past surgeries", "Vaccinations"])
+        self.assertIn('<span>Penicillin</span><b><span class="atag">Severe</span>Hives, ER visit Jan 12, 2025</b>', medical)
+        self.assertIn('<span class="atag mod">Moderate</span>Swelling', medical)       # moderate is the amber pill
+        self.assertIn("<span>Appendectomy</span><b>Aug 9, 2021</b>", medical)
+        self.assertIn("<span>Hospital</span><b>Northview Medical Center</b>", medical)
+        self.assertIn("<span>Hypertension</span><b>Managed</b>", medical)
+        self.assertIn("<span>Diagnosed</span><b>Jun 3, 2024</b>", medical)
+        self.assertIn("<span>Tetanus (Td)</span><b>May 20, 2021</b>", medical)
+
+    def test_a_medication_is_split_into_the_drug_and_its_dose(self):
+        self.s.update_patient_info(1001, "Penicillin", "Appendectomy", "Amlodipine 5 mg daily, Aspirin", "O+", "09171234567")
+        medical = self.pane("medical")
+        self.assertIn("<span>Amlodipine</span><b>5 mg daily</b>", medical)
+        self.assertIn("<span>Aspirin</span><b>Not recorded</b>", medical)
+
+    def test_the_tab_panes_use_the_designs_columns(self):
+        page = html(self.pat.get("/record/"))
+        self.assertEqual(page.count('<div class="grid half">'), 3)         # medical (two rows of two panels) and info (one row)
+        self.assertIn('<div class="chips">', page)
+
+
+class AccessAsTheDesignDrawsIt(unittest.TestCase):
+    """Access, references 12 (requests), 13 (doctors) and 14 (history)."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.pat = login(1001, "pat123")
+        self.doc = login(2001, "doc123")
+
+    def main(self, url):
+        return html(self.pat.get(url)).split('<main class="content">')[1].split("</main>")[0]
+
+    def test_requests_has_the_waiting_card_and_the_static_panel_in_order(self):
+        self.s.request_access(self.s.get_doctor(2001), 1001)
+        main = self.main("/access/?tab=requests")
+        self.assertLess(main.index("Waiting for your answer"), main.index("If you allow, the doctor can see"))
+        panel = main.split("If you allow, the doctor can see")[1]
+        self.assertEqual(re.findall(r'<div class="kv"><span>([A-Za-z ]+)</span>', panel), ["Basic info", "Medical", "Care history", "Notes"])
+        self.assertIn('<div class="stack24">', main)
+        self.assertRegex(main, r'<h2>Waiting for your answer</h2><span class="when">Today, \d\d:\d\d</span>')
+        self.assertIn("Dr. Reyes wants to see your record", main)
+        self.assertNotIn("Answered requests move to Doctors", main)        # no loose helper text under the panels
+
+    def test_the_request_buttons_are_equal_and_also_repeat_for_a_phone(self):
+        self.s.request_access(self.s.get_doctor(2001), 1001)
+        main = self.main("/access/?tab=requests")
+        self.assertEqual(main.count('class="btn equal">Decline</button>'), 2)
+        self.assertIn('<div class="m-only flex btn-row">', main)
+
+    def test_doctors_lists_who_can_see_the_record_with_a_count_and_the_static_emergency_panel(self):
+        approve(self.s)
+        main = self.main("/access/?tab=doctors")
+        self.assertRegex(main, r'<h2>Doctors who can see your record</h2><span class="pill grey">1</span>')
+        self.assertIn("General Medicine &middot; allowed ", main)
+        self.assertIn('<button type="submit" class="btn equal">Remove</button>', main)
+        self.assertEqual(re.findall(r"<div class=\"kv\"><span>([A-Za-z' ]+)</span>", main), ["Who", "When", "Lasts", "You're told"])
+        emergency = main.split("<h2>Emergency access</h2>")[1].replace("&#x27;", "'")
+        for value in ("Any MedScan doctor", "If you can't answer", "1 hour", "Every time"):
+            self.assertIn(f"<b>{value}</b>", emergency)
+
+    def test_remove_still_asks_first_and_works(self):
+        request = approve(self.s)
+        main = self.main("/access/?tab=doctors")
+        self.assertIn('data-confirm-title="Remove access?"', main)
+        self.pat.post(f"/revoke/{request.request_id}/", {"next": "access"})
+        self.assertEqual(self.s.access_status(2001, 1001), "revoked")
+
+    def test_history_is_one_panel_of_rows_with_the_designs_pills_and_no_footnote(self):
+        approve(self.s)
+        self.s.open_record(self.s.get_doctor(2001), 1001)
+        main = self.main("/access/?tab=history")
+        self.assertRegex(main, r'<div class="panel">\s*<div class="list">')
+        self.assertIn('<span class="pill green">Allowed</span>', main)
+        self.assertIn("History can't be edited or cleared.", main)
+        self.assertNotIn("This history is permanent", main)
+        self.assertEqual(re.findall(r'<a href="\?tab=history[^"]*" class="[^"]*">([A-Za-z ]+) <em>', main), ["All", "QR scan", "Allowed", "Emergency"])
+
+    def test_a_declined_request_is_in_the_history_with_a_grey_declined_pill(self):
+        request = self.s.request_access(self.s.get_doctor(2001), 1001)
+        self.s.respond_to_request(request.request_id, 1001, False)
+        main = self.main("/access/?tab=history")
+        self.assertIn("You declined Dr. Reyes", main)
+        self.assertIn('<span class="pill declined">Declined</span>', main)
+        items = self.s.activity_for_patient(1001)
+        self.assertEqual([i["kind"] for i in items], ["declined"])
+        self.assertEqual(self.s.activity_counts(items)["all"], 1)
+        self.assertIn("All <em>1</em>", main)
+
+    def test_the_doctor_sees_nothing_new_in_a_patients_history_because_a_decline_is_the_patients_own_entry(self):
+        request = self.s.request_access(self.s.get_doctor(2001), 1001)
+        self.s.respond_to_request(request.request_id, 1001, False)
+        self.assertNotIn("You declined", html(self.doc.get("/patient/1001/")))
+
+
+class AuthAndIdAsTheDesignDrawsIt(unittest.TestCase):
+    """Login, sign-up, save-your-ID and the printable ID, references 01, 02, 05 and 06."""
+
+    def test_the_teal_panel_has_the_logo_a_headline_and_one_line_and_nothing_else(self):
+        for url in ("/", "/register/"):
+            art = html(Client().get(url)).split('class="auth-art"')[1].split('class="auth-form"')[0]
+            self.assertIn("Patient records, shared only with the doctors you trust.", art)
+            self.assertIn("Show your QR code to a doctor in person, or allow their request. Every view is logged.", art)
+            self.assertNotIn("feats", art)
+            self.assertNotIn("SDG", art)
+
+    def test_login_has_the_designs_words_a_show_word_and_the_demo_ids(self):
+        page = html(Client().get("/"))
+        self.assertIn("Log in with your MedScan ID or mobile number. Patients and doctors use the same form.", page)
+        self.assertIn("MedScan ID or mobile number</label>", page)
+        self.assertIn('<span class="eye-on">Show</span><span class="eye-off">Hide</span>', page)
+        self.assertIn("Patient PT-2026-01001 / pat123<br>Doctor DR-2026-02001 / doc123", page)
+        self.assertNotIn("Remember me", page)
+
+    def test_sign_up_has_the_designs_words_and_says_mobile_number(self):
+        page = html(Client().get("/register/")).replace("&#x27;", "'")
+        self.assertIn("You'll get your MedScan ID when you finish.", page)
+        self.assertIn("Mobile number</label>", page)
+        self.assertNotIn("Contact number", page)
+        self.assertNotIn("data-counter", page)
+        self.assertIn("Already have an ID?", page)
+        doctor = html(Client().get("/register/?role=doctor"))
+        self.assertIn("Mobile number <span", doctor)
+
+    def test_save_your_id_says_where_it_can_be_downloaded_again(self):
+        client = Client()
+        client.post("/register/", {"role": "Patient", "name": "Zed", "password": PASSWORD, "date_of_birth": BORN,
+                                   "contact_number": "0917 000 6666"})
+        page = html(client.get("/id/ready/"))
+        self.assertIn("You can download it again any time from Settings.", page)
+        self.assertRegex(page, r'class="idbig num">PT-\d{4}-\d{5}</div>')
+
+
+class DoctorPagesAsTheDesignDrawsIt(unittest.TestCase):
+    """The doctor's pages, references 20 to 28."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.doc = login(2001, "doc123")
+        self.pat = login(1001, "pat123")
+
+    def main(self, url, client=None):
+        return html((client or self.doc).get(url)).split('<main class="content">')[1].split("</main>")[0]
+
+    # ---- Home (20)
+    def test_home_has_today_and_recent_notes(self):
+        main = self.main("/dashboard/")
+        self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', main), ["Today", "Recent notes"])
+        self.assertIn('<a class="link" href="/patients/">All patients</a>', main)
+
+    def test_recent_notes_are_the_notes_this_doctor_wrote(self):
+        approve(self.s)
+        self.doc.post("/patient/1001/consult/", {"notes": "Follow-up: BP 130/85, headache resolved."})
+        main = self.main("/dashboard/")
+        notes = main.split("<h2>Recent notes</h2>")[1]
+        self.assertIn("<b>Juan Dela Cruz</b>", notes)
+        self.assertRegex(notes, r"[A-Z][a-z]{2} \d+, \d{4} &middot; Follow-up: BP 130/85")
+        rows = self.s.recent_notes_for_doctor(2001)
+        self.assertEqual([(p.user_id, n.notes) for p, n in rows], [(1001, "Follow-up: BP 130/85, headache resolved.")])
+
+    def test_today_lists_waiting_then_allowed_then_opened(self):
+        approve(self.s)
+        other = new_patient(self.s, "Pedro Bautista", PASSWORD, "Male", BORN)
+        self.doc.post(f"/request/{other.user_id}/")
+        today = self.main("/dashboard/").split("<h2>Today</h2>")[1].split("<h2>Recent notes</h2>")[0]
+        self.assertLess(today.index("Pedro Bautista"), today.index("Juan Dela Cruz"))
+        self.assertIn("Waiting for him to allow your request", today)
+        self.assertIn("Allowed your request", today)
+        self.doc.get("/patient/1001/")
+        today = self.main("/dashboard/").split("<h2>Today</h2>")[1]
+        self.assertIn("Opened today", today)
+
+    # ---- Patients (21) and Search (25)
+    def test_patients_are_one_panel_with_the_designs_wording(self):
+        approve(self.s)
+        main = self.main("/patients/")
+        self.assertRegex(main, r'<div class="panel">\s*<div class="list">')
+        self.assertIn("allowed today", main)
+        request = self.s.request_access(self.s.register_doctor("Antonio Santos", PASSWORD, "Cardiology"), 1001)
+        self.s.respond_to_request(request.request_id, 1001, False)
+        santos = login(request.doctor_id, PASSWORD)
+        self.assertIn("declined today", self.main("/patients/", santos))
+        self.assertIn('<span class="pill declined">Declined</span>', self.main("/patients/", santos))
+
+    def test_search_results_are_one_panel_and_a_stranger_is_locked(self):
+        main = self.main("/search/?q=1001")
+        self.assertRegex(main, r'<div class="panel">\s*<div class="list">')
+        self.assertIn('<span class="pill grey">Locked</span>', main)
+
+    # ---- the locked record (22) and the emergency pop-up (26)
+    def test_the_locked_record_is_one_panel_with_text_on_the_left_and_the_actions_on_the_right(self):
+        main = self.main("/patient/1001/")
+        self.assertIn('<div class="panel lockrow">', main)
+        self.assertLess(main.index("lk-text"), main.index("lk-acts"))
+        self.assertLess(main.index("lk-acts"), main.index("lk-emer"))
+        self.assertIn("You need Juan's OK to open this record", main.replace("&#x27;", "'"))
+        self.assertIn("If Juan is with you, scan his QR code and it opens right away. If not, send a request he can answer on his phone.", main.replace("&#x27;", "'"))
+        self.assertIn("Only if the patient can't answer.", main.replace("&#x27;", "'"))
+        self.assertIn("Juan is told every time.", main)
+
+    def test_the_words_follow_the_sex_on_file(self):
+        woman = new_patient(self.s, "Ana Ramos", PASSWORD, "Female", BORN)
+        main = self.main(f"/patient/{woman.user_id}/").replace("&#x27;", "'")
+        self.assertIn("scan her QR code", main)
+        self.assertIn("a request she can answer on her phone", main)
+
+    def test_the_emergency_pop_up_has_the_designs_words_and_still_posts(self):
+        page = html(self.doc.get("/patient/1001/"))
+        sheet = re.search(r'<dialog id="emergency-sheet".*?</dialog>', page, re.S).group(0).replace("&#x27;", "'")
+        self.assertIn('class="sheet emer"', sheet)
+        self.assertIn("This skips Juan's OK. Your name, the time and your reason are saved, and Juan is told. Access ends after 1 hour.", sheet)
+        self.assertIn("Reason (required)", sheet)
+        self.assertIn("This is a medical emergency", sheet)
+        self.assertEqual(re.findall(r'class="btn (?:equal|solid-red) lg"[^>]*>([A-Za-z ]+)</button>', sheet), ["Cancel", "Open record"])
+        r = self.doc.post("/patient/1001/emergency/", {"reason": "Collapsed", "confirm": "on"})
+        self.assertEqual((r.status_code, r["Location"]), (302, "/patient/1001/"))
+        self.assertEqual(count("tb_emergency_logs"), 1)
+
+    # ---- Scan (24)
+    def test_scan_has_the_camera_and_recent_scans(self):
+        main = self.main("/qr/")
+        self.assertIn('<div class="panel camp">', main)
+        self.assertIn("Recent scans", main)
+        self.assertIn("You have not scanned anyone yet.", main)
+        self.assertIn('id="qr-retry" hidden', main)                            # kept: the way to try the camera again
+        self.assertNotIn("Ask the patient to tap", main)
+
+    def test_recent_scans_are_this_doctors_latest_scans_one_line_per_patient(self):
+        code = self.s.get_patient(1001).qr_code(self.s.current_qr(1001)).text
+        self.s.scan_qr(self.s.get_doctor(2001), code)
+        main = self.main("/qr/")
+        recent = main.split("<h2>Recent scans</h2>")[1]
+        self.assertIn("<b>Juan Dela Cruz</b>", recent)
+        self.assertRegex(recent, r"Today, \d\d:\d\d")
+        self.assertEqual([p.user_id for p, when in self.s.recent_scans_for_doctor(2001)], [1001])
+
+    # ---- Profile (27)
+    def test_the_doctors_profile_has_work_details_and_this_month(self):
+        main = self.main("/profile/")
+        self.assertIn("<h1>Dr. Reyes</h1>", main)
+        self.assertRegex(main, r'<p><span class="num">DR-\d{4}-\d{5}</span> &middot; General Medicine</p>')
+        self.assertEqual(re.findall(r'<div class="sec-h"><h2>([A-Za-z ]+)</h2>', main), ["Work details", "This month"])
+        self.assertEqual(re.findall(r"<span>([A-Za-z .]+)</span><b>", main),
+                         ["Specialty", "Clinic", "License no.", "Mobile", "Patients seen", "Notes written", "QR scans", "Emergency access"])
+        self.assertIn('<a class="link" href="#" data-sheet="contact-sheet">Edit</a>', main)
+        self.assertIn("PRC 0123456", main)                                       # the sample, for demo doctor 2001 only
+
+    def test_another_doctor_reads_not_recorded_for_the_licence(self):
+        client = Client()
+        client.post("/register/", {"role": "Doctor", "name": "Cruz", "password": PASSWORD, "specialty": "ENT"})
+        main = self.main("/profile/", client)
+        self.assertIn("License no.</span><b>Not recorded</b>", main)
+        self.assertNotIn("PRC 0123456", main)
+
+    def test_this_month_counts_what_the_doctor_did(self):
+        approve(self.s)
+        self.s.scan_qr(self.s.get_doctor(2001), self.s.get_patient(1001).qr_code(self.s.current_qr(1001)).text)
+        self.doc.get("/patient/1001/")
+        self.doc.post("/patient/1001/consult/", {"notes": "one"})
+        self.doc.post("/patient/1001/consult/", {"notes": "two"})
+        other = new_patient(self.s, "Em Patient", PASSWORD, "Female", BORN)
+        self.doc.post(f"/patient/{other.user_id}/emergency/", {"reason": "Collapsed", "confirm": "on"})
+        self.doc.get(f"/patient/{other.user_id}/")                                # opening it during the emergency counts as seeing the patient
+        counts = self.s.month_counts_for_doctor(2001)
+        self.assertEqual(counts, {"patients": 2, "scans": 1, "emergencies": 1, "notes": 2})
+        main = self.main("/profile/")
+        self.assertIn("Patients seen</span><b>2</b>", main)
+        self.assertIn("Notes written</span><b>2</b>", main)
+        self.assertIn("QR scans</span><b>1</b>", main)
+        self.assertIn("Emergency access</span><b>1</b>", main)
+
+    def test_a_new_doctor_starts_at_zero(self):
+        newcomer = self.s.register_doctor("Cruz", PASSWORD, "ENT")
+        self.assertEqual(self.s.month_counts_for_doctor(newcomer.user_id), {"patients": 0, "scans": 0, "emergencies": 0, "notes": 0})
+
+
+class ExpiredQrSheet(unittest.TestCase):
+    """The pop-up shows an "expired" state when the five minutes run out, instead of quietly renewing."""
+
+    def setUp(self):
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent / "gui"
+        self.script = (root / "static" / "js" / "G_Qr.js").read_text(encoding="utf-8")
+        self.css = (root / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
+
+    def test_the_script_has_the_expired_words_and_a_new_code_button(self):
+        for words in ("This code has expired", "Codes last 5 minutes so nobody can reuse an old one.", "Make a new code", "data-qr-new"):
+            self.assertIn(words, self.script)
+        self.assertNotIn("if (left === 0) { ask(codeUrl, 'GET'); }", self.script)       # it no longer renews by itself
+
+    def test_the_expired_code_is_blurred_with_the_button_on_top_and_a_amber_timer(self):
+        self.assertIn(".sheet.expired .qrbox svg{filter:blur(5px);opacity:.25}", self.css)
+        self.assertIn(".sheet.expired .timer{color:var(--amber);background:var(--amber-tint)}", self.css)
+        self.assertIn(".sheet.expired #qr-new{display:none}", self.css)                  # the button on the code replaces the one below it
+
+    def test_the_sheet_has_the_title_and_note_the_script_swaps(self):
+        page = html(login(1001, "pat123").get("/dashboard/"))
+        self.assertIn('id="qr-title">My QR code</h2>', page)
+        self.assertIn('id="qr-note"', page)
+
+
+class OneLinePerPanelAndFullDates(unittest.TestCase):
+    """A second heading is its own panel, and every date shows the day, the month and the year."""
+
+    def setUp(self):
+        self.s = fresh_system(self)
+        self.pat = login(1001, "pat123")
+        self.doc = login(2001, "doc123")
+        approve(self.s)
+
+    def panels(self, page):
+        chunks = page.split('<div class="panel')[1:]
+        return [chunk.split('<div class="panel')[0] for chunk in chunks]
+
+    def test_no_panel_has_more_than_one_heading(self):
+        pages = [self.pat.get(url) for url in ("/dashboard/", "/record/", "/access/?tab=requests", "/access/?tab=doctors", "/profile/", "/settings/")]
+        pages += [self.doc.get(url) for url in ("/dashboard/", "/patient/1001/", "/qr/", "/profile/")]
+        for response in pages:
+            for panel in self.panels(html(response)):
+                self.assertLessEqual(panel.count('class="sec-h"'), 1, panel[:120])
+
+    def test_past_surgeries_prescribed_and_seen_elsewhere_are_their_own_panels(self):
+        record = html(self.pat.get("/record/"))
+        medical = record.split('data-pane="medical"')[1].split('data-pane="info"')[0]
+        self.assertEqual(len(re.findall(r'<div class="panel">\s*<div class="sec-h"><h2>(?:Conditions|Past surgeries)</h2>', medical)), 2)
+        notes = record.split('data-pane="notes"')[1].split('data-pane="care"')[0]
+        self.assertRegex(notes, r'<div class="panel">\s*<section class="sec">\s*<div class="sec-h"><h2>Prescribed in these notes</h2>')
+        glance = html(self.doc.get("/patient/1001/")).split("At a glance")[1]
+        self.assertRegex(glance, r'</div>\s*<div class="panel">\s*<section class="sec">\s*<div class="sec-h"><h2>Seen elsewhere</h2>')
+
+    def test_the_filters_print_the_year_for_an_older_date(self):
+        from datetime import datetime
+        from gui.G_Filters import day, when
+        older = datetime(2025, 3, 7, 14, 5)
+        self.assertEqual(day(older), "Mar 7, 2025")
+        self.assertEqual(when(older), "Mar 7, 2025, 14:05")
+        self.assertEqual(when(older, "date"), "Mar 7, 2025")
+        self.assertEqual(when(datetime.now()).split(",")[0], "Today")           # today and yesterday keep their words
+
+    def test_the_real_dates_on_the_pages_have_a_year(self):
+        self.doc.get("/patient/1001/")
+        self.doc.post("/patient/1001/consult/", {"notes": "BP ok."})
+        home = html(self.pat.get("/dashboard/"))
+        self.assertRegex(home, r"Last visit<b>[A-Z][a-z]{2} \d+, \d{4}</b>")
+        self.assertRegex(html(self.pat.get("/access/?tab=doctors")), r"allowed (?:by QR scan, )?[A-Z][a-z]{2} \d+, \d{4}")
+        self.assertRegex(html(self.doc.get("/dashboard/")), r"[A-Z][a-z]{2} \d+, \d{4} &middot; BP ok\.")
+
+    def test_the_sample_dates_match_the_design(self):
+        record = html(self.pat.get("/record/"))
+        for date in ("Nov 8, 2024", "Aug 9, 2021", "last Mar 7, 2025", "last Oct 16, 2026", "last Oct 15, 2026", "Jan 12, 2025", "Jun 3, 2024",
+                     "Sep 14, 2026", "May 20, 2021"):
+            self.assertIn(date, record)
+        profile = html(self.pat.get("/profile/"))
+        self.assertIn("Given on</span><b>Sep 14, 2026</b>", profile)
+        self.assertRegex(profile, r"Patient since [A-Z][a-z]{2} \d+, \d{4}")
+        self.assertIn("Surgery date</span><b>Aug 9, 2021</b>", html(self.doc.get("/patient/1001/")))
+        self.assertNotIn("Surgery year", html(self.doc.get("/patient/1001/")))
+
+    def test_the_label_is_bold_with_a_colon_and_the_value_is_plain(self):
+        css = (Path(__file__).resolve().parent.parent / "gui" / "static" / "css" / "G_Style.css").read_text(encoding="utf-8")
+        for rule in (".kvs .kv>span{font-weight:600!important;color:#12333A!important}", '.kvs .kv>span::after{content:":"}',
+                     ".kvs .kv>b{font-weight:400!important;color:#12333A}"):
+            self.assertIn(rule, css)
 
 
 if __name__ == "__main__":

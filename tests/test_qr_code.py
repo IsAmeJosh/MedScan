@@ -70,7 +70,7 @@ class ScanningAPatient(unittest.TestCase):
         self.assertEqual(response["Location"], "/patient/1001/")
         page = html(self.doc.get(response["Location"]))
         self.assertIn("Juan Dela Cruz", page)
-        self.assertIn("Record locked", page)
+        self.assertIn('<span class="pill grey">Locked</span>', page)
 
     def test_a_plain_id_scan_never_asks_for_or_opens_access_by_itself(self):
         page = html(self.doc.get("/qr/scan/?code=PT-2026-01001", follow=True))

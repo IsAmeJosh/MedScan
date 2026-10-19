@@ -1,27 +1,29 @@
 {% extends "G_Base.html" %}
 {% block title %}Patients{% endblock %}
 {% block content %}
-<div class="head"><div><h1>Patients</h1><p>Everyone you have access to, or have asked for.</p></div></div>
+<div class="head plain-h"><div><h1>Patients</h1><p>Everyone you can see, or have asked to see.</p></div></div>
 
 <div class="chips">
   <a href="{% url 'patients' %}" class="{% if show == 'all' %}on{% endif %}">All <em>{{ counts.all }}</em></a>
-  <a href="?show=access" class="{% if show == 'access' %}on{% endif %}">With access <em>{{ counts.access }}</em></a>
+  <a href="?show=access" class="{% if show == 'access' %}on{% endif %}">Can see <em>{{ counts.access }}</em></a>
   <a href="?show=waiting" class="{% if show == 'waiting' %}on{% endif %}">Waiting <em>{{ counts.waiting }}</em></a>
   <a href="?show=emergency" class="{% if show == 'emergency' %}on{% endif %}">Emergency <em>{{ counts.emergency }}</em></a>
-  <a href="?show=denied" class="{% if show == 'denied' %}on{% endif %}">Denied <em>{{ counts.denied }}</em></a>
+  <a href="?show=denied" class="{% if show == 'denied' %}on{% endif %}">Declined <em>{{ counts.denied }}</em></a>
 </div>
 
-<div class="card">
-  {% for link in rows %}{% include "G_Patient_Row.html" with detail=True %}
-  {% empty %}
-    <p class="empty">
-      {% if show == "all" %}No patients yet. Scan a patient's QR code, or search for them to send a request.
-      {% elif show == "access" %}No patient has approved you yet.
-      {% elif show == "waiting" %}Nothing waiting. A request you send stays here until the patient answers.
-      {% elif show == "emergency" %}You have not used emergency access.
-      {% else %}Nobody has denied you. Requests that were denied or taken back show up here.{% endif %}
-    </p>
-  {% endfor %}
+<div class="panel">
+  <div class="list">
+    {% for link in rows %}{% include "G_Patient_Row.html" with detail=True %}
+    {% empty %}
+      <p class="empty">
+        {% if show == "all" %}No patients yet. Scan a patient's QR code, or search for them to send a request.
+        {% elif show == "access" %}No patient has approved you yet.
+        {% elif show == "waiting" %}Nothing waiting. A request you send stays here until the patient answers.
+        {% elif show == "emergency" %}You have not used emergency access.
+        {% else %}Nobody has denied you. Requests that were denied or taken back show up here.{% endif %}
+      </p>
+    {% endfor %}
+  </div>
 </div>
 {% include "G_Pager.html" with page=rows %}
 {% endblock %}

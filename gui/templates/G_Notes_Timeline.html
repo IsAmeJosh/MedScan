@@ -1,4 +1,4 @@
 {# Consultation notes, newest first. Needs: record. Used by My Record (patient) and the Patient page (doctor). #}
 {% for c in record.consultations reversed %}
-  <div class="tl"><b>{{ c.date|date:"M j, Y" }}</b> <span class="faint small tl-meta">{{ c.date|date:"H:i" }} &middot; Dr. {{ c.doctor_name }}</span><p class="note-text">{{ c.notes }}</p></div>
+  <div class="tl"><b>{{ c.date|date:"M j, Y" }}</b> <span class="faint small tl-meta">Dr. {{ c.doctor_name }}</span><p class="note-text">{{ c.notes }}</p></div>
 {% empty %}<p class="empty">No consultations yet.</p>{% endfor %}

@@ -74,17 +74,20 @@ class Registration(PageTestCase):
         data.update(changes)
         return data
 
-    def test_registering_logs_you_in_and_opens_the_dashboard_with_an_id_card(self):
+    def test_registering_logs_you_in_and_shows_the_save_your_id_screen(self):
         client = Client()
         r = client.post("/register/", self.form())
-        self.assertEqual((r.status_code, r["Location"]), (302, "/dashboard/"))
-        page = html(client.get("/dashboard/"))
-        self.assertIn("Welcome to MedScan, Zed!", page)
+        self.assertEqual((r.status_code, r["Location"]), (302, "/id/ready/"))
+        page = html(client.get("/id/ready/"))
+        self.assertIn("Your MedScan ID is ready", page)
         shown = re.search(r"PT-\d{4}-(\d{5})", page)
         self.assertTrue(shown)
-        self.assertIn("data-copy=", page)                     # the Copy ID button
-        self.assertIn("or your mobile number", page)         # and how else to get back in
-        self.assertNotIn("Welcome to MedScan, Zed!", html(client.get("/dashboard/")))   # shown once
+        self.assertIn("Zed &middot; created", page)
+        self.assertIn("Download as PDF", page)
+        self.assertIn("I saved my MedScan ID somewhere safe", page)
+        self.assertIn('href="/dashboard/"', page)             # Continue to MedScan
+        self.assertNotIn(PASSWORD, page)                      # the password is never shown
+        self.assertNotIn('class="side"', page)               # a bare page, no sidebar
         self.assertEqual(client.get("/record/").status_code, 200)                       # really logged in
         new_id = int(shown.group(1))
         self.assertEqual(rows("SELECT mobile_number FROM tb_patients WHERE patient_id = %s", new_id)[0]["mobile_number"],
@@ -93,22 +96,21 @@ class Registration(PageTestCase):
     def test_the_new_account_can_log_in_by_number_by_full_id_and_by_mobile(self):
         client = Client()
         client.post("/register/", self.form())
-        page = html(client.get("/dashboard/"))
+        page = html(client.get("/id/ready/"))
         new_id = int(re.search(r"PT-\d{4}-(\d{5})", page).group(1))
         display = re.search(r"PT-\d{4}-\d{5}", page).group(0)
         for typed in [str(new_id), display, "0917 000 1111", "09170001111", "+63 917 000 1111", "639170001111"]:
             r = Client().post("/", {"user_id": typed, "password": PASSWORD})
             self.assertEqual((r.status_code, r["Location"]), (302, "/dashboard/"), typed)
 
-    def test_a_doctor_registers_and_lands_on_the_dashboard_too(self):
+    def test_a_doctor_registers_and_sees_the_save_your_id_screen_too(self):
         client = Client()
         r = client.post("/register/", {"role": "Doctor", "name": "Cruz", "password": PASSWORD,
                                        "specialty": "ENT", "clinic": "  Rizal Clinic "})
-        self.assertEqual(r["Location"], "/dashboard/")
-        page = html(client.get("/dashboard/"))
-        self.assertIn("Welcome to MedScan, Cruz!", page)
+        self.assertEqual(r["Location"], "/id/ready/")
+        page = html(client.get("/id/ready/"))
+        self.assertIn("Cruz &middot; created", page)
         self.assertIn("DR-", page)
-        self.assertNotIn("your mobile number", page)   # doctors log in with their ID
         self.assertEqual(rows("SELECT clinic, specialty FROM tb_doctors ORDER BY doctor_id DESC LIMIT 1")[0],
                          {"clinic": "Rizal Clinic", "specialty": "ENT"})
 
@@ -171,7 +173,7 @@ class DoctorPages(PageTestCase):
         approve(self.s)
         page = html(self.doc.get("/search/?q=juan"))
         self.assertIn("Juan Dela Cruz", page)
-        self.assertIn("Access", page)
+        self.assertIn("Allowed", page)
 
     def test_search_for_nobody_or_nonsense_is_polite(self):
         for query in ["9999", "abc", "2001", "0917 999 9999", "%C2%B2", "x" * 300]:
@@ -189,15 +191,15 @@ class DoctorPages(PageTestCase):
         request = rows("SELECT request_id FROM tb_access_requests")[0]["request_id"]
         self.s.respond_to_request(request, 1001, False)
         page = html(self.doc.get("/patient/1001/"))
-        self.assertIn("Record locked", page)
+        self.assertIn('<span class="pill grey">Locked</span>', page)
         self.assertIn("Request again", page)
         self.doc.post("/request/1001/")
         newest = rows("SELECT MAX(request_id) AS r FROM tb_access_requests")[0]["r"]
         self.s.respond_to_request(newest, 1001, True)
-        self.assertIn("Access approved", html(self.doc.get("/patient/1001/")))
+        self.assertIn("Allowed</span>", html(self.doc.get("/patient/1001/")))
         self.s.revoke_access(newest, 1001)
         page = html(self.doc.get("/patient/1001/"))
-        self.assertIn("Record locked", page)
+        self.assertIn('<span class="pill grey">Locked</span>', page)
         self.assertIn("Request again", page)
         self.assertNotIn("Penicillin", page)
 
@@ -229,9 +231,9 @@ class DoctorPages(PageTestCase):
         self.assertEqual((names(access), names(waiting), names(denied)), (["Yes Patient"], ["Wait Patient"], ["No Patient"]))
         self.assertEqual(names(everyone), ["Yes Patient", "Wait Patient", "No Patient"])          # in list order
         self.assertRegex(everyone, r"All <em>3</em>")
-        self.assertRegex(everyone, r"With access <em>1</em>")
+        self.assertRegex(everyone, r"Can see <em>1</em>")
         self.assertRegex(everyone, r"Waiting <em>1</em>")
-        self.assertRegex(everyone, r"Denied <em>1</em>")
+        self.assertRegex(everyone, r"Declined <em>1</em>")
         # the one who said no is asked again, and moves to Waiting
         self.doc.post(f"/request/{no.user_id}/")
         self.assertEqual(names(html(self.doc.get("/patients/?show=waiting"))), ["No Patient", "Wait Patient"])
@@ -282,24 +284,24 @@ class DoctorPages(PageTestCase):
         self.assertIn("Nobody yet", html(self.doc.get("/dashboard/")))
         approve(self.s)
         home = html(self.doc.get("/dashboard/"))
-        self.assertIn("approved your request", home)
+        self.assertIn("Allowed your request", home)
         self.assertNotIn("Nobody yet", home)
         self.assertRegex(html(self.doc.get("/patients/")), r'id="count-ready" >1<')   # and the menu says so
         self.doc.get("/patient/1001/")
         home = html(self.doc.get("/dashboard/"))
-        self.assertNotIn("approved your request", home)
-        self.assertIn("Recent patients", home)
-        self.assertIn("seen today", home)
+        self.assertNotIn("Allowed your request", home)
+        self.assertIn("<h2>Today</h2>", home)
+        self.assertIn("Opened today", home)
         self.assertIn("Juan Dela Cruz", home)
         self.assertRegex(html(self.doc.get("/patients/")), r'id="count-ready" hidden>0<')
 
     def test_home_lists_the_requests_waiting_on_patients(self):
-        self.assertIn("No requests are waiting", html(self.doc.get("/dashboard/")))
+        self.assertNotIn("pill amber", html(self.doc.get("/dashboard/")))                  # nothing is waiting yet
         self.doc.post("/request/1001/")
         home = html(self.doc.get("/dashboard/"))
-        self.assertIn("Waiting on patients", home)
-        self.assertRegex(home, r"requested today")
         self.assertIn('<span class="pill amber">Waiting</span>', home)
+        self.assertIn("Waiting for him to allow your request", home)
+        self.assertRegex(home, r"sent today, \d\d:\d\d")
 
     def test_a_patient_who_took_access_back_leaves_the_recent_list(self):
         request = approve(self.s)
@@ -353,7 +355,7 @@ class EmergencyPages(PageTestCase):
         approve(self.s)
         self.assertNotIn("emergency-sheet", html(self.doc.get("/patient/1001/")))     # an open record needs no override
         for url in ["/dashboard/", "/record/", "/access/"]:
-            self.assertNotIn("emergency", html(self.pat.get(url)).lower().split('<main class="content')[1].split("</main>")[0], url)
+            self.assertNotIn("emergency-sheet", html(self.pat.get(url)), url)                 # a patient never gets the doctor's override control
 
     def test_the_sheet_needs_a_reason_and_a_confirmation_and_posts_for_that_patient(self):
         page = html(self.doc.get("/patient/1001/"))
@@ -361,10 +363,11 @@ class EmergencyPages(PageTestCase):
         self.assertIn('action="/patient/1001/emergency/"', sheet)
         self.assertIn('name="reason"', sheet)
         self.assertIn('maxlength="500"', sheet)
-        self.assertIn("data-counter", sheet)
+        self.assertNotIn("data-counter", sheet)                              # the design has no counter
         self.assertRegex(sheet, r'<input type="checkbox" name="confirm" required>')
         self.assertIn("This skips Juan", sheet.replace("&#x27;s", "'s"))
-        self.assertIn("Your name, the time and your reason are logged", sheet)
+        self.assertIn("Your name, the time and your reason are saved", sheet)
+        self.assertIn("This is a medical emergency", sheet)
         self.assertNotIn('name="patient_id"', sheet)                         # it already knows who the patient is
 
     def test_without_scripts_the_emergency_page_is_still_reachable_for_that_patient(self):
@@ -390,11 +393,27 @@ class PatientPages(PageTestCase):
     def test_the_dashboard_shows_the_age_worked_out_from_the_date_of_birth(self):
         self.assertIn(f"{self.s.get_patient(1001).age} years", html(self.pat.get("/dashboard/")))
 
-    def test_the_dashboard_card_counts_past_surgeries_next_to_allergies_and_medications(self):
-        stats = re.search(r'<div class="stats">(.*?)</div>\s*</div>', html(self.pat.get("/dashboard/")), re.S).group(1)
-        self.assertEqual(re.findall(r"<span>([A-Za-z ]+)</span>", stats),
-                         ["Blood type", "Allergies", "Medications", "Surgeries", "Visits"])
-        self.assertIn("<span>Surgeries</span><b>1</b>", stats)   # Juan's appendectomy, from seed.sql
+    def test_the_id_card_has_a_grid_of_facts_and_no_count_strip(self):
+        page = html(self.pat.get("/dashboard/"))
+        meta = re.search(r'<div class="meta">(.*?)</div>\s*</div>', page, re.S).group(1)
+        self.assertEqual(re.findall(r"<span>([A-Za-z ]+)<b>", meta), ["Taking", "Last vaccine", "Last visit", "Surgery"])
+        self.assertIn("<span>Surgery<b>Appendectomy</b>", meta)          # Juan's appendectomy, from seed.sql
+        self.assertNotIn('class="stats"', page)                           # the count strip read like a scoreboard
+
+    def test_the_id_card_shows_allergies_as_small_tags_and_no_phone_number(self):
+        page = html(self.pat.get("/dashboard/"))
+        card = page.split('class="idcard"')[1].split("</div>\n    </div>")[0]
+        self.assertRegex(card, r'<span class="chip"><svg[^>]*>.*?</svg>Penicillin</span>')
+        self.assertIn("Blood type O+", card)
+        self.assertNotIn("0917", card)                                    # no contact number on Home
+        self.assertNotIn("09171234567", page.split('<main class="content">')[1])
+
+    def test_last_vaccine_is_a_sample_for_demo_patient_1001_and_not_recorded_for_everyone_else(self):
+        self.assertIn("<span>Last vaccine<b>Flu shot, Sep 14, 2026</b></span>", html(self.pat.get("/dashboard/")))
+        client = Client()
+        client.post("/register/", {"role": "Patient", "name": "Zed", "password": PASSWORD, "date_of_birth": BORN,
+                                   "contact_number": "0917 000 4444"})
+        self.assertIn("<span>Last vaccine<b>Not recorded</b></span>", html(client.get("/dashboard/")))
 
     def test_my_record_shows_what_a_doctor_sees_and_opens_the_edit_sheet(self):
         page = html(self.pat.get("/record/"))
@@ -419,7 +438,7 @@ class PatientPages(PageTestCase):
         self.assertEqual(self.s.get_patient(1001).record.allergies, ["Penicillin"])
 
     def test_home_asks_for_an_answer_first_and_the_buttons_work(self):
-        self.assertNotIn("Needs your answer", html(self.pat.get("/dashboard/")))
+        self.assertIn("You're all caught up", html(self.pat.get("/dashboard/")))
         self.assertIn("Nothing needs your answer right now.", html(self.pat.get("/dashboard/")))
         request = self.s.request_access(self.s.get_doctor(2001), 1001)
         page = html(self.pat.get("/dashboard/"))
@@ -428,7 +447,9 @@ class PatientPages(PageTestCase):
         self.assertIn("Dr. Reyes wants to see your record", page)
         r = self.pat.post(f"/respond/{request.request_id}/approve/")
         self.assertEqual((r.status_code, r["Location"]), (302, "/dashboard/"))
-        self.assertNotIn("Needs your answer", html(self.pat.get("/dashboard/")))
+        after = html(self.pat.get("/dashboard/"))                    # the card stays, and now says you are all caught up
+        self.assertIn("You're all caught up", after)
+        self.assertNotIn("Dr. Reyes wants to see your record", after)
         self.assertEqual(self.s.access_status(2001, 1001), "approved")
 
     def test_access_splits_requests_from_doctors_and_answers_requests(self):
@@ -437,7 +458,7 @@ class PatientPages(PageTestCase):
         waiting = self.s.request_access(santos, 1001)
         self.assertIn("Waiting for your answer", html(self.pat.get("/access/")))             # a waiting request: Requests is the first tab
         doctors = html(self.pat.get("/access/?tab=doctors"))
-        self.assertIn("General Medicine &middot; approved ", doctors)
+        self.assertIn("General Medicine &middot; allowed ", doctors)
         self.assertNotIn("Northview", doctors)
         r = self.pat.post(f"/respond/{waiting.request_id}/approve/", {"next": "access"})
         self.assertEqual((r.status_code, r["Location"]), (302, "/access/"))
@@ -460,7 +481,7 @@ class PatientPages(PageTestCase):
         self.s.emergency_access(doctor, 1001, "Collapsed in the lobby")
         page = html(self.pat.get("/access/?tab=history"))
         self.assertRegex(page, r"All <em>2</em>")
-        self.assertRegex(page, r"Approved <em>1</em>")
+        self.assertRegex(page, r"Allowed <em>1</em>")
         self.assertRegex(page, r"Emergency <em>1</em>")
         self.assertLess(page.index("used emergency access"), page.index("opened your record"))   # newest first
         self.assertIn("Reason: Collapsed in the lobby", page)
@@ -550,6 +571,57 @@ class NoLeaks(PageTestCase):
                 body = html(client.get(url))
                 self.assertNotIn("{%", body, url)
                 self.assertNotIn("{{", body, url)
+
+
+class TemplateComments(unittest.TestCase):
+    def test_no_template_has_a_comment_that_runs_over_several_lines_with_hash_braces(self):
+        """Django only treats {# ... #} as a comment on ONE line. A longer one shows up as text on the page, so a long
+        note must use {% comment %} ... {% endcomment %}."""
+        from pathlib import Path
+        for page in sorted((Path(__file__).resolve().parent.parent / "gui" / "templates").glob("*.html")):
+            for number, line in enumerate(page.read_text(encoding="utf-8").splitlines(), 1):
+                if "{#" in line:
+                    self.assertIn("#}", line.split("{#", 1)[1], f"{page.name}:{number}")
+
+
+class IdScreens(PageTestCase):
+    """The save-your-ID screen after registering, and the printable ID page."""
+
+    def register(self, **changes):
+        client = Client()
+        data = {"role": "Patient", "name": "Zed", "password": PASSWORD, "date_of_birth": BORN,
+                "contact_number": "0917 000 1111"}
+        data.update(changes)
+        client.post("/register/", data)
+        return client
+
+    def test_both_pages_need_a_login(self):
+        for url in ("/id/ready/", "/id/print/"):
+            self.assertEqual(Client().get(url)["Location"], "/", url)
+
+    def test_the_print_page_shows_the_id_and_a_half_hidden_mobile_number_and_never_the_password(self):
+        client = self.register()
+        page = html(client.get("/id/print/"))
+        self.assertRegex(page, r"PT-\d{4}-\d{5}")
+        self.assertIn("0917 ••• 1111", page)
+        self.assertNotIn("0917 000 1111", page)
+        self.assertNotIn("09170001111", page)
+        self.assertNotIn(PASSWORD, page)
+        self.assertIn("it is not printed here", page)
+        self.assertNotIn("data-autoprint", page)
+        self.assertIn("data-autoprint", html(client.get("/id/print/?auto=1")))   # the buttons ask for the Print dialog
+
+    def test_a_doctor_without_a_mobile_number_gets_not_set(self):
+        page = html(self.register(role="Doctor", name="Cruz", specialty="ENT", contact_number="").get("/id/print/"))
+        self.assertIn("Not set", page)
+        self.assertIn("Dr. Cruz", page)
+
+    def test_settings_has_the_id_download_and_profile_no_longer_does(self):
+        self.assertIn('href="/id/print/?auto=1"', html(login(1001, "pat123").get("/settings/")))
+        self.assertNotIn("/id/print/", html(login(1001, "pat123").get("/profile/")))
+
+    def test_the_welcome_card_is_gone_from_home(self):
+        self.assertNotIn("Welcome to MedScan", html(self.register().get("/dashboard/")))
 
 
 if __name__ == "__main__":
